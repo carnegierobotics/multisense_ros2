@@ -1,0 +1,1 @@
+/usr/bin/c++  -O3 -DNDEBUG  -rdynamic CMakeFiles/ChangeResolution.dir/ChangeResolution.cc.o  -o ChangeResolution -Wl,-rpath,/home/malvarado/LibMultiSense/build/source/LibMultiSense: ../../LibMultiSense/libMultiSense.so.3.8 -lpthread -lrt 

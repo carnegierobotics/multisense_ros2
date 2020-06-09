@@ -1,0 +1,42 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../source/LibMultiSense/details/utility/Portability.hh
+
+../source/Utilities/portability/getopt/getopt.h
+getopt.h
+-
+
+/home/malvarado/LibMultiSense/source/Utilities/ImuTestUtility/ImuTestUtility.cc
+windows.h
+-
+winsock2.h
+-
+unistd.h
+-
+stdio.h
+-
+stdlib.h
+-
+signal.h
+-
+string.h
+-
+errno.h
+-
+iostream
+-
+iomanip
+-
+LibMultiSense/details/utility/Portability.hh
+-
+LibMultiSense/MultiSenseChannel.hh
+-
+Utilities/portability/getopt/getopt.h
+-
+

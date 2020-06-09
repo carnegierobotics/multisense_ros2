@@ -1,0 +1,32 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../source/Utilities/portability/getopt/getopt.h
+getopt.h
+-
+
+/home/malvarado/LibMultiSense/source/Utilities/DeviceInfoUtility/DeviceInfoUtility.cc
+windows.h
+-
+winsock2.h
+-
+unistd.h
+-
+stdio.h
+-
+stdlib.h
+-
+errno.h
+-
+string.h
+-
+LibMultiSense/MultiSenseChannel.hh
+-
+Utilities/portability/getopt/getopt.h
+-
+
