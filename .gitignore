@@ -1,0 +1,18 @@
+# file wildcards
+.*.sw*
+*.pyc
+
+# special files
+.deps_ok
+*.o
+.tags
+
+# dirs
+*build/
+docker_dirty_install/
+*.egg-info/
+*install/
+sandbox/
+.vscode/
+.idea/
+scripts/cutter_python.egg-info
