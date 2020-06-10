@@ -385,7 +385,7 @@ Camera::Camera(const std::string& node_name,
     right_mono_cam_info_pub_ = right_node_->create_publisher<sensor_msgs::msg::CameraInfo>(MONO_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
     left_rect_cam_info_pub_ = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
     right_rect_cam_info_pub_ = right_node_->create_publisher<sensor_msgs::msg::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
-    left_rgb_cam_info_pub_ = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
+    left_disp_cam_info_pub_ = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(DISPARITY_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
     depth_cam_info_pub_ = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(DEPTH_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
 
     //
@@ -1565,7 +1565,7 @@ void Camera::publishAllCameraInfo()
     const auto stamp = rclcpp::Clock().now();
 
     const auto left_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_left_, stamp);
-    const auto right_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_right_, stamp);
+    const auto right_camera_info = stereo_calibration_manager_->rightCameraInfo(frame_id_right_, stamp);
 
     //
     // Republish camera info messages outside of image callbacks.
