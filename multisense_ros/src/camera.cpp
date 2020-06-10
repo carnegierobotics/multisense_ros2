@@ -256,8 +256,8 @@ Camera::Camera(const std::string& node_name,
     right_rect_transport_(right_node_),
     left_rgb_transport_(left_node_),
     left_rgb_rect_transport_(left_node_),
-    depth_transport_(shared_from_this()),
-    ni_depth_transport_(shared_from_this()),
+    depth_transport_(left_node_),
+    ni_depth_transport_(left_node_),
     disparity_left_transport_(left_node_),
     disparity_right_transport_(right_node_),
     disparity_cost_transport_(left_node_),
@@ -361,7 +361,6 @@ Camera::Camera(const std::string& node_name,
 
         left_rgb_cam_info_pub_  = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
         left_rgb_rect_cam_info_pub_  = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
-
     }
 
     luma_point_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(POINTCLOUD_TOPIC, 5);
@@ -387,8 +386,7 @@ Camera::Camera(const std::string& node_name,
     left_rect_cam_info_pub_ = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
     right_rect_cam_info_pub_ = right_node_->create_publisher<sensor_msgs::msg::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
     left_rgb_cam_info_pub_ = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
-    depth_cam_info_pub_ = create_publisher<sensor_msgs::msg::CameraInfo>(DEPTH_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
-
+    depth_cam_info_pub_ = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(DEPTH_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
 
     //
     // All image streams off
@@ -1741,19 +1739,19 @@ void Camera::timerCallback()
     handleSubscription(right_node_, MONO_TOPIC, Source_Luma_Right);
     handleSubscription(left_node_, RECT_TOPIC, Source_Luma_Rectified_Left);
     handleSubscription(right_node_, RECT_TOPIC, Source_Luma_Rectified_Right);
-    handleSubscription(shared_from_this(), DEPTH_TOPIC, Source_Disparity);
-    handleSubscription(shared_from_this(), OPENNI_DEPTH_TOPIC, Source_Disparity);
+    handleSubscription(left_node_, DEPTH_TOPIC, Source_Disparity);
+    handleSubscription(left_node_, OPENNI_DEPTH_TOPIC, Source_Disparity);
 
     if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 != device_info_.hardwareRevision)
     {
         handleSubscription(left_node_, COLOR_TOPIC, Source_Luma_Left | Source_Chroma_Left);
         handleSubscription(left_node_, COLOR_TOPIC, Source_Luma_Left | Source_Chroma_Left);
-        handleSubscription(shared_from_this(), COLOR_POINTCLOUD_TOPIC, Source_Disparity | Source_Luma_Left | Source_Chroma_Left);
-        handleSubscription(shared_from_this(), COLOR_ORGANIZED_POINTCLOUD_TOPIC, Source_Disparity | Source_Luma_Left | Source_Chroma_Left);
+        handleSubscription(left_node_, COLOR_POINTCLOUD_TOPIC, Source_Disparity | Source_Luma_Left | Source_Chroma_Left);
+        handleSubscription(left_node_, COLOR_ORGANIZED_POINTCLOUD_TOPIC, Source_Disparity | Source_Luma_Left | Source_Chroma_Left);
     }
 
-    handleSubscription(shared_from_this(), POINTCLOUD_TOPIC, Source_Luma_Rectified_Left | Source_Disparity);
-    handleSubscription(shared_from_this(), ORGANIZED_POINTCLOUD_TOPIC, Source_Luma_Rectified_Left | Source_Disparity);
+    handleSubscription(left_node_, POINTCLOUD_TOPIC, Source_Luma_Rectified_Left | Source_Disparity);
+    handleSubscription(left_node_, ORGANIZED_POINTCLOUD_TOPIC, Source_Luma_Rectified_Left | Source_Disparity);
     handleSubscription(calibration_node_, RAW_CAM_DATA_TOPIC, Source_Luma_Rectified_Left | Source_Disparity);
     handleSubscription(left_node_, DISPARITY_TOPIC, Source_Disparity);
     handleSubscription(left_node_, DISPARITY_IMAGE_TOPIC, Source_Disparity);
