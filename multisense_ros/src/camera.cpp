@@ -2297,7 +2297,7 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
         else if (name == "crop_offset")
         {
-            const auto value = parameter.as_double();
+            const auto value = parameter.as_int();
             if (image_config.offset() != value)
             {
                 image_config.setOffset(value);
