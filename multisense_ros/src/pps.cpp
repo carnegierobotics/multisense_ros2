@@ -53,21 +53,6 @@ Pps::Pps(const std::string& node_name, Channel* driver) :
     Node(node_name),
     driver_(driver)
 {
-
-    system::DeviceInfo device_info;
-    if (const auto status = driver_->getDeviceInfo(device_info); status != Status_Ok)
-    {
-        RCLCPP_ERROR(get_logger(), "Camera: failed to query device info: %s",
-                  Channel::statusString(status));
-        return;
-    }
-
-    if (system::DeviceInfo::HARDWARE_REV_BCAM == device_info.hardwareRevision)
-    {
-        RCLCPP_INFO(get_logger(), "hardware does not support PPS");
-        return;
-    }
-
     pps_pub_ = create_publisher<builtin_interfaces::msg::Time>(PPS_TOPIC, rclcpp::SensorDataQoS());
     stamped_pps_pub_ = create_publisher<multisense_msgs::msg::StampedPps>(STAMPED_PPS_TOPIC, rclcpp::SensorDataQoS());
 

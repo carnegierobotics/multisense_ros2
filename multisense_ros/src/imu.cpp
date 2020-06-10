@@ -97,23 +97,6 @@ Imu::Imu(const std::string& node_name,
     imu_message_.angular_velocity_covariance[7] = 2.22611968e-07;
     imu_message_.angular_velocity_covariance[8] = -8.08367486e-07;
 
-    //
-    // Get device info
-
-    system::DeviceInfo  deviceInfo;
-    if (const auto status = driver_->getDeviceInfo(deviceInfo); status != Status_Ok)
-    {
-        RCLCPP_ERROR(get_logger(), "IMU: failed to query device info: %s",
-                  Channel::statusString(status));
-        return;
-    }
-
-    if (system::DeviceInfo::HARDWARE_REV_BCAM == deviceInfo.hardwareRevision)
-    {
-        RCLCPP_INFO(get_logger(), "hardware does not support an IMU");
-        return;
-    }
-
     std::vector<imu::Config> imu_configs;
     if (const auto status = driver_->getImuConfig(imu_samples_per_message_, imu_configs); status != Status_Ok)
     {
