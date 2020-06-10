@@ -1909,9 +1909,9 @@ void Camera::initalizeParameters(const image::Config& config)
         // Auto exposure threshold
 
         rcl_interfaces::msg::FloatingPointRange auto_exposure_thresh_range;
-        auto_exposure_max_time_range.set__from_value(0.0)
-                                    .set__to_value(1.0)
-                                    .set__step(0.01);
+        auto_exposure_thresh_range.set__from_value(0.0)
+                                  .set__to_value(1.0)
+                                  .set__step(0.01);
 
         rcl_interfaces::msg::ParameterDescriptor auto_exposure_thresh_desc;
         auto_exposure_thresh_desc.set__name("auto_exposure_thresh")
