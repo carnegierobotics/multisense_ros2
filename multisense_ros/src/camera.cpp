@@ -2073,7 +2073,7 @@ void Camera::initalizeParameters(const image::Config& config)
                           .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                           .set__description("border clip value in pixels")
                           .set__floating_point_range({border_clip_value_range});
-    declare_parameter("border_clip_value", 0, border_clip_value_desc);
+    declare_parameter("border_clip_value", 0.0, border_clip_value_desc);
 
     //
     // Max pointcloud range
@@ -2309,7 +2309,7 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             const auto value = static_cast<BorderClip>(parameter.as_int());
             if (border_clip_type_ != value)
             {
-                border_clip_type_ = static_cast<BorderClip>(parameter.as_int());
+                border_clip_type_ = value;
                 update_border_clip = true;
             }
         }
@@ -2318,7 +2318,7 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             const auto value = parameter.as_double();
             if (border_clip_value_ != value)
             {
-                border_clip_value_ = parameter.as_double();
+                border_clip_value_ = value;
                 update_border_clip = true;
             }
         }
