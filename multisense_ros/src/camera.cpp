@@ -380,7 +380,7 @@ Camera::Camera(const std::string& node_name,
     //
     // All image streams off
 
-    //stop();
+    stop();
 
     //
     // Publish device info
@@ -563,7 +563,7 @@ Camera::Camera(const std::string& node_name,
     driver_->addIsolatedCallback(rawCB,   Source_Disparity | Source_Luma_Rectified_Left, this);
     driver_->addIsolatedCallback(colorCB, Source_Luma_Left | Source_Chroma_Left, this);
     driver_->addIsolatedCallback(dispCB,  Source_Disparity | Source_Disparity_Right | Source_Disparity_Cost, this);
-    driver_->addIsolatedCallback(histCB, allImageSources, this);
+    driver_->addIsolatedCallback(histCB,  allImageSources, this);
 
     //
     // Setup parameters
