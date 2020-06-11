@@ -13,7 +13,6 @@
   <buildtool_depend>yaml-cpp</buildtool_depend>
 
   <build_depend>geometry_msgs</build_depend>
-  <build_depend>image_transport</build_depend>
   <build_depend>libopencv-dev</build_depend>
   <build_depend>multisense_lib</build_depend>
   <build_depend>multisense_msgs</build_depend>
@@ -24,7 +23,6 @@
   <build_depend>tf2_ros</build_depend>
 
   <exec_depend>geometry_msgs</exec_depend>
-  <exec_depend>image_transport</exec_depend>
   <exec_depend>libopencv-dev</exec_depend>
   <exec_depend>multisense_lib</exec_depend>
   <exec_depend>multisense_msgs</exec_depend>

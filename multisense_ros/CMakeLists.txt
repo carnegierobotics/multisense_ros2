@@ -17,7 +17,6 @@ endif ()
 
 find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(image_transport REQUIRED)
 find_package(multisense_lib REQUIRED)
 find_package(multisense_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
@@ -39,7 +38,6 @@ add_library(${PROJECT_NAME} src/camera.cpp
 
 ament_target_dependencies(${PROJECT_NAME}
                          geometry_msgs
-                         image_transport
                          multisense_lib
                          multisense_msgs
                          OpenCV

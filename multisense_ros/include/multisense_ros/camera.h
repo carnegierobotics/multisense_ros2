@@ -39,8 +39,6 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <image_geometry/stereo_camera_model.h>
-#include <image_transport/image_transport.h>
-#include <image_transport/camera_publisher.h>
 #include <sensor_msgs/distortion_models.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <stereo_msgs/msg/disparity_image.hpp>
@@ -176,32 +174,18 @@ private:
     rclcpp::Node::SharedPtr right_node_;
     rclcpp::Node::SharedPtr calibration_node_;
 
-    //
-    // Image transports
-
-    image_transport::ImageTransport  left_mono_transport_;
-    image_transport::ImageTransport  right_mono_transport_;
-    image_transport::ImageTransport  left_rect_transport_;
-    image_transport::ImageTransport  right_rect_transport_;
-    image_transport::ImageTransport  left_rgb_transport_;
-    image_transport::ImageTransport  left_rgb_rect_transport_;
-    image_transport::ImageTransport  depth_transport_;
-    image_transport::ImageTransport  ni_depth_transport_;
-    image_transport::ImageTransport  disparity_left_transport_;
-    image_transport::ImageTransport  disparity_right_transport_;
-    image_transport::ImageTransport  disparity_cost_transport_;
 
     //
     // Data publishers
 
-    image_transport::Publisher       left_mono_cam_pub_;
-    image_transport::Publisher       right_mono_cam_pub_;
-    image_transport::CameraPublisher left_rect_cam_pub_;
-    image_transport::CameraPublisher right_rect_cam_pub_;
-    image_transport::Publisher       depth_cam_pub_;
-    image_transport::Publisher       ni_depth_cam_pub_; // publish depth infomation in the openNI format
-    image_transport::Publisher       left_rgb_cam_pub_;
-    image_transport::CameraPublisher left_rgb_rect_cam_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  left_mono_cam_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  right_mono_cam_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  left_rect_cam_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  right_rect_cam_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  depth_cam_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  ni_depth_cam_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  left_rgb_cam_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  left_rgb_rect_cam_pub_;
 
     rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr left_mono_cam_info_pub_;
     rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr right_mono_cam_info_pub_;
@@ -220,9 +204,9 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr luma_organized_point_cloud_pub_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr color_organized_point_cloud_pub_;
 
-    image_transport::Publisher       left_disparity_pub_;
-    image_transport::Publisher       right_disparity_pub_;
-    image_transport::Publisher       left_disparity_cost_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr left_disparity_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr right_disparity_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr left_disparity_cost_pub_;
 
     rclcpp::Publisher<stereo_msgs::msg::DisparityImage>::SharedPtr left_stereo_disparity_pub_;
     rclcpp::Publisher<stereo_msgs::msg::DisparityImage>::SharedPtr right_stereo_disparity_pub_;
