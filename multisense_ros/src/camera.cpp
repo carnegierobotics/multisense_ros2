@@ -1643,8 +1643,6 @@ void Camera::generateBorderClip(const BorderClip& borderClipType, double borderC
 
 void Camera::stop()
 {
-    const std::lock_guard<std::mutex> lock(stream_lock_);
-
     stream_map_.clear();
 
     if (const auto status = driver_->stopStreams(allImageSources); status != Status_Ok)
@@ -1656,11 +1654,9 @@ void Camera::stop()
 
 void Camera::connectStream(DataSource enableMask)
 {
-    const std::lock_guard<std::mutex> lock(stream_lock_);
-
     DataSource notStarted = 0;
 
-    for(uint32_t i=0; i<32; i++)
+    for(uint32_t i=0; i<32; ++i)
     {
         if ((1<<i) & enableMask && 0 == stream_map_[(1<<i)]++)
         {
@@ -1680,11 +1676,9 @@ void Camera::connectStream(DataSource enableMask)
 
 void Camera::disconnectStream(DataSource disableMask)
 {
-    const std::lock_guard<std::mutex> lock(stream_lock_);
-
     DataSource notStopped = 0;
 
-    for(uint32_t i=0; i<32; i++)
+    for(uint32_t i=0; i<32; ++i)
     {
         if ((1<<i) & disableMask && 0 == --stream_map_[(1<<i)])
         {
@@ -1704,7 +1698,10 @@ void Camera::disconnectStream(DataSource disableMask)
 
 void Camera::handleSubscription(const rclcpp::Node::SharedPtr node, const std::string &topic, DataSource enableMask)
 {
-    if (node->count_subscribers(topic) > 0)
+    //
+    // TODO:Remove this when subnode count_subscribers or publisher SubscriberStatusCallback's are implemented
+
+    if (node->count_subscribers(node->get_sub_namespace() + "/" + topic) > 0)
     {
         connectStream(enableMask);
     }

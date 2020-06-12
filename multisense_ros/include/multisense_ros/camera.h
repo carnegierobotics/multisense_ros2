@@ -286,7 +286,6 @@ private:
     // Stream subscriptions
 
     using StreamMapT = std::map<crl::multisense::DataSource, int32_t>;
-    std::mutex stream_lock_;
     StreamMapT stream_map_;
 
     //
