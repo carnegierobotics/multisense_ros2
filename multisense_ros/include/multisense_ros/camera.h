@@ -119,6 +119,7 @@ private:
     void connectStream(crl::multisense::DataSource enableMask);
     void disconnectStream(crl::multisense::DataSource disableMask);
     void handleSubscription(const rclcpp::Node::SharedPtr node, const std::string &topic, crl::multisense::DataSource enableMask);
+    void handleSubscription(const rclcpp::Node* node, const std::string &topic, crl::multisense::DataSource enableMask);
     void stop();
 
     //

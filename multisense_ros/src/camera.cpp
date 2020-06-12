@@ -319,11 +319,16 @@ Camera::Camera(const std::string& node_name,
     timer_ = create_wall_timer(500ms, std::bind(&Camera::timerCallback, this));
 
     //
+    // Latching QoS. Note subscribers need to also use the transient_local durability
+
+    const auto latching_qos = rclcpp::QoS(1).transient_local();
+
+    //
     // Topics published for all device types
 
-    device_info_pub_ = calibration_node_->create_publisher<multisense_msgs::msg::DeviceInfo>(DEVICE_INFO_TOPIC, rclcpp::QoS(1));
-    raw_cam_cal_pub_ = calibration_node_->create_publisher<multisense_msgs::msg::RawCamCal>(RAW_CAM_CAL_TOPIC, rclcpp::QoS(1));
-    raw_cam_config_pub_ = calibration_node_->create_publisher<multisense_msgs::msg::RawCamConfig>(RAW_CAM_CONFIG_TOPIC, rclcpp::QoS(1));
+    device_info_pub_ = calibration_node_->create_publisher<multisense_msgs::msg::DeviceInfo>(DEVICE_INFO_TOPIC, latching_qos);
+    raw_cam_cal_pub_ = calibration_node_->create_publisher<multisense_msgs::msg::RawCamCal>(RAW_CAM_CAL_TOPIC, latching_qos);
+    raw_cam_config_pub_ = calibration_node_->create_publisher<multisense_msgs::msg::RawCamConfig>(RAW_CAM_CONFIG_TOPIC, latching_qos);
     histogram_pub_ = create_publisher<multisense_msgs::msg::Histogram>(HISTOGRAM_TOPIC, rclcpp::SensorDataQoS());
 
     //
@@ -348,34 +353,34 @@ Camera::Camera(const std::string& node_name,
         color_point_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(COLOR_POINTCLOUD_TOPIC, rclcpp::SensorDataQoS());
         color_organized_point_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(COLOR_ORGANIZED_POINTCLOUD_TOPIC, rclcpp::SensorDataQoS());
 
-        left_rgb_cam_info_pub_  = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
-        left_rgb_rect_cam_info_pub_  = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
+        left_rgb_cam_info_pub_  = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(COLOR_CAMERA_INFO_TOPIC, latching_qos);
+        left_rgb_rect_cam_info_pub_  = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(RECT_COLOR_CAMERA_INFO_TOPIC, latching_qos);
     }
 
-    luma_point_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(POINTCLOUD_TOPIC, 5);
-    luma_organized_point_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(ORGANIZED_POINTCLOUD_TOPIC, 5);
-    raw_cam_data_pub_   = calibration_node_->create_publisher<multisense_msgs::msg::RawCamData>(RAW_CAM_DATA_TOPIC, 5);
+    luma_point_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(POINTCLOUD_TOPIC, rclcpp::SensorDataQoS());
+    luma_organized_point_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(ORGANIZED_POINTCLOUD_TOPIC, rclcpp::SensorDataQoS());
+    raw_cam_data_pub_   = calibration_node_->create_publisher<multisense_msgs::msg::RawCamData>(RAW_CAM_DATA_TOPIC, rclcpp::SensorDataQoS());
 
     left_disparity_pub_ = left_node_->create_publisher<sensor_msgs::msg::Image>(DISPARITY_TOPIC, rclcpp::SensorDataQoS());
 
     left_stereo_disparity_pub_ = left_node_->create_publisher<stereo_msgs::msg::DisparityImage>(DISPARITY_IMAGE_TOPIC, 5);
 
     right_disparity_pub_ = right_node_->create_publisher<sensor_msgs::msg::Image>(DISPARITY_TOPIC, rclcpp::SensorDataQoS());
-    right_stereo_disparity_pub_ = right_node_->create_publisher<stereo_msgs::msg::DisparityImage>(DISPARITY_IMAGE_TOPIC, 5);
+    right_stereo_disparity_pub_ = right_node_->create_publisher<stereo_msgs::msg::DisparityImage>(DISPARITY_IMAGE_TOPIC, rclcpp::SensorDataQoS());
     left_disparity_cost_pub_ = left_node_->create_publisher<sensor_msgs::msg::Image>(COST_TOPIC, rclcpp::SensorDataQoS());
 
-    right_disp_cam_info_pub_ = right_node_->create_publisher<sensor_msgs::msg::CameraInfo>(DISPARITY_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
-    left_cost_cam_info_pub_ = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(COST_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
 
     //
     // Camera info topic publishers
 
-    left_mono_cam_info_pub_ = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(MONO_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
-    right_mono_cam_info_pub_ = right_node_->create_publisher<sensor_msgs::msg::CameraInfo>(MONO_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
-    left_rect_cam_info_pub_ = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(RECT_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
-    right_rect_cam_info_pub_ = right_node_->create_publisher<sensor_msgs::msg::CameraInfo>(RECT_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
-    left_disp_cam_info_pub_ = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(DISPARITY_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
-    depth_cam_info_pub_ = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(DEPTH_CAMERA_INFO_TOPIC, rclcpp::QoS(1));
+    left_mono_cam_info_pub_ = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(MONO_CAMERA_INFO_TOPIC, latching_qos);
+    right_mono_cam_info_pub_ = right_node_->create_publisher<sensor_msgs::msg::CameraInfo>(MONO_CAMERA_INFO_TOPIC, latching_qos);
+    left_rect_cam_info_pub_ = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(RECT_CAMERA_INFO_TOPIC, latching_qos);
+    right_rect_cam_info_pub_ = right_node_->create_publisher<sensor_msgs::msg::CameraInfo>(RECT_CAMERA_INFO_TOPIC, latching_qos);
+    left_disp_cam_info_pub_ = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(DISPARITY_CAMERA_INFO_TOPIC, latching_qos);
+    depth_cam_info_pub_ = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(DEPTH_CAMERA_INFO_TOPIC, latching_qos);
+    right_disp_cam_info_pub_ = right_node_->create_publisher<sensor_msgs::msg::CameraInfo>(DISPARITY_CAMERA_INFO_TOPIC, latching_qos);
+    left_cost_cam_info_pub_ = left_node_->create_publisher<sensor_msgs::msg::CameraInfo>(COST_CAMERA_INFO_TOPIC, latching_qos);
 
     //
     // All image streams off
@@ -1696,12 +1701,19 @@ void Camera::disconnectStream(DataSource disableMask)
     }
 }
 
-void Camera::handleSubscription(const rclcpp::Node::SharedPtr node, const std::string &topic, DataSource enableMask)
+void Camera::handleSubscription(const rclcpp::Node::SharedPtr node, const std::string &topic, crl::multisense::DataSource enableMask)
+{
+    handleSubscription(node.get(), topic, enableMask);
+}
+
+void Camera::handleSubscription(const rclcpp::Node* node, const std::string &topic, DataSource enableMask)
 {
     //
     // TODO:Remove this when subnode count_subscribers or publisher SubscriberStatusCallback's are implemented
 
-    if (node->count_subscribers(node->get_sub_namespace() + "/" + topic) > 0)
+    const std::string full_topic = node->get_sub_namespace().empty() ? topic : node->get_sub_namespace()  + "/" + topic;
+
+    if (node->count_subscribers(full_topic) > 0)
     {
         connectStream(enableMask);
     }
@@ -1724,12 +1736,12 @@ void Camera::timerCallback()
     {
         handleSubscription(left_node_, COLOR_TOPIC, Source_Luma_Left | Source_Chroma_Left);
         handleSubscription(left_node_, COLOR_TOPIC, Source_Luma_Left | Source_Chroma_Left);
-        handleSubscription(left_node_, COLOR_POINTCLOUD_TOPIC, Source_Disparity | Source_Luma_Left | Source_Chroma_Left);
-        handleSubscription(left_node_, COLOR_ORGANIZED_POINTCLOUD_TOPIC, Source_Disparity | Source_Luma_Left | Source_Chroma_Left);
+        handleSubscription(this, COLOR_POINTCLOUD_TOPIC, Source_Disparity | Source_Luma_Left | Source_Chroma_Left);
+        handleSubscription(this, COLOR_ORGANIZED_POINTCLOUD_TOPIC, Source_Disparity | Source_Luma_Left | Source_Chroma_Left);
     }
 
-    handleSubscription(left_node_, POINTCLOUD_TOPIC, Source_Luma_Rectified_Left | Source_Disparity);
-    handleSubscription(left_node_, ORGANIZED_POINTCLOUD_TOPIC, Source_Luma_Rectified_Left | Source_Disparity);
+    handleSubscription(this, POINTCLOUD_TOPIC, Source_Luma_Rectified_Left | Source_Disparity);
+    handleSubscription(this, ORGANIZED_POINTCLOUD_TOPIC, Source_Luma_Rectified_Left | Source_Disparity);
     handleSubscription(calibration_node_, RAW_CAM_DATA_TOPIC, Source_Luma_Rectified_Left | Source_Disparity);
     handleSubscription(left_node_, DISPARITY_TOPIC, Source_Disparity);
     handleSubscription(left_node_, DISPARITY_IMAGE_TOPIC, Source_Disparity);
