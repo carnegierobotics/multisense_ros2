@@ -141,6 +141,11 @@ private:
     std::optional<crl::multisense::imu::Config> accelerometer_config_;
     std::optional<crl::multisense::imu::Config> gyroscope_config_;
     std::optional<crl::multisense::imu::Config> magnetometer_config_;
+
+    //
+    // Active streams
+
+    crl::multisense::DataSource active_streams_;
 };
 
 }

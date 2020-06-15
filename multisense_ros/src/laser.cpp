@@ -102,7 +102,8 @@ Laser::Laser(const std::string& node_name,
     spindle_(tf_prefix + "/" + "spindle"),
     hokuyo_(tf_prefix + "/" + "hokuyo_link"),
     spindle_angle_(0.0),
-    previous_scan_time_(0)
+    previous_scan_time_(0),
+    active_streams_(Source_Unknown)
 {
     //
     // Get device info
@@ -486,17 +487,29 @@ size_t Laser::getNumSubscribers()
 
 void Laser::streamControl()
 {
-    if (getNumSubscribers() > 0)
+    const auto num_subscribers = getNumSubscribers();
+
+    if (num_subscribers > 0 && (active_streams_ & Source_Lidar_Scan) == 0)
     {
         if (const auto status = driver_->startStreams(Source_Lidar_Scan); status != Status_Ok)
         {
             RCLCPP_ERROR(get_logger(), "Laser: failed to start laser stream: %s",
                       Channel::statusString(status));
+            return;
         }
+
+        active_streams_ = Source_Lidar_Scan;
     }
-    else
+    else if (num_subscribers <= 0 && (active_streams_ & Source_Lidar_Scan) == Source_Lidar_Scan)
     {
-        stop();
+        if (const auto status = driver_->stopStreams(Source_Lidar_Scan); status != Status_Ok)
+        {
+            RCLCPP_ERROR(get_logger(), "Laser: failed to stop laser stream: %s",
+                      Channel::statusString(status));
+            return;
+        }
+
+        active_streams_ = Source_Unknown;
     }
 }
 

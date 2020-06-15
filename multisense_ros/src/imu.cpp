@@ -61,7 +61,8 @@ Imu::Imu(const std::string& node_name,
     accel_frameId_(tf_prefix + "/accel"),
     gyro_frameId_(tf_prefix + "/gyro"),
     mag_frameId_(tf_prefix + "/mag"),
-    imu_samples_per_message_(30)
+    imu_samples_per_message_(30),
+    active_streams_(Source_Unknown)
 {
 
     //
@@ -124,7 +125,6 @@ Imu::Imu(const std::string& node_name,
     magnetometer_pub_ = create_publisher<multisense_msgs::msg::RawImuData>(RAW_MAG_TOPIC, rclcpp::SensorDataQoS());
 
     imu_pub_ = create_publisher<sensor_msgs::msg::Imu>(IMU_TOPIC, rclcpp::SensorDataQoS());
-
 
     accelerometer_vector_pub_ = create_publisher<geometry_msgs::msg::Vector3Stamped>(ACCEL_VECTOR_TOPIC, rclcpp::SensorDataQoS());
     gyroscope_vector_pub_ = create_publisher<geometry_msgs::msg::Vector3Stamped>(GYRO_VECTOR_TOPIC, rclcpp::SensorDataQoS());
@@ -259,21 +259,29 @@ size_t Imu::getNumSubscribers()
 
 void Imu::timerCallback()
 {
-    if (getNumSubscribers() > 0)
+    const auto num_subscribers = getNumSubscribers();
+
+    if (num_subscribers > 0 && (active_streams_ & Source_Imu) == 0)
     {
         if (const auto status = driver_->startStreams(Source_Imu); status != Status_Ok)
         {
             RCLCPP_ERROR(get_logger(), "IMU: failed to start streams: %s",
                       Channel::statusString(status));
+            return;
         }
+
+        active_streams_ = Source_Imu;
     }
-    else
+    else if (num_subscribers <= 0 && (active_streams_ & Source_Imu) == Source_Imu)
     {
         if (const auto status = driver_->stopStreams(Source_Imu); status != Status_Ok)
         {
             RCLCPP_ERROR(get_logger(), "IMU: failed to stop streams: %s",
                       Channel::statusString(status));
+            return;
         }
+
+        active_streams_ = Source_Unknown;
     }
 }
 

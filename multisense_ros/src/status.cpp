@@ -43,6 +43,11 @@ Status::Status(const std::string& node_name, crl::multisense::Channel* driver):
     Node(node_name),
     driver_(driver)
 {
+    if (nullptr != driver_)
+    {
+        return;
+    }
+
     status_pub_ = create_publisher<multisense_msgs::msg::DeviceStatus>(STATUS_TOPIC, rclcpp::SensorDataQoS());
 
     timer_ = create_wall_timer(500ms, std::bind(&Status::queryStatus, this));
@@ -55,39 +60,38 @@ Status::~Status()
 void Status::queryStatus()
 {
     if (count_subscribers(STATUS_TOPIC) <= 0)
-        return;
-
-    if (NULL != driver_)
     {
-        crl::multisense::system::StatusMessage statusMessage;
+        return;
+    }
 
-        if (crl::multisense::Status_Ok == driver_->getDeviceStatus(statusMessage))
-        {
-            multisense_msgs::msg::DeviceStatus deviceStatus;
+    crl::multisense::system::StatusMessage statusMessage;
 
-            std::chrono::nanoseconds uptime(static_cast<int64_t>(statusMessage.uptime * 1e9));
+    if (crl::multisense::Status_Ok == driver_->getDeviceStatus(statusMessage))
+    {
+        multisense_msgs::msg::DeviceStatus deviceStatus;
 
-            deviceStatus.time_stamp = rclcpp::Clock().now();
-            deviceStatus.uptime = rclcpp::Time(uptime.count());
-            deviceStatus.system_ok = statusMessage.systemOk;
-            deviceStatus.laser_ok = statusMessage.laserOk;
-            deviceStatus.laser_motor_ok = statusMessage.laserMotorOk;
-            deviceStatus.cameras_ok = statusMessage.camerasOk;
-            deviceStatus.imu_ok = statusMessage.imuOk;
-            deviceStatus.external_leds_ok = statusMessage.externalLedsOk;
-            deviceStatus.processing_pipeline_ok = statusMessage.processingPipelineOk;
-            deviceStatus.power_supply_temp = statusMessage.powerSupplyTemperature;
-            deviceStatus.fpga_temp = statusMessage.fpgaTemperature;
-            deviceStatus.left_imager_temp = statusMessage.leftImagerTemperature;
-            deviceStatus.right_imager_temp = statusMessage.rightImagerTemperature;
-            deviceStatus.input_voltage = statusMessage.inputVoltage;
-            deviceStatus.input_current = statusMessage.inputCurrent;
-            deviceStatus.fpga_power = statusMessage.fpgaPower;
-            deviceStatus.logic_power = statusMessage.logicPower;
-            deviceStatus.imager_power = statusMessage.imagerPower;
+        std::chrono::nanoseconds uptime(static_cast<int64_t>(statusMessage.uptime * 1e9));
 
-            status_pub_->publish(deviceStatus);
-        }
+        deviceStatus.time_stamp = rclcpp::Clock().now();
+        deviceStatus.uptime = rclcpp::Time(uptime.count());
+        deviceStatus.system_ok = statusMessage.systemOk;
+        deviceStatus.laser_ok = statusMessage.laserOk;
+        deviceStatus.laser_motor_ok = statusMessage.laserMotorOk;
+        deviceStatus.cameras_ok = statusMessage.camerasOk;
+        deviceStatus.imu_ok = statusMessage.imuOk;
+        deviceStatus.external_leds_ok = statusMessage.externalLedsOk;
+        deviceStatus.processing_pipeline_ok = statusMessage.processingPipelineOk;
+        deviceStatus.power_supply_temp = statusMessage.powerSupplyTemperature;
+        deviceStatus.fpga_temp = statusMessage.fpgaTemperature;
+        deviceStatus.left_imager_temp = statusMessage.leftImagerTemperature;
+        deviceStatus.right_imager_temp = statusMessage.rightImagerTemperature;
+        deviceStatus.input_voltage = statusMessage.inputVoltage;
+        deviceStatus.input_current = statusMessage.inputCurrent;
+        deviceStatus.fpga_power = statusMessage.fpgaPower;
+        deviceStatus.logic_power = statusMessage.logicPower;
+        deviceStatus.imager_power = statusMessage.imagerPower;
+
+        status_pub_->publish(deviceStatus);
     }
 }
 

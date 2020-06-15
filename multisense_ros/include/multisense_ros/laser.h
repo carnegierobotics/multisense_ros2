@@ -172,6 +172,11 @@ private:
 
     rcl_interfaces::msg::SetParametersResult parameterCallback(const std::vector<rclcpp::Parameter>&  parameters);
 
+    //
+    // Active streams
+
+    crl::multisense::DataSource active_streams_;
+
 }; // class
 
 }// namespace

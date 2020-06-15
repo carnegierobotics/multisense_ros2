@@ -116,10 +116,8 @@ private:
     //
     // Device stream control
 
-    void connectStream(crl::multisense::DataSource enableMask);
-    void disconnectStream(crl::multisense::DataSource disableMask);
-    void handleSubscription(const rclcpp::Node::SharedPtr node, const std::string &topic, crl::multisense::DataSource enableMask);
-    void handleSubscription(const rclcpp::Node* node, const std::string &topic, crl::multisense::DataSource enableMask);
+    bool handleSubscription(const rclcpp::Node::SharedPtr node, const std::string &topic);
+    bool handleSubscription(const rclcpp::Node* node, const std::string &topic);
     void stop();
 
     //
@@ -286,8 +284,7 @@ private:
     //
     // Stream subscriptions
 
-    using StreamMapT = std::map<crl::multisense::DataSource, int32_t>;
-    StreamMapT stream_map_;
+    crl::multisense::DataSource active_streams_;
 
     //
     // Histogram tracking

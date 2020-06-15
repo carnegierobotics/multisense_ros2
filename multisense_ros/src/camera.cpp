@@ -263,6 +263,7 @@ Camera::Camera(const std::string& node_name,
     frame_id_right_(tf_prefix + "/right_camera_optical_frame"),
     points_buff_frame_id_(-1),
     pointcloud_max_range(15.0),
+    active_streams_(Source_Unknown),
     last_frame_id_(-1),
     luma_color_depth_(1),
     write_pc_color_packed_(false),
@@ -278,6 +279,7 @@ Camera::Camera(const std::string& node_name,
                      Channel::statusString(status));
         return;
     }
+
     if (const auto status = driver_->getDeviceInfo(device_info_); status != Status_Ok)
     {
         RCLCPP_ERROR(get_logger(), "Camera: failed to query device info: %s",
@@ -1648,8 +1650,6 @@ void Camera::generateBorderClip(const BorderClip& borderClipType, double borderC
 
 void Camera::stop()
 {
-    stream_map_.clear();
-
     if (const auto status = driver_->stopStreams(allImageSources); status != Status_Ok)
     {
         RCLCPP_ERROR(get_logger(), "Camera: failed to stop all streams: %s",
@@ -1657,98 +1657,100 @@ void Camera::stop()
     }
 }
 
-void Camera::connectStream(DataSource enableMask)
+bool Camera::handleSubscription(const rclcpp::Node::SharedPtr node, const std::string &topic)
 {
-    DataSource notStarted = 0;
-
-    for(uint32_t i=0; i<32; ++i)
-    {
-        if ((1<<i) & enableMask && 0 == stream_map_[(1<<i)]++)
-        {
-            notStarted |= (1<<i);
-        }
-    }
-
-    if (0 != notStarted)
-    {
-        if (const auto status = driver_->startStreams(notStarted); status != Status_Ok)
-        {
-            RCLCPP_ERROR(get_logger(), "Camera: failed to start streams 0x%x: %s",
-                         notStarted, Channel::statusString(status));
-        }
-    }
+    return handleSubscription(node.get(), topic);
 }
 
-void Camera::disconnectStream(DataSource disableMask)
-{
-    DataSource notStopped = 0;
-
-    for(uint32_t i=0; i<32; ++i)
-    {
-        if ((1<<i) & disableMask && 0 == --stream_map_[(1<<i)])
-        {
-            notStopped |= (1<<i);
-        }
-    }
-
-    if (0 != notStopped)
-    {
-        if (const auto status = driver_->stopStreams(notStopped); status != Status_Ok)
-        {
-            RCLCPP_ERROR(get_logger(), "Camera: failed to stop streams 0x%x: %s\n",
-                         notStopped, Channel::statusString(status));
-        }
-    }
-}
-
-void Camera::handleSubscription(const rclcpp::Node::SharedPtr node, const std::string &topic, crl::multisense::DataSource enableMask)
-{
-    handleSubscription(node.get(), topic, enableMask);
-}
-
-void Camera::handleSubscription(const rclcpp::Node* node, const std::string &topic, DataSource enableMask)
+bool Camera::handleSubscription(const rclcpp::Node* node, const std::string &topic)
 {
     //
     // TODO:Remove this when subnode count_subscribers or publisher SubscriberStatusCallback's are implemented
 
     const std::string full_topic = node->get_sub_namespace().empty() ? topic : node->get_sub_namespace()  + "/" + topic;
 
-    if (node->count_subscribers(full_topic) > 0)
-    {
-        connectStream(enableMask);
-    }
-    else
-    {
-        disconnectStream(enableMask);
-    }
+    return node->count_subscribers(full_topic) > 0;
 }
 
 void Camera::timerCallback()
 {
-    handleSubscription(left_node_, MONO_TOPIC, Source_Luma_Left);
-    handleSubscription(right_node_, MONO_TOPIC, Source_Luma_Right);
-    handleSubscription(left_node_, RECT_TOPIC, Source_Luma_Rectified_Left);
-    handleSubscription(right_node_, RECT_TOPIC, Source_Luma_Rectified_Right);
-    handleSubscription(left_node_, DEPTH_TOPIC, Source_Disparity);
-    handleSubscription(left_node_, OPENNI_DEPTH_TOPIC, Source_Disparity);
+    DataSource enable = Source_Unknown;
+
+    enable |= handleSubscription(left_node_, MONO_TOPIC) ?  Source_Luma_Left : enable;
+    enable |= handleSubscription(right_node_, MONO_TOPIC) ?  Source_Luma_Right : enable;
+    enable |= handleSubscription(left_node_, RECT_TOPIC) ?  Source_Luma_Rectified_Left : enable;
+    enable |= handleSubscription(right_node_, RECT_TOPIC) ?  Source_Luma_Rectified_Right : enable;
+    enable |= handleSubscription(left_node_, DEPTH_TOPIC) ?  Source_Disparity : enable;
+    enable |= handleSubscription(left_node_, OPENNI_DEPTH_TOPIC) ?  Source_Disparity : enable;
 
     if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 != device_info_.hardwareRevision)
     {
-        handleSubscription(left_node_, COLOR_TOPIC, Source_Luma_Left | Source_Chroma_Left);
-        handleSubscription(left_node_, COLOR_TOPIC, Source_Luma_Left | Source_Chroma_Left);
-        handleSubscription(this, COLOR_POINTCLOUD_TOPIC, Source_Disparity | Source_Luma_Left | Source_Chroma_Left);
-        handleSubscription(this, COLOR_ORGANIZED_POINTCLOUD_TOPIC, Source_Disparity | Source_Luma_Left | Source_Chroma_Left);
+        enable |= handleSubscription(left_node_, COLOR_TOPIC) ?  Source_Luma_Left | Source_Chroma_Left : enable;
+        enable |= handleSubscription(left_node_, COLOR_TOPIC) ?  Source_Luma_Left | Source_Chroma_Left : enable;
+        enable |= handleSubscription(this, COLOR_POINTCLOUD_TOPIC) ?  Source_Disparity | Source_Luma_Left | Source_Chroma_Left : enable;
+        enable |= handleSubscription(this, COLOR_ORGANIZED_POINTCLOUD_TOPIC) ?  Source_Disparity | Source_Luma_Left | Source_Chroma_Left : enable;
     }
 
-    handleSubscription(this, POINTCLOUD_TOPIC, Source_Luma_Rectified_Left | Source_Disparity);
-    handleSubscription(this, ORGANIZED_POINTCLOUD_TOPIC, Source_Luma_Rectified_Left | Source_Disparity);
-    handleSubscription(calibration_node_, RAW_CAM_DATA_TOPIC, Source_Luma_Rectified_Left | Source_Disparity);
-    handleSubscription(left_node_, DISPARITY_TOPIC, Source_Disparity);
-    handleSubscription(left_node_, DISPARITY_IMAGE_TOPIC, Source_Disparity);
+    enable |= handleSubscription(this, POINTCLOUD_TOPIC) ?  Source_Luma_Rectified_Left | Source_Disparity : enable;
+    enable |= handleSubscription(this, ORGANIZED_POINTCLOUD_TOPIC) ?  Source_Luma_Rectified_Left | Source_Disparity : enable;
+    enable |= handleSubscription(calibration_node_, RAW_CAM_DATA_TOPIC) ?  Source_Luma_Rectified_Left | Source_Disparity : enable;
+    enable |= handleSubscription(left_node_, DISPARITY_TOPIC) ?  Source_Disparity : enable;
+    enable |= handleSubscription(left_node_, DISPARITY_IMAGE_TOPIC) ?  Source_Disparity : enable;
 
-    handleSubscription(right_node_, DISPARITY_TOPIC, Source_Disparity_Right);
-    handleSubscription(right_node_, DISPARITY_IMAGE_TOPIC, Source_Disparity_Right);
-    handleSubscription(left_node_, COST_TOPIC, Source_Disparity_Cost);
+    enable |= handleSubscription(right_node_, DISPARITY_TOPIC) ?  Source_Disparity_Right : enable;
+    enable |= handleSubscription(right_node_, DISPARITY_IMAGE_TOPIC) ?  Source_Disparity_Right : enable;
+    enable |= handleSubscription(left_node_, COST_TOPIC) ?  Source_Disparity_Cost : enable;
+
+    //
+    // We need to start or stop a stream
+
+    if (enable ^ active_streams_)
+    {
+        DataSource start = Source_Unknown;
+        DataSource stop = Source_Unknown;
+
+        for(uint32_t i=0; i<32; ++i)
+        {
+            //
+            // There are two cases:
+            // -We want to enable the stream but it is not enabled in our active streams
+            // -We want to disable the stream but it is enabled in our active streams
+
+            if ((1<<i) & enable && !((1<<i) & active_streams_))
+            {
+                start |= (1<<i);
+            }
+            else if (!((1<<i) & enable) && (1<<i) & active_streams_)
+            {
+                stop |= (1<<i);
+            }
+        }
+
+        if (start != Source_Unknown)
+        {
+            if (const auto status = driver_->startStreams(start); status != Status_Ok)
+            {
+                RCLCPP_ERROR(get_logger(), "Camera: failed to start streams 0x%x: %s",
+                             start, Channel::statusString(status));
+                return;
+            }
+        }
+
+        if(stop != Source_Unknown)
+        {
+            if (const auto status = driver_->stopStreams(stop); status != Status_Ok)
+            {
+                RCLCPP_ERROR(get_logger(), "Camera: failed to stop streams 0x%x: %s\n",
+                             stop, Channel::statusString(status));
+                return;
+            }
+        }
+
+        //
+        // Our stream updates succeeded. We can update our cached active streams
+
+        active_streams_ = enable;
+    }
 }
 
 void Camera::initalizeParameters(const image::Config& config)
