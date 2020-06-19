@@ -35,7 +35,6 @@
 #include <chrono>
 #include <fstream>
 #include <opencv2/opencv.hpp>
-#include <turbojpeg.h>
 
 #include <sensor_msgs/image_encodings.hpp>
 

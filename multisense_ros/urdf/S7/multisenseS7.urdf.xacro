@@ -6,7 +6,7 @@
             <visual>
                 <origin xyz="-0.03 -0.0625 -0.032" rpy="1.57079632679 0 1.57079632679" />
                 <geometry>
-                    <mesh filename="package://multisense_description/meshes/multisense_s7.STL" scale="0.001 0.001 0.001"/>
+                    <mesh filename="package://multisense_ros/meshes/multisense_s7.STL" scale="0.001 0.001 0.001"/>
                 </geometry>
                 <material name="">
                     <color rgba="0.9098 0.44314 0.031373 1" />

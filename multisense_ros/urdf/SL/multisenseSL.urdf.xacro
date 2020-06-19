@@ -12,7 +12,7 @@
       <visual>
         <origin xyz="0 0  0" rpy="0 0 0" />
         <geometry>
-            <mesh filename="package://multisense_description/meshes/head.dae" />
+            <mesh filename="package://multisense_ros/meshes/head.dae" />
         </geometry>
         <material name="">
           <color rgba="0.9098 0.44314 0.031373 1" />
@@ -54,7 +54,7 @@
       <visual>
         <origin xyz="-.03 -.1 0" rpy="-1.9179632679 -1.57079632679 0" />
         <geometry>
-          <mesh filename="package://multisense_description/meshes/head_camera.dae" />
+          <mesh filename="package://multisense_ros/meshes/head_camera.dae" />
         </geometry>
         <material name="">
           <color rgba="0.72941 0.35686 0.023529 1" />

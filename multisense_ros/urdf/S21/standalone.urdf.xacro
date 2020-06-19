@@ -1,0 +1,5 @@
+<?xml version="1.0" ?>
+<robot name="multisense" xmlns:xacro="http://ros.org/wiki/xacro">
+    <xacro:property name="name" value="multisenseS21"/>
+    <xacro:include filename="$(find multisense_ros)/urdf/S21/multisenseS21.urdf.xacro"/>
+</robot>

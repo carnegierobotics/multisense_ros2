@@ -4,8 +4,9 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration, TextSubstitution
+from launch.substitutions import LaunchConfiguration, TextSubstitution, Command, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackagePrefix
 
 
 def generate_launch_description():
@@ -32,24 +33,23 @@ def generate_launch_description():
                                                          description='Launch the robot_state_publisher')
 
     multisense_ros = Node(package='multisense_ros',
-                         node_namespace=[LaunchConfiguration('namespace')],
-                         node_executable='ros_driver',
+                         namespace=[LaunchConfiguration('namespace')],
+                         executable='ros_driver',
                          parameters=[{'sensor_ip': LaunchConfiguration('ip_address'),
                                       'sensor_mtu': LaunchConfiguration('mtu'),
                                       'tf_prefix': LaunchConfiguration('namespace')}])
 
     robot_state_publisher = Node(package='robot_state_publisher',
-                                 node_executable='robot_state_publisher',
-                                 node_namespace=[LaunchConfiguration('namespace')],
+                                 executable='robot_state_publisher',
+                                 namespace=[LaunchConfiguration('namespace')],
                                  condition=IfCondition(LaunchConfiguration('launch_robot_state_publisher')),
-                                 arguments=[[get_package_share_directory('multisense_ros'),
-                                             os.path.sep,
-                                             'urdf',
-                                             os.path.sep,
-                                             'multisense',
-                                             LaunchConfiguration('sensor'),
-                                             os.path.sep,
-                                             'standalone.urdf.xacro']])
+                                 parameters=[{'robot_description': Command([
+                                             PathJoinSubstitution([FindPackagePrefix('xacro'), 'bin', 'xacro ']),
+                                             PathJoinSubstitution([get_package_share_directory('multisense_ros'),
+                                                                   'urdf',
+                                                                   LaunchConfiguration('sensor'),
+                                                                   'standalone.urdf.xacro']),
+                                             " name:=", LaunchConfiguration('namespace')])}])
 
     return LaunchDescription([sensor,
                               namespace,
