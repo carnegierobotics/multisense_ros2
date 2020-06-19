@@ -57,4 +57,7 @@ ament_target_dependencies(ros_driver
 install(TARGETS ros_driver
         DESTINATION lib/${PROJECT_NAME})
 
+install(DIRECTORY launch materials meshes urdf
+        DESTINATION share/${PROJECT_NAME})
+
 ament_package()
