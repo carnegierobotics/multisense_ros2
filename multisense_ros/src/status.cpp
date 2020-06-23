@@ -43,7 +43,7 @@ Status::Status(const std::string& node_name, crl::multisense::Channel* driver):
     Node(node_name),
     driver_(driver)
 {
-    if (nullptr != driver_)
+    if (nullptr == driver_)
     {
         return;
     }

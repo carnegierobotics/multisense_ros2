@@ -38,11 +38,12 @@
 
 #include <sensor_msgs/image_encodings.hpp>
 
-#include <multisense_ros/camera.h>
 #include <multisense_msgs/msg/raw_cam_config.hpp>
 #include <multisense_msgs/msg/raw_cam_cal.hpp>
 #include <multisense_msgs/msg/device_info.hpp>
 #include <multisense_msgs/msg/histogram.hpp>
+#include <multisense_ros/camera.h>
+#include <multisense_ros/utility.h>
 
 using namespace crl::multisense;
 using namespace std::chrono_literals;
@@ -261,7 +262,7 @@ Camera::Camera(const std::string& node_name,
     frame_id_left_(tf_prefix + "/left_camera_optical_frame"),
     frame_id_right_(tf_prefix + "/right_camera_optical_frame"),
     points_buff_frame_id_(-1),
-    pointcloud_max_range(15.0),
+    pointcloud_max_range_(15.0),
     active_streams_(Source_Unknown),
     last_frame_id_(-1),
     luma_color_depth_(1),
@@ -946,7 +947,7 @@ void Camera::rectCallback(const image::Header& header)
                               luma_cloud_step,
                               points_buff_,
                               &(left_rect_image_.data[0]), luma_color_depth_,
-                              pointcloud_max_range,
+                              pointcloud_max_range_,
                               write_pc_color_packed_,
                               false);
 
@@ -962,7 +963,7 @@ void Camera::rectCallback(const image::Header& header)
                               luma_cloud_step,
                               points_buff_,
                               &(left_rect_image_.data[0]), luma_color_depth_,
-                              pointcloud_max_range,
+                              pointcloud_max_range_,
                               write_pc_color_packed_,
                               true);
 
@@ -1210,7 +1211,7 @@ void Camera::pointCloudCallback(const image::Header& header)
     {
         const std::lock_guard<std::mutex> lock(border_clip_lock_);
 
-        if ( border_clip_value_ > 0.)
+        if ( border_clip_value_ > 0. && points.cols == border_clip_mask_.cols && points.rows == border_clip_mask_.rows)
         {
             points.setTo(cv::Vec3f(-1.0, -1.0, -1.0), border_clip_mask_);
         }
@@ -1237,7 +1238,7 @@ void Camera::pointCloudCallback(const image::Header& header)
                       luma_cloud_step,
                       points_buff_,
                       &(left_rect_image_.data[0]), luma_color_depth_,
-                      pointcloud_max_range,
+                      pointcloud_max_range_,
                       write_pc_color_packed_,
                       false);
 
@@ -1253,7 +1254,7 @@ void Camera::pointCloudCallback(const image::Header& header)
                       color_cloud_step,
                       points_buff_,
                       &(left_rgb_rect_image_.data[0]), 3,
-                      pointcloud_max_range,
+                      pointcloud_max_range_,
                       write_pc_color_packed_,
                       false);
 
@@ -1269,7 +1270,7 @@ void Camera::pointCloudCallback(const image::Header& header)
                       luma_cloud_step,
                       points_buff_,
                       &(left_rect_image_.data[0]), luma_color_depth_,
-                      pointcloud_max_range,
+                      pointcloud_max_range_,
                       write_pc_color_packed_,
                       true);
 
@@ -1285,7 +1286,7 @@ void Camera::pointCloudCallback(const image::Header& header)
                       color_cloud_step,
                       points_buff_,
                       &(left_rgb_rect_image_.data[0]), 3,
-                      pointcloud_max_range,
+                      pointcloud_max_range_,
                       write_pc_color_packed_,
                       true);
 }
@@ -1487,7 +1488,7 @@ void Camera::colorImageCallback(const image::Header& header)
                                   color_cloud_step,
                                   points_buff_,
                                   &(left_rgb_rect_image_.data[0]), 3,
-                                  pointcloud_max_range,
+                                  pointcloud_max_range_,
                                   write_pc_color_packed_,
                                   false);
 
@@ -1503,7 +1504,7 @@ void Camera::colorImageCallback(const image::Header& header)
                                   color_cloud_step,
                                   points_buff_,
                                   &(left_rgb_rect_image_.data[0]), 3,
-                                  pointcloud_max_range,
+                                  pointcloud_max_range_,
                                   write_pc_color_packed_,
                                   true);
             }
@@ -2045,7 +2046,7 @@ void Camera::initalizeParameters(const image::Config& config)
     rcl_interfaces::msg::ParameterDescriptor border_clip_type_desc;
     border_clip_type_desc.set__name("border_clip_type")
                          .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                         .set__description("border clip type\n0: rectangular clip\n1: circular clip ")
+                         .set__description("border clip type\n0: none\n1: rectangular clip\n2: circular clip")
                          .set__integer_range({border_clip_type_range});
     declare_parameter("border_clip_type", static_cast<int>(BorderClip::NONE), border_clip_type_desc);
 
@@ -2079,7 +2080,7 @@ void Camera::initalizeParameters(const image::Config& config)
                              .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                              .set__description("max distance in meters between a stereo point and the camera")
                              .set__floating_point_range({max_pointcloud_range_range});
-    declare_parameter("max_pointcloud_range", pointcloud_max_range, max_pointcloud_range_desc);
+    declare_parameter("max_pointcloud_range", pointcloud_max_range_, max_pointcloud_range_desc);
 }
 
 rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::vector<rclcpp::Parameter>& parameters)
@@ -2093,7 +2094,8 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
 
     for (const auto &parameter : parameters)
     {
-        if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_NOT_SET)
+        const auto type = parameter.get_type();
+        if (type == rclcpp::ParameterType::PARAMETER_NOT_SET)
         {
             continue;
         }
@@ -2102,6 +2104,11 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
 
         if (name == "sensor_resolution")
         {
+            if (type != rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY)
+            {
+                return result.set__successful(false).set__reason("invalid sensor resolution type");
+            }
+
             const auto value = parameter.as_integer_array();
 
             if (value.size() != 3)
@@ -2152,7 +2159,12 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
         else if(name == "fps")
         {
-            const auto value = parameter.as_double();
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid fps type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
             if (image_config.fps() != value)
             {
                 image_config.setFps(value);
@@ -2161,7 +2173,12 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
         else if(name == "stereo_post_filtering")
         {
-            const auto value = parameter.as_double();
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid stereo post filtering type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
             if (image_config.stereoPostFilterStrength() != value)
             {
                 image_config.setStereoPostFilterStrength(value);
@@ -2170,8 +2187,12 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
         else if(name == "gain")
         {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid gain type");
+            }
 
-            const auto value = parameter.as_double();
+            const auto value = get_as_number<double>(parameter);
             if (image_config.gain() != value)
             {
                 image_config.setGain(value);
@@ -2180,6 +2201,11 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
         else if(name == "auto_exposure")
         {
+            if (type != rclcpp::ParameterType::PARAMETER_BOOL)
+            {
+                return result.set__successful(false).set__reason("invalid auto exposure type");
+            }
+
             const auto value = parameter.as_bool();
             if (image_config.autoExposure() != value)
             {
@@ -2189,7 +2215,12 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
         else if(name == "auto_exposure_max_time")
         {
-            const auto value = static_cast<uint32_t>(parameter.as_double() * 1e6);
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid auto exposure max time type");
+            }
+
+            const auto value = static_cast<uint32_t>(get_as_number<double>(parameter) * 1e6);
             if (image_config.autoExposureMax() != value)
             {
                 image_config.setAutoExposureMax(value);
@@ -2198,7 +2229,12 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
         else if(name == "auto_exposure_decay")
         {
-            const auto value = parameter.as_double();
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid auto exposure decay type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
             if (image_config.autoExposureDecay() != value)
             {
                 image_config.setAutoExposureDecay(value);
@@ -2207,7 +2243,12 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
         else if(name == "auto_exposure_thresh")
         {
-            const auto value = parameter.as_double();
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid auto exposure thresh type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
             if (image_config.autoExposureThresh() != value)
             {
                 image_config.setAutoExposureThresh(value);
@@ -2216,7 +2257,12 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
         else if(name == "exposure_time")
         {
-            const auto value = static_cast<uint32_t>(parameter.as_double() * 1e6);
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid exposure time type");
+            }
+
+            const auto value = static_cast<uint32_t>(get_as_number<double>(parameter) * 1e6);
             if (image_config.exposure() != value)
             {
                 image_config.setExposure(value);
@@ -2225,6 +2271,11 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
         else if(name == "auto_white_balance")
         {
+            if (type != rclcpp::ParameterType::PARAMETER_BOOL)
+            {
+                return result.set__successful(false).set__reason("invalid auto white balance type");
+            }
+
             const auto value = parameter.as_bool();
             if (image_config.autoWhiteBalance() != value)
             {
@@ -2234,7 +2285,12 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
         else if(name == "auto_white_balance_decay")
         {
-            const auto value = parameter.as_double();
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid auto white balance decay type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
             if (image_config.autoWhiteBalanceDecay() != value)
             {
                 image_config.setAutoWhiteBalanceDecay(value);
@@ -2243,7 +2299,12 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
         else if(name == "auto_white_balance_thresh")
         {
-            const auto value = parameter.as_double();
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid auto white balance thresh type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
             if (image_config.autoWhiteBalanceThresh() != value)
             {
                 image_config.setAutoWhiteBalanceThresh(value);
@@ -2252,7 +2313,12 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
         else if(name == "auto_white_balance_red")
         {
-            const auto value = parameter.as_double();
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid auto white balance red type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
             if (image_config.whiteBalanceRed() != value)
             {
                 image_config.setWhiteBalance(value, image_config.whiteBalanceBlue());
@@ -2261,7 +2327,12 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
         else if(name == "auto_white_balance_blue")
         {
-            const auto value = parameter.as_double();
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid auto white balance blue type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
             if (image_config.whiteBalanceBlue() != value)
             {
                 image_config.setWhiteBalance(image_config.whiteBalanceRed(), value);
@@ -2270,6 +2341,11 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
         else if(name == "hdr_enable")
         {
+            if (type != rclcpp::ParameterType::PARAMETER_BOOL)
+            {
+                return result.set__successful(false).set__reason("invalid hdr enable type");
+            }
+
             const auto value = parameter.as_bool();
             if (image_config.hdrEnabled() != value)
             {
@@ -2279,6 +2355,11 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
         else if (name == "crop_mode")
         {
+            if (type != rclcpp::ParameterType::PARAMETER_BOOL)
+            {
+                return result.set__successful(false).set__reason("invalid crop mode type");
+            }
+
             const auto value = parameter.as_bool();
             if (image_config.camMode() != value)
             {
@@ -2288,7 +2369,12 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
         else if (name == "crop_offset")
         {
-            const auto value = parameter.as_int();
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid crop offset type");
+            }
+
+            const auto value = get_as_number<int>(parameter);
             if (image_config.offset() != value)
             {
                 image_config.setOffset(value);
@@ -2297,7 +2383,12 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
         else if (name == "border_clip_type")
         {
-            const auto value = static_cast<BorderClip>(parameter.as_int());
+            if (type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid border clip type");
+            }
+
+            const auto value = static_cast<BorderClip>(get_as_number<int>(parameter));
             if (border_clip_type_ != value)
             {
                 border_clip_type_ = value;
@@ -2306,12 +2397,26 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
         else if (name == "border_clip_value")
         {
-            const auto value = parameter.as_double();
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid border clip value type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
             if (border_clip_value_ != value)
             {
                 border_clip_value_ = value;
                 update_border_clip = true;
             }
+        }
+        else if (name == "max_pointcloud_range")
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid max pointcloud range type");
+            }
+
+            pointcloud_max_range_ = get_as_number<double>(parameter);
         }
     }
 

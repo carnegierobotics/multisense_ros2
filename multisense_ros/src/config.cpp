@@ -32,6 +32,7 @@
  **/
 
 #include <multisense_ros/config.h>
+#include <multisense_ros/utility.h>
 
 namespace multisense_ros {
 
@@ -143,7 +144,8 @@ rcl_interfaces::msg::SetParametersResult Config::parameterCallback(const std::ve
 
     for (const auto &parameter : parameters)
     {
-        if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_NOT_SET)
+        const auto type = parameter.get_type();
+        if (type == rclcpp::ParameterType::PARAMETER_NOT_SET)
         {
             continue;
         }
@@ -152,7 +154,12 @@ rcl_interfaces::msg::SetParametersResult Config::parameterCallback(const std::ve
 
         if (name == "desired_transmit_delay")
         {
-            const auto value = parameter.as_int();
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid transmission delay type");
+            }
+
+            const auto value = get_as_number<int>(parameter);
             if (transmit_delay_.delay != value)
             {
                 auto delay = transmit_delay_;
@@ -167,6 +174,11 @@ rcl_interfaces::msg::SetParametersResult Config::parameterCallback(const std::ve
         }
         else if (name == "lighting")
         {
+            if (type != rclcpp::ParameterType::PARAMETER_BOOL)
+            {
+                return result.set__successful(false).set__reason("invalid lighting type");
+            }
+
             const auto value = parameter.as_bool();
             if (lighting_enabled_ != value)
             {
@@ -176,6 +188,11 @@ rcl_interfaces::msg::SetParametersResult Config::parameterCallback(const std::ve
         }
         else if(name == "flash")
         {
+            if (type != rclcpp::ParameterType::PARAMETER_BOOL)
+            {
+                return result.set__successful(false).set__reason("invalid flash type");
+            }
+
             const auto value = parameter.as_bool();
             if (lighting_config_.getFlash() != value)
             {
@@ -185,7 +202,12 @@ rcl_interfaces::msg::SetParametersResult Config::parameterCallback(const std::ve
         }
         else if(name == "led_duty_cycle")
         {
-            const auto value = parameter.as_double();
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid led duty cycle type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
             if (lighting_config_.getDutyCycle(0) != value)
             {
                 lighting_config_.setDutyCycle(value);
@@ -194,6 +216,11 @@ rcl_interfaces::msg::SetParametersResult Config::parameterCallback(const std::ve
         }
         else if(name == "network_time_sync")
         {
+            if (type != rclcpp::ParameterType::PARAMETER_BOOL)
+            {
+                return result.set__successful(false).set__reason("invalid network time sync type");
+            }
+
             if (const auto status = driver_->networkTimeSynchronization(parameter.as_bool());
                     status != crl::multisense::Status_Ok)
             {

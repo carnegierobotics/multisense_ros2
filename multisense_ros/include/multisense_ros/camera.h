@@ -279,7 +279,7 @@ private:
     std::vector<float>            disparity_buff_;
     std::vector<cv::Vec3f>        points_buff_;
     int64_t                       points_buff_frame_id_;
-    double                        pointcloud_max_range;
+    double                        pointcloud_max_range_;
 
     //
     // Stream subscriptions

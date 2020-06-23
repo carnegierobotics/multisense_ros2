@@ -34,6 +34,7 @@
 #ifndef MULTISENSE_ROS_CAMERA_UTILITIES_H
 #define MULTISENSE_ROS_CAMERA_UTILITIES_H
 
+#include <tuple>
 #include <mutex>
 
 #include <opencv2/opencv.hpp>
@@ -50,7 +51,6 @@ struct RectificationRemapT
     cv::Mat map1;
     cv::Mat map2;
 };
-
 
 cv::Matx44d makeQ(const crl::multisense::image::Config& config,
                   const crl::multisense::image::Calibration& calibration,

@@ -35,6 +35,7 @@
 #include <cmath>
 
 #include <multisense_ros/imu.h>
+#include <multisense_ros/utility.h>
 
 using namespace crl::multisense;
 using namespace std::chrono_literals;
@@ -322,13 +323,13 @@ void Imu::initalizeParameters()
     rcl_interfaces::msg::ParameterDescriptor accel_rate_desc;
     accel_rate_desc.set__name("accelerometer_rate")
                       .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                      .set__description("acelerometer rate\n0: 10Hz__1HzCutoff\n \
-                                                            1: 25Hz__3HzCutoff\n \
-                                                            2: 50Hz__6HzCutoff\n \
-                                                            3: 100Hz__11HzCutoff\n \
-                                                            4: 200Hz__22HzCutoff\n \
-                                                            5: 400Hz__44HzCutoff\n \
-                                                            6: 1344Hz__150HzCutoff")
+                      .set__description("acelerometer rate\n0: 10Hz__1HzCutoff\n"
+                                                            "1: 25Hz__3HzCutoff\n"
+                                                            "2: 50Hz__6HzCutoff\n"
+                                                            "3: 100Hz__11HzCutoff\n"
+                                                            "4: 200Hz__22HzCutoff\n"
+                                                            "5: 400Hz__44HzCutoff\n"
+                                                            "6: 1344Hz__150HzCutoff")
                       .set__integer_range({accel_rate_range});
     declare_parameter("accelerometer_rate", 3, accel_rate_desc);
 
@@ -343,10 +344,10 @@ void Imu::initalizeParameters()
     rcl_interfaces::msg::ParameterDescriptor accel_range_desc;
     accel_range_desc.set__name("accelerometer_range")
                     .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                    .set__description("acelerometer range\n0: 2g__1mg_per_lsb\n \
-                                                           1: 4g__2mg_per_lsb\n \
-                                                           2: 8g__4mg_per_lsb\n \
-                                                           3: 16g__12mg_per_lsb")
+                    .set__description("acelerometer range\n0: 2g__1mg_per_lsb\n"
+                                                           "1: 4g__2mg_per_lsb\n"
+                                                           "2: 8g__4mg_per_lsb\n"
+                                                           "3: 16g__12mg_per_lsb")
                     .set__integer_range({accel_range_range});
     declare_parameter("accelerometer_range", 0, accel_range_desc);
 
@@ -371,13 +372,13 @@ void Imu::initalizeParameters()
     rcl_interfaces::msg::ParameterDescriptor gyro_rate_desc;
     gyro_rate_desc.set__name("gyroscope_rate")
                       .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                      .set__description("gyroscope rate\n0: 100Hz__13HzCutoff\n \
-                                                         1: 200Hz__13HzCutoff\n \
-                                                         2: 200Hz__25HzCutoff\n \
-                                                         3: 400Hz__25HzCutoff\n \
-                                                         4: 400Hz__50HzCutoff\n \
-                                                         5: 800Hz__50HzCutoff\n \
-                                                         6: 800Hz__110HzCutoff")
+                      .set__description("gyroscope rate\n0: 100Hz__13HzCutoff\n"
+                                                         "1: 200Hz__13HzCutoff\n"
+                                                         "2: 200Hz__25HzCutoff\n"
+                                                         "3: 400Hz__25HzCutoff\n"
+                                                         "4: 400Hz__50HzCutoff\n"
+                                                         "5: 800Hz__50HzCutoff\n"
+                                                         "6: 800Hz__110HzCutoff")
                       .set__integer_range({gyro_rate_range});
     declare_parameter("gyroscope_rate", 3, gyro_rate_desc);
 
@@ -392,9 +393,9 @@ void Imu::initalizeParameters()
     rcl_interfaces::msg::ParameterDescriptor gyro_range_desc;
     gyro_range_desc.set__name("gyroscope_range")
                     .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                    .set__description("gyroscope range\n0: 250dps__9mdps_per_lsb\n \
-                                                        1: 500dps__18mdps_per_lsb\n \
-                                                        2: 2000dps__70mdps_per_lsb")
+                    .set__description("gyroscope range\n0: 250dps__9mdps_per_lsb\n"
+                                                        "1: 500dps__18mdps_per_lsb\n"
+                                                        "2: 2000dps__70mdps_per_lsb")
                     .set__integer_range({gyro_range_range});
     declare_parameter("gyroscope_range", 0, gyro_range_desc);
 
@@ -418,10 +419,10 @@ void Imu::initalizeParameters()
     rcl_interfaces::msg::ParameterDescriptor magnetometer_rate_desc;
     magnetometer_rate_desc.set__name("magnetometer_rate")
                       .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                      .set__description("magnetometer rate\n0: 10Hz\n \
-                                                            1: 25Hz\n \
-                                                            2: 50Hz\n \
-                                                            3: 100Hz")
+                      .set__description("magnetometer rate\n0: 10Hz\n"
+                                                            "1: 25Hz\n"
+                                                            "2: 50Hz\n"
+                                                            "3: 100Hz")
                       .set__integer_range({magnetometer_rate_range});
     declare_parameter("magnetometer_rate", 0, magnetometer_rate_desc);
 
@@ -436,13 +437,13 @@ void Imu::initalizeParameters()
     rcl_interfaces::msg::ParameterDescriptor magnetometer_range_desc;
     magnetometer_range_desc.set__name("magnetometer_range")
                     .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                    .set__description("magnetometer range\n0: 1p3gauss__1020ugauss_per_lsb\n \
-                                                           1: 1p9gauss__1316ugauss_per_lsb\n \
-                                                           2: 2p5gauss__1667ugauss_per_lsb\n \
-                                                           3: 4p0gauss__2500ugauss_per_lsb\n \
-                                                           4: 5p6gauss__3390ugauss_per_lsb\n \
-                                                           5: 5p6gauss__3390ugauss_per_lsb\n \
-                                                           6: 8p1gauss__4878ugauss_per_lsb")
+                    .set__description("magnetometer range\n0: 1p3gauss__1020ugauss_per_lsb\n"
+                                                           "1: 1p9gauss__1316ugauss_per_lsb\n"
+                                                           "2: 2p5gauss__1667ugauss_per_lsb\n"
+                                                           "3: 4p0gauss__2500ugauss_per_lsb\n"
+                                                           "4: 5p6gauss__3390ugauss_per_lsb\n"
+                                                           "5: 5p6gauss__3390ugauss_per_lsb\n"
+                                                           "6: 8p1gauss__4878ugauss_per_lsb")
                     .set__integer_range({magnetometer_range_range});
     declare_parameter("magnetometer_range", 0, magnetometer_range_desc);
 }
@@ -463,7 +464,8 @@ rcl_interfaces::msg::SetParametersResult Imu::parameterCallback(const std::vecto
 
     for (const auto &parameter : parameters)
     {
-        if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_NOT_SET)
+        const auto type = parameter.get_type();
+        if (type == rclcpp::ParameterType::PARAMETER_NOT_SET)
         {
             continue;
         }
@@ -472,10 +474,20 @@ rcl_interfaces::msg::SetParametersResult Imu::parameterCallback(const std::vecto
 
         if (name == "imu_samples_per_message")
         {
-            imu_samples_per_message = parameter.as_int();
+            if (type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid imu samples per message type");
+            }
+
+            imu_samples_per_message = get_as_number<int>(parameter);
         }
         else if (name == "accelerometer_enabled")
         {
+            if (type != rclcpp::ParameterType::PARAMETER_BOOL)
+            {
+                return result.set__successful(false).set__reason("invalid accelerometer enabled type");
+            }
+
             const auto value = parameter.as_bool();
             if (accelerometer_config && accelerometer_config->enabled != value)
             {
@@ -485,7 +497,12 @@ rcl_interfaces::msg::SetParametersResult Imu::parameterCallback(const std::vecto
         }
         else if (name == "accelerometer_rate")
         {
-            const auto value = parameter.as_int();
+            if (type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid accelerometer rate type");
+            }
+
+            const auto value = static_cast<uint32_t>(get_as_number<int>(parameter));
             if (accelerometer_config && accelerometer_config->rateTableIndex != value)
             {
                 accelerometer_config->rateTableIndex = value;
@@ -494,7 +511,12 @@ rcl_interfaces::msg::SetParametersResult Imu::parameterCallback(const std::vecto
         }
         else if (name == "accelerometer_range")
         {
-            const auto value = parameter.as_int();
+            if (type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid accelerometer range type");
+            }
+
+            const auto value = static_cast<uint32_t>(get_as_number<int>(parameter));
             if (accelerometer_config && accelerometer_config->rangeTableIndex != value)
             {
                 accelerometer_config->rangeTableIndex = value;
@@ -503,6 +525,11 @@ rcl_interfaces::msg::SetParametersResult Imu::parameterCallback(const std::vecto
         }
         else if (name == "gyroscope_enabled")
         {
+            if (type != rclcpp::ParameterType::PARAMETER_BOOL)
+            {
+                return result.set__successful(false).set__reason("invalid gyroscope enabled type");
+            }
+
             const auto value = parameter.as_bool();
             if (gyroscope_config && gyroscope_config->enabled != value)
             {
@@ -512,7 +539,12 @@ rcl_interfaces::msg::SetParametersResult Imu::parameterCallback(const std::vecto
         }
         else if (name == "gyroscope_rate")
         {
-            const auto value = parameter.as_int();
+            if (type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid gyroscope rate type");
+            }
+
+            const auto value = static_cast<uint32_t>(get_as_number<int>(parameter));
             if (gyroscope_config && gyroscope_config->rateTableIndex != value)
             {
                 gyroscope_config->rateTableIndex = value;
@@ -521,7 +553,12 @@ rcl_interfaces::msg::SetParametersResult Imu::parameterCallback(const std::vecto
         }
         else if (name == "gyroscope_range")
         {
-            const auto value = parameter.as_int();
+            if (type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid gyroscope range type");
+            }
+
+            const auto value = static_cast<uint32_t>(get_as_number<int>(parameter));
             if (gyroscope_config && gyroscope_config->rangeTableIndex != value)
             {
                 gyroscope_config->rangeTableIndex = value;
@@ -530,6 +567,11 @@ rcl_interfaces::msg::SetParametersResult Imu::parameterCallback(const std::vecto
         }
         else if (name == "magnetometer_enabled")
         {
+            if (type != rclcpp::ParameterType::PARAMETER_BOOL)
+            {
+                return result.set__successful(false).set__reason("invalid magnetometer enabled type");
+            }
+
             const auto value = parameter.as_bool();
             if (magnetometer_config && magnetometer_config->enabled != value)
             {
@@ -539,7 +581,12 @@ rcl_interfaces::msg::SetParametersResult Imu::parameterCallback(const std::vecto
         }
         else if (name == "magnetometer_rate")
         {
-            const auto value = parameter.as_int();
+            if (type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid magnetometer range type");
+            }
+
+            const auto value = static_cast<uint32_t>(get_as_number<int>(parameter));
             if (magnetometer_config && magnetometer_config->rateTableIndex != value)
             {
                 magnetometer_config->rateTableIndex = value;
@@ -548,7 +595,12 @@ rcl_interfaces::msg::SetParametersResult Imu::parameterCallback(const std::vecto
         }
         else if (name == "magnetometer_range")
         {
-            const auto value = parameter.as_int();
+            if (type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid magnetometer range type");
+            }
+
+            const auto value = static_cast<uint32_t>(get_as_number<int>(parameter));
             if (magnetometer_config && magnetometer_config->rangeTableIndex != value)
             {
                 magnetometer_config->rangeTableIndex = value;

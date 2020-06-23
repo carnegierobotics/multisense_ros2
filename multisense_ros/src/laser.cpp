@@ -39,6 +39,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 #include <multisense_ros/laser.h>
+#include <multisense_ros/utility.h>
 
 using namespace crl::multisense;
 using namespace std::chrono_literals;
@@ -531,7 +532,8 @@ rcl_interfaces::msg::SetParametersResult Laser::parameterCallback(const std::vec
 
     for (const auto &parameter : parameters)
     {
-        if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_NOT_SET)
+        const auto type = parameter.get_type();
+        if (type == rclcpp::ParameterType::PARAMETER_NOT_SET)
         {
             continue;
         }
@@ -540,7 +542,12 @@ rcl_interfaces::msg::SetParametersResult Laser::parameterCallback(const std::vec
 
         if (name == "motor_speed")
         {
-            const auto radians_per_second = parameter.as_double();
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid motor speed type");
+            }
+
+            const auto radians_per_second = get_as_number<double>(parameter);
             if (const auto status = driver_->setMotorSpeed(radians_per_second_to_rpm * radians_per_second); status != Status_Ok)
             {
                 return result.set__successful(false).set__reason(Channel::statusString(status));

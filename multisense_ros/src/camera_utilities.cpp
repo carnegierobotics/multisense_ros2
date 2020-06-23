@@ -37,14 +37,48 @@
 
 namespace multisense_ros {
 
+namespace {
+
+struct ScaleT
+{
+    double x_scale = 0.0;
+    double y_scale = 0.0;
+    double cx_offset = 0.0;
+    double cy_offset = 0.0;
+};
+
+ScaleT compute_scale(const crl::multisense::image::Config &config,
+                     const crl::multisense::system::DeviceInfo& device_info)
+{
+
+    const auto crop = config.camMode();
+
+    const double x_scale = 1.0 / ((static_cast<double>(device_info.imagerWidth) /
+                                   static_cast<double>(config.width())));
+
+    const double y_scale = 1.0 / ((static_cast<double>(device_info.imagerHeight) /
+                                   static_cast<double>(config.height())));
+
+    //
+    // In crop mode we dont want to scale our fx/fy and cx/cy value. We just want to offset our cx/cy values
+    // by the current crop offset. This is because the pixel size does not change in crop mode, and instead a cropped
+    // region of the original image is returned
+
+    return ScaleT{crop ? 1.0 : x_scale,
+                  crop ? 1.0 : y_scale,
+                  crop ? config.offset() : 0.0,
+                  crop ? config.offset() : 0.0};
+}
+
+}// namespace
+
 cv::Matx44d makeQ(const crl::multisense::image::Config& config,
                   const crl::multisense::image::Calibration& calibration,
                   const crl::multisense::system::DeviceInfo& device_info)
 {
     cv::Matx44d q_matrix;
 
-    const double x_scale = 1.0 / ((static_cast<double>(device_info.imagerWidth) /
-                                   static_cast<double>(config.width())));
+    const auto scale = compute_scale(config, device_info);
 
     //
     // Compute the Q matrix here, as image_geometery::StereoCameraModel does
@@ -61,7 +95,7 @@ cv::Matx44d makeQ(const crl::multisense::image::Config& config,
     q_matrix(1,3) = -config.fx() * config.cy() * config.tx();
     q_matrix(2,3) =  config.fx() * config.fy() * config.tx();
     q_matrix(3,2) = -config.fy();
-    q_matrix(3,3) =  config.fy() * (calibration.left.P[0][2] * x_scale - calibration.right.P[0][2] * x_scale);
+    q_matrix(3,3) =  config.fy() * (calibration.left.P[0][2] * scale.x_scale - calibration.right.P[0][2] * scale.x_scale);
 
     return q_matrix;
 }
@@ -70,32 +104,29 @@ sensor_msgs::msg::CameraInfo makeCameraInfo(const crl::multisense::image::Config
                                             const crl::multisense::image::Calibration::Data& calibration,
                                             const crl::multisense::system::DeviceInfo& device_info)
 {
-    const double x_scale = 1.0 / ((static_cast<double>(device_info.imagerWidth) /
-                                   static_cast<double>(config.width())));
-    const double y_scale = 1.0 / ((static_cast<double>(device_info.imagerHeight) /
-                                   static_cast<double>(config.height())));
+    const auto scale = compute_scale(config, device_info);
 
     sensor_msgs::msg::CameraInfo camera_info;
 
-    camera_info.p[0] = calibration.P[0][0] * x_scale;
+    camera_info.p[0] = calibration.P[0][0] * scale.x_scale;
     camera_info.p[1] = calibration.P[0][1];
-    camera_info.p[2] = calibration.P[0][2] * x_scale;
-    camera_info.p[3] = calibration.P[0][3] * x_scale;
+    camera_info.p[2] = calibration.P[0][2] * scale.x_scale + scale.cx_offset;
+    camera_info.p[3] = calibration.P[0][3] * scale.x_scale;
     camera_info.p[4] = calibration.P[1][0];
-    camera_info.p[5] = calibration.P[1][1] * y_scale;
-    camera_info.p[6] = calibration.P[1][2] * y_scale;
+    camera_info.p[5] = calibration.P[1][1] * scale.y_scale;
+    camera_info.p[6] = calibration.P[1][2] * scale.y_scale + scale.cy_offset;
     camera_info.p[7] = calibration.P[1][3];
     camera_info.p[8] = calibration.P[2][0];
     camera_info.p[9] = calibration.P[2][1];
     camera_info.p[10] = calibration.P[2][2];
     camera_info.p[11] = calibration.P[2][3];
 
-    camera_info.k[0] = calibration.M[0][0] * x_scale;
+    camera_info.k[0] = calibration.M[0][0] * scale.x_scale;
     camera_info.k[1] = calibration.M[0][1];
-    camera_info.k[2] = calibration.M[0][2] * x_scale;
+    camera_info.k[2] = calibration.M[0][2] * scale.x_scale + scale.cx_offset;
     camera_info.k[3] = calibration.M[1][0];
-    camera_info.k[4] = calibration.M[1][1] * y_scale;
-    camera_info.k[5] = calibration.M[1][2] * y_scale;
+    camera_info.k[4] = calibration.M[1][1] * scale.y_scale;
+    camera_info.k[5] = calibration.M[1][2] * scale.y_scale + scale.cy_offset;
     camera_info.k[6] = calibration.M[2][0];
     camera_info.k[7] = calibration.M[2][1];
     camera_info.k[8] = calibration.M[2][2];
@@ -144,17 +175,14 @@ RectificationRemapT makeRectificationRemap(const crl::multisense::image::Config&
 {
     RectificationRemapT remap;
 
-    const double x_scale = 1.0 / ((static_cast<double>(device_info.imagerWidth) /
-                                   static_cast<double>(config.width())));
-    const double y_scale = 1.0 / ((static_cast<double>(device_info.imagerHeight) /
-                                   static_cast<double>(config.height())));
+    const auto scale = compute_scale(config, device_info);
 
-    const cv::Matx33d K(calibration.M[0][0] * x_scale,
+    const cv::Matx33d K(calibration.M[0][0] * scale.x_scale,
                         calibration.M[0][1],
-                        calibration.M[0][2] * x_scale,
+                        calibration.M[0][2] * scale.x_scale + scale.cx_offset,
                         calibration.M[1][0],
-                        calibration.M[1][1] * y_scale,
-                        calibration.M[1][2] * y_scale,
+                        calibration.M[1][1] * scale.y_scale,
+                        calibration.M[1][2] * scale.y_scale + scale.cy_offset,
                         calibration.M[2][0],
                         calibration.M[2][1],
                         calibration.M[2][2]);
@@ -169,13 +197,13 @@ RectificationRemapT makeRectificationRemap(const crl::multisense::image::Config&
                         calibration.R[2][1],
                         calibration.R[2][2]);
 
-    const cv::Matx34d P(calibration.P[0][0] * x_scale,
+    const cv::Matx34d P(calibration.P[0][0] * scale.x_scale,
                         calibration.P[0][1],
-                        calibration.P[0][2] * x_scale,
-                        calibration.P[0][3] * x_scale,
+                        calibration.P[0][2] * scale.x_scale + scale.cx_offset,
+                        calibration.P[0][3] * scale.x_scale,
                         calibration.P[1][0],
-                        calibration.P[1][1] * y_scale,
-                        calibration.P[1][2] * y_scale,
+                        calibration.P[1][1] * scale.y_scale,
+                        calibration.P[1][2] * scale.y_scale + scale.cy_offset,
                         calibration.P[1][3],
                         calibration.P[2][0],
                         calibration.P[2][1],
