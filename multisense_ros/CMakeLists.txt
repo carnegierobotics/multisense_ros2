@@ -33,9 +33,10 @@ add_library(${PROJECT_NAME} src/camera.cpp
                             src/config.cpp
                             src/imu.cpp
                             src/laser.cpp
+                            src/parameter_utilities.cpp
+                            src/point_cloud_utilities.cpp
                             src/pps.cpp
-                            src/status.cpp
-                            src/utility.cpp)
+                            src/status.cpp)
 
 ament_target_dependencies(${PROJECT_NAME}
                          geometry_msgs

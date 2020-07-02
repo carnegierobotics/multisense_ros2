@@ -71,12 +71,6 @@ private:
     static constexpr char JOINT_STATE_TOPIC[] = "joint_states";
 
     //
-    // Number of bytes which correspond to each laser point in the pointcloud object.
-    // 4 bytes for x, 4 bytes for y, 4 bytes for z, 4 bytes for intensity
-
-    static constexpr  uint32_t LASER_CLOUD_STEP = 16;
-
-    //
     // Device stream control
 
     crl::multisense::Channel *driver_;

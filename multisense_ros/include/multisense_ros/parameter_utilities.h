@@ -1,5 +1,5 @@
 /**
- * @file utility.cpp
+ * @file parameter_utilities.h
  *
  * Copyright 2020
  * Carnegie Robotics, LLC
@@ -31,22 +31,16 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#include <multisense_ros/utility.h>
+#ifndef MULTISENSE_ROS_UTILITY_H
+#define MULTISENSE_ROS_UTILITY_H
+
+#include <rclcpp/rclcpp.hpp>
 
 namespace multisense_ros {
 
-template <>
-double get_as_number(const rclcpp::Parameter &parameter)
-{
-    const auto type = parameter.get_type();
-    return (type == rclcpp::ParameterType::PARAMETER_DOUBLE ? parameter.as_double() : static_cast<double>(parameter.as_int()));
-}
-
-template <>
-int get_as_number(const rclcpp::Parameter &parameter)
-{
-    const auto type = parameter.get_type();
-    return (type == rclcpp::ParameterType::PARAMETER_DOUBLE ? static_cast<int>(parameter.as_double()) : parameter.as_int());
-}
+template <typename T>
+T get_as_number(const rclcpp::Parameter &parameter);
 
 }// namespace
+
+#endif

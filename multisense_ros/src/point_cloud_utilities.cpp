@@ -1,5 +1,5 @@
 /**
- * @file camera.h
+ * @file point_cloud_utilities.h
  *
  * Copyright 2020
  * Carnegie Robotics, LLC
@@ -31,16 +31,56 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#ifndef MULTISENSE_ROS_UTILITY_H
-#define MULTISENSE_ROS_UTILITY_H
-
-#include <rclcpp/rclcpp.hpp>
+#include <multisense_ros/point_cloud_utilities.h>
 
 namespace multisense_ros {
 
-template <typename T>
-T get_as_number(const rclcpp::Parameter &parameter);
+template <>
+uint8_t message_format<int8_t>()
+{
+    return sensor_msgs::msg::PointField::INT8;
+}
+
+template <>
+uint8_t message_format<uint8_t>()
+{
+    return sensor_msgs::msg::PointField::UINT8;
+}
+
+template <>
+uint8_t message_format<int16_t>()
+{
+    return sensor_msgs::msg::PointField::INT16;
+}
+
+template <>
+uint8_t message_format<uint16_t>()
+{
+    return sensor_msgs::msg::PointField::UINT16;
+}
+
+template <>
+uint8_t message_format<int32_t>()
+{
+    return sensor_msgs::msg::PointField::INT32;
+}
+
+template <>
+uint8_t message_format<uint32_t>()
+{
+    return sensor_msgs::msg::PointField::UINT32;
+}
+
+template <>
+uint8_t message_format<float>()
+{
+    return sensor_msgs::msg::PointField::FLOAT32;
+}
+
+template <>
+uint8_t message_format<double>()
+{
+    return sensor_msgs::msg::PointField::FLOAT64;
+}
 
 }// namespace
-
-#endif

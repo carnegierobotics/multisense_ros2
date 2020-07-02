@@ -39,7 +39,8 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 #include <multisense_ros/laser.h>
-#include <multisense_ros/utility.h>
+#include <multisense_ros/parameter_utilities.h>
+#include <multisense_ros/point_cloud_utilities.h>
 
 using namespace crl::multisense;
 using namespace std::chrono_literals;
@@ -160,29 +161,7 @@ Laser::Laser(const std::string& node_name,
     //
     // Initialize point cloud structure
 
-    point_cloud_.is_bigendian    = (htonl(1) == 1);
-    point_cloud_.is_dense        = true;
-    point_cloud_.point_step      = LASER_CLOUD_STEP;
-    point_cloud_.height          = 1;
-    point_cloud_.header.frame_id =  tf_prefix + "/left_camera_optical_frame";
-
-    point_cloud_.fields.resize(4);
-    point_cloud_.fields[0].name     = "x";
-    point_cloud_.fields[0].offset   = 0;
-    point_cloud_.fields[0].count    = 1;
-    point_cloud_.fields[0].datatype = sensor_msgs::msg::PointField::FLOAT32;
-    point_cloud_.fields[1].name     = "y";
-    point_cloud_.fields[1].offset   = 4;
-    point_cloud_.fields[1].count    = 1;
-    point_cloud_.fields[1].datatype = sensor_msgs::msg::PointField::FLOAT32;
-    point_cloud_.fields[2].name     = "z";
-    point_cloud_.fields[2].offset   = 8;
-    point_cloud_.fields[2].count    = 1;
-    point_cloud_.fields[2].datatype = sensor_msgs::msg::PointField::FLOAT32;
-    point_cloud_.fields[3].name     = "intensity";
-    point_cloud_.fields[3].offset   = 12;
-    point_cloud_.fields[3].count    = 1;
-    point_cloud_.fields[3].datatype = sensor_msgs::msg::PointField::FLOAT32;
+    point_cloud_ = initialize_pointcloud<float>(true, tf_prefix + "/left_camera_optical_frame", "intensity");
 
     //
     // Create point cloud publisher
@@ -203,11 +182,15 @@ Laser::Laser(const std::string& node_name,
 
     const float *calP = reinterpret_cast<const float*>(&(lidar_cal_.laserToSpindle[0][0]));
     for(size_t i=0; i<16; ++i)
+    {
         raw_lidar_cal.laser_to_spindle[i] = calP[i];
+    }
 
     calP = reinterpret_cast<const float*>(&(lidar_cal_.cameraToSpindleFixed[0][0]));
     for(size_t i=0; i<16; ++i)
+    {
         raw_lidar_cal.camera_to_spindle_fixed[i] = calP[i];
+    }
 
     raw_lidar_cal_pub_->publish(raw_lidar_cal);
 
@@ -290,8 +273,8 @@ void Laser::pointCloudCallback(const lidar::Header& header)
     if (0 == count_subscribers(LASER_POINTCLOUD_TOPIC))
         return;
 
-    point_cloud_.data.resize(LASER_CLOUD_STEP * header.pointCount);
-    point_cloud_.row_step     = header.pointCount * LASER_CLOUD_STEP;
+    point_cloud_.data.resize(point_cloud_.point_step * header.pointCount);
+    point_cloud_.row_step     = header.pointCount * point_cloud_.point_step;
     point_cloud_.width        = header.pointCount;
     point_cloud_.header.stamp = rclcpp::Time(header.timeStartSeconds, 1000 * header.timeStartMicroSeconds);
 
@@ -306,7 +289,7 @@ void Laser::pointCloudCallback(const lidar::Header& header)
     const double   spindleAngleEnd   = angles::normalize_angle(1e-6 * static_cast<double>(header.spindleAngleEnd));
     const double   spindleAngleRange = angles::normalize_angle(spindleAngleEnd - spindleAngleStart);
 
-    for( size_t i = 0; i < header.pointCount; ++i, cloudP += LASER_CLOUD_STEP)
+    for( size_t i = 0; i < header.pointCount; ++i, cloudP += point_cloud_.point_step)
     {
 
         //

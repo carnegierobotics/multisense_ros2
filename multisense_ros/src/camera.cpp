@@ -43,7 +43,8 @@
 #include <multisense_msgs/msg/device_info.hpp>
 #include <multisense_msgs/msg/histogram.hpp>
 #include <multisense_ros/camera.h>
-#include <multisense_ros/utility.h>
+#include <multisense_ros/parameter_utilities.h>
+#include <multisense_ros/point_cloud_utilities.h>
 
 using namespace crl::multisense;
 using namespace std::chrono_literals;
@@ -63,12 +64,6 @@ constexpr DataSource allImageSources = (Source_Luma_Left            |
                                         Source_Disparity            |
                                         Source_Disparity_Right      |
                                         Source_Disparity_Cost);
-
-//
-// Packed size of point cloud structures
-
-constexpr uint32_t luma_cloud_step  = 16;
-constexpr uint32_t color_cloud_step = 16;
 
 //
 // Shims for C-style driver callbacks
@@ -119,7 +114,6 @@ bool publishPointCloud(int64_t                       imageFrameId,
                        const uint32_t                height,
                        const uint32_t                timeSeconds,
                        const uint32_t                timeMicroSeconds,
-                       const uint32_t                cloudStep,
                        const std::vector<cv::Vec3f>& points,
                        const uint8_t*                imageP,
                        const uint32_t                colorChannels,
@@ -140,7 +134,7 @@ bool publishPointCloud(int64_t                       imageFrameId,
         return false;
     }
 
-    cloud.data.resize(imageSize * cloudStep);
+    cloud.data.resize(imageSize * cloud.point_step);
 
     uint8_t       *cloudP      = reinterpret_cast<uint8_t*>(&cloud.data[0]);
     const uint32_t pointSize   = 3 * sizeof(float); // x, y, z
@@ -214,14 +208,14 @@ bool publishPointCloud(int64_t                       imageFrameId,
                 floatCloudColorP[0] = static_cast<float>(color.value);
             }
 
-            cloudP += cloudStep;
+            cloudP += cloud.point_step;
             ++validPoints;
         }
     }
 
     if (!organized)
     {
-        cloud.row_step     = validPoints * cloudStep;
+        cloud.row_step     = validPoints * cloud.point_step;
         cloud.width        = validPoints;
         cloud.height       = 1;
     }
@@ -229,11 +223,11 @@ bool publishPointCloud(int64_t                       imageFrameId,
     {
         cloud.width = width;
         cloud.height = height;
-        cloud.row_step = width * cloudStep;
+        cloud.row_step = width * cloud.point_step;
     }
 
     cloud.header.stamp = rclcpp::Time(timeSeconds, 1000 * timeMicroSeconds);
-    cloud.data.resize(validPoints * cloudStep);
+    cloud.data.resize(validPoints * cloud.point_step);
     pub->publish(cloud);
 
     return true;
@@ -466,95 +460,10 @@ Camera::Camera(const std::string& node_name,
     //
     // Initialze point cloud data structures
 
-    luma_point_cloud_.is_bigendian    = (htonl(1) == 1);
-    luma_point_cloud_.is_dense        = true;
-    luma_point_cloud_.point_step      = luma_cloud_step;
-    luma_point_cloud_.height          = 1;
-    luma_point_cloud_.header.frame_id = frame_id_left_;
-    luma_point_cloud_.fields.resize(4);
-    luma_point_cloud_.fields[0].name     = "x";
-    luma_point_cloud_.fields[0].offset   = 0;
-    luma_point_cloud_.fields[0].count    = 1;
-    luma_point_cloud_.fields[0].datatype = sensor_msgs::msg::PointField::FLOAT32;
-    luma_point_cloud_.fields[1].name     = "y";
-    luma_point_cloud_.fields[1].offset   = 4;
-    luma_point_cloud_.fields[1].count    = 1;
-    luma_point_cloud_.fields[1].datatype = sensor_msgs::msg::PointField::FLOAT32;
-    luma_point_cloud_.fields[2].name     = "z";
-    luma_point_cloud_.fields[2].offset   = 8;
-    luma_point_cloud_.fields[2].count    = 1;
-    luma_point_cloud_.fields[2].datatype = sensor_msgs::msg::PointField::FLOAT32;
-    luma_point_cloud_.fields[3].name     = "luminance";
-    luma_point_cloud_.fields[3].offset   = 12;
-    luma_point_cloud_.fields[3].count    = 1;
-    luma_point_cloud_.fields[3].datatype = sensor_msgs::msg::PointField::FLOAT32;
-
-    color_point_cloud_.is_bigendian    = (htonl(1) == 1);
-    color_point_cloud_.is_dense        = true;
-    color_point_cloud_.point_step      = color_cloud_step;
-    color_point_cloud_.height          = 1;
-    color_point_cloud_.header.frame_id = frame_id_left_;
-    color_point_cloud_.fields.resize(4);
-    color_point_cloud_.fields[0].name     = "x";
-    color_point_cloud_.fields[0].offset   = 0;
-    color_point_cloud_.fields[0].count    = 1;
-    color_point_cloud_.fields[0].datatype = sensor_msgs::msg::PointField::FLOAT32;
-    color_point_cloud_.fields[1].name     = "y";
-    color_point_cloud_.fields[1].offset   = 4;
-    color_point_cloud_.fields[1].count    = 1;
-    color_point_cloud_.fields[1].datatype = sensor_msgs::msg::PointField::FLOAT32;
-    color_point_cloud_.fields[2].name     = "z";
-    color_point_cloud_.fields[2].offset   = 8;
-    color_point_cloud_.fields[2].count    = 1;
-    color_point_cloud_.fields[2].datatype = sensor_msgs::msg::PointField::FLOAT32;
-    color_point_cloud_.fields[3].name     = "rgb";
-    color_point_cloud_.fields[3].offset   = 12;
-    color_point_cloud_.fields[3].count    = 1;
-    color_point_cloud_.fields[3].datatype = sensor_msgs::msg::PointField::FLOAT32;
-
-    luma_organized_point_cloud_.is_bigendian    = (htonl(1) == 1);
-    luma_organized_point_cloud_.is_dense        = false;
-    luma_organized_point_cloud_.point_step      = luma_cloud_step;
-    luma_organized_point_cloud_.header.frame_id = frame_id_left_;
-    luma_organized_point_cloud_.fields.resize(4);
-    luma_organized_point_cloud_.fields[0].name     = "x";
-    luma_organized_point_cloud_.fields[0].offset   = 0;
-    luma_organized_point_cloud_.fields[0].count    = 1;
-    luma_organized_point_cloud_.fields[0].datatype = sensor_msgs::msg::PointField::FLOAT32;
-    luma_organized_point_cloud_.fields[1].name     = "y";
-    luma_organized_point_cloud_.fields[1].offset   = 4;
-    luma_organized_point_cloud_.fields[1].count    = 1;
-    luma_organized_point_cloud_.fields[1].datatype = sensor_msgs::msg::PointField::FLOAT32;
-    luma_organized_point_cloud_.fields[2].name     = "z";
-    luma_organized_point_cloud_.fields[2].offset   = 8;
-    luma_organized_point_cloud_.fields[2].count    = 1;
-    luma_organized_point_cloud_.fields[2].datatype = sensor_msgs::msg::PointField::FLOAT32;
-    luma_organized_point_cloud_.fields[3].name     = "luminance";
-    luma_organized_point_cloud_.fields[3].offset   = 12;
-    luma_organized_point_cloud_.fields[3].count    = 1;
-    luma_organized_point_cloud_.fields[3].datatype = sensor_msgs::msg::PointField::FLOAT32;
-
-    color_organized_point_cloud_.is_bigendian    = (htonl(1) == 1);
-    color_organized_point_cloud_.is_dense        = false;
-    color_organized_point_cloud_.point_step      = color_cloud_step;
-    color_organized_point_cloud_.header.frame_id = frame_id_left_;
-    color_organized_point_cloud_.fields.resize(4);
-    color_organized_point_cloud_.fields[0].name     = "x";
-    color_organized_point_cloud_.fields[0].offset   = 0;
-    color_organized_point_cloud_.fields[0].count    = 1;
-    color_organized_point_cloud_.fields[0].datatype = sensor_msgs::msg::PointField::FLOAT32;
-    color_organized_point_cloud_.fields[1].name     = "y";
-    color_organized_point_cloud_.fields[1].offset   = 4;
-    color_organized_point_cloud_.fields[1].count    = 1;
-    color_organized_point_cloud_.fields[1].datatype = sensor_msgs::msg::PointField::FLOAT32;
-    color_organized_point_cloud_.fields[2].name     = "z";
-    color_organized_point_cloud_.fields[2].offset   = 8;
-    color_organized_point_cloud_.fields[2].count    = 1;
-    color_organized_point_cloud_.fields[2].datatype = sensor_msgs::msg::PointField::FLOAT32;
-    color_organized_point_cloud_.fields[3].name     = "rgb";
-    color_organized_point_cloud_.fields[3].offset   = 12;
-    color_organized_point_cloud_.fields[3].count    = 1;
-    color_organized_point_cloud_.fields[3].datatype = sensor_msgs::msg::PointField::FLOAT32;
+    luma_point_cloud_ = initialize_pointcloud<float>(true, frame_id_left_, "intensity");
+    color_point_cloud_ = initialize_pointcloud<float>(true, frame_id_left_, "rgb");
+    luma_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_left_, "intensity");
+    color_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_left_, "rgb");
 
     //
     // Add driver-level callbacks.
@@ -944,7 +853,6 @@ void Camera::rectCallback(const image::Header& header)
                               header.height,
                               header.timeSeconds,
                               header.timeMicroSeconds,
-                              luma_cloud_step,
                               points_buff_,
                               &(left_rect_image_.data[0]), luma_color_depth_,
                               pointcloud_max_range_,
@@ -960,7 +868,6 @@ void Camera::rectCallback(const image::Header& header)
                               header.height,
                               header.timeSeconds,
                               header.timeMicroSeconds,
-                              luma_cloud_step,
                               points_buff_,
                               &(left_rect_image_.data[0]), luma_color_depth_,
                               pointcloud_max_range_,
@@ -1235,7 +1142,6 @@ void Camera::pointCloudCallback(const image::Header& header)
                       header.height,
                       header.timeSeconds,
                       header.timeMicroSeconds,
-                      luma_cloud_step,
                       points_buff_,
                       &(left_rect_image_.data[0]), luma_color_depth_,
                       pointcloud_max_range_,
@@ -1251,7 +1157,6 @@ void Camera::pointCloudCallback(const image::Header& header)
                       header.height,
                       header.timeSeconds,
                       header.timeMicroSeconds,
-                      color_cloud_step,
                       points_buff_,
                       &(left_rgb_rect_image_.data[0]), 3,
                       pointcloud_max_range_,
@@ -1267,7 +1172,6 @@ void Camera::pointCloudCallback(const image::Header& header)
                       header.height,
                       header.timeSeconds,
                       header.timeMicroSeconds,
-                      luma_cloud_step,
                       points_buff_,
                       &(left_rect_image_.data[0]), luma_color_depth_,
                       pointcloud_max_range_,
@@ -1283,7 +1187,6 @@ void Camera::pointCloudCallback(const image::Header& header)
                       header.height,
                       header.timeSeconds,
                       header.timeMicroSeconds,
-                      color_cloud_step,
                       points_buff_,
                       &(left_rgb_rect_image_.data[0]), 3,
                       pointcloud_max_range_,
@@ -1485,7 +1388,6 @@ void Camera::colorImageCallback(const image::Header& header)
                                   left_luma_image_.height,
                                   header.timeSeconds,
                                   header.timeMicroSeconds,
-                                  color_cloud_step,
                                   points_buff_,
                                   &(left_rgb_rect_image_.data[0]), 3,
                                   pointcloud_max_range_,
@@ -1501,7 +1403,6 @@ void Camera::colorImageCallback(const image::Header& header)
                                   left_luma_image_.height,
                                   header.timeSeconds,
                                   header.timeMicroSeconds,
-                                  color_cloud_step,
                                   points_buff_,
                                   &(left_rgb_rect_image_.data[0]), 3,
                                   pointcloud_max_range_,
