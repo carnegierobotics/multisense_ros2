@@ -359,7 +359,7 @@ Camera::Camera(const std::string& node_name,
 
     left_disparity_pub_ = left_node_->create_publisher<sensor_msgs::msg::Image>(DISPARITY_TOPIC, rclcpp::SensorDataQoS());
 
-    left_stereo_disparity_pub_ = left_node_->create_publisher<stereo_msgs::msg::DisparityImage>(DISPARITY_IMAGE_TOPIC, 5);
+    left_stereo_disparity_pub_ = left_node_->create_publisher<stereo_msgs::msg::DisparityImage>(DISPARITY_IMAGE_TOPIC, rclcpp::SensorDataQoS());
 
     right_disparity_pub_ = right_node_->create_publisher<sensor_msgs::msg::Image>(DISPARITY_TOPIC, rclcpp::SensorDataQoS());
     right_stereo_disparity_pub_ = right_node_->create_publisher<stereo_msgs::msg::DisparityImage>(DISPARITY_IMAGE_TOPIC, rclcpp::SensorDataQoS());
@@ -509,7 +509,7 @@ void Camera::histogramCallback(const image::Header& header)
 
     last_frame_id_ = header.frameId;
 
-    if (count_subscribers(HISTOGRAM_TOPIC) > 0)
+    if (numSubscribers(this, HISTOGRAM_TOPIC) > 0)
     {
         multisense_msgs::msg::Histogram rh;
         image::Histogram          mh;
@@ -540,11 +540,11 @@ void Camera::histogramCallback(const image::Header& header)
 
 void Camera::disparityImageCallback(const image::Header& header)
 {
-    if (!((Source_Disparity == header.source && left_node_->count_subscribers(DISPARITY_TOPIC) > 0) ||
-          (Source_Disparity_Right == header.source && right_node_->count_subscribers(DISPARITY_TOPIC) > 0) ||
-          (Source_Disparity_Cost == header.source && left_node_->count_subscribers(COST_TOPIC) > 0) ||
-          (Source_Disparity == header.source && left_node_->count_subscribers(DISPARITY_IMAGE_TOPIC) > 0) ||
-          (Source_Disparity_Right == header.source && right_node_->count_subscribers(DISPARITY_IMAGE_TOPIC) > 0) ))
+    if (!((Source_Disparity == header.source && numSubscribers(left_node_, DISPARITY_TOPIC) > 0) ||
+          (Source_Disparity_Right == header.source && numSubscribers(right_node_, DISPARITY_TOPIC) > 0) ||
+          (Source_Disparity_Cost == header.source && numSubscribers(left_node_, COST_TOPIC) > 0) ||
+          (Source_Disparity == header.source && numSubscribers(left_node_, DISPARITY_IMAGE_TOPIC) > 0) ||
+          (Source_Disparity_Right == header.source && numSubscribers(right_node_, DISPARITY_IMAGE_TOPIC) > 0) ))
     {
         return;
     }
@@ -593,7 +593,7 @@ void Camera::disparityImageCallback(const image::Header& header)
 
 
 
-        if (node->count_subscribers(DISPARITY_TOPIC) > 0)
+        if (numSubscribers(node, DISPARITY_TOPIC) > 0)
         {
             imageP->data.resize(imageSize);
             memcpy(&imageP->data[0], header.imageDataP, imageSize);
@@ -617,7 +617,7 @@ void Camera::disparityImageCallback(const image::Header& header)
             pubP->publish(*imageP);
         }
 
-        if (node->count_subscribers(DISPARITY_IMAGE_TOPIC) > 0)
+        if (numSubscribers(node, DISPARITY_IMAGE_TOPIC) > 0)
         {
             //
             // If our current image resolution is using non-square pixels, i.e.
@@ -924,8 +924,8 @@ void Camera::depthCallback(const image::Header& header)
         return;
     }
 
-    const size_t ni_depth_subscribers = left_node_->count_subscribers(OPENNI_DEPTH_TOPIC);
-    const size_t depth_subscribers = left_node_->count_subscribers(DEPTH_TOPIC);
+    const size_t ni_depth_subscribers = numSubscribers(left_node_, OPENNI_DEPTH_TOPIC);
+    const size_t depth_subscribers = numSubscribers(left_node_, DEPTH_TOPIC);
 
     if (ni_depth_subscribers == 0 && depth_subscribers == 0)
     {
@@ -1054,10 +1054,10 @@ void Camera::pointCloudCallback(const image::Header& header)
         return;
     }
 
-    if (left_node_->count_subscribers(POINTCLOUD_TOPIC) == 0 &&
-        left_node_->count_subscribers(COLOR_POINTCLOUD_TOPIC) == 0 &&
-        left_node_->count_subscribers(ORGANIZED_POINTCLOUD_TOPIC) == 0 &&
-        left_node_->count_subscribers(COLOR_ORGANIZED_POINTCLOUD_TOPIC) == 0)
+    if (numSubscribers(left_node_, POINTCLOUD_TOPIC) == 0 &&
+        numSubscribers(left_node_, COLOR_POINTCLOUD_TOPIC) == 0 &&
+        numSubscribers(left_node_, ORGANIZED_POINTCLOUD_TOPIC) == 0 &&
+        numSubscribers(left_node_, COLOR_ORGANIZED_POINTCLOUD_TOPIC) == 0)
     {
         return;
     }
@@ -1196,7 +1196,7 @@ void Camera::pointCloudCallback(const image::Header& header)
 
 void Camera::rawCamDataCallback(const image::Header& header)
 {
-    if (calibration_node_->count_subscribers(RAW_CAM_DATA_TOPIC) == 0)
+    if (numSubscribers(calibration_node_, RAW_CAM_DATA_TOPIC) == 0)
     {
         got_raw_cam_left_ = false;
         return;
@@ -1247,10 +1247,10 @@ void Camera::rawCamDataCallback(const image::Header& header)
 
 void Camera::colorImageCallback(const image::Header& header)
 {
-    if (left_node_->count_subscribers(COLOR_TOPIC) == 0 &&
-        left_node_->count_subscribers(RECT_COLOR_TOPIC) == 0 &&
-        left_node_->count_subscribers(COLOR_POINTCLOUD_TOPIC) == 0 &&
-        left_node_->count_subscribers(COLOR_ORGANIZED_POINTCLOUD_TOPIC) == 0)
+    if (numSubscribers(left_node_, COLOR_TOPIC) == 0 &&
+        numSubscribers(left_node_, RECT_COLOR_TOPIC) == 0 &&
+        numSubscribers(left_node_, COLOR_POINTCLOUD_TOPIC) == 0 &&
+        numSubscribers(left_node_, COLOR_ORGANIZED_POINTCLOUD_TOPIC) == 0)
     {
         got_left_luma_ = false;
         return;
@@ -1335,16 +1335,16 @@ void Camera::colorImageCallback(const image::Header& header)
                 }
             }
 
-            if (left_node_->count_subscribers(COLOR_TOPIC) != 0)
+            if (numSubscribers(left_node_, COLOR_TOPIC) != 0)
             {
                 left_rgb_cam_pub_->publish(left_rgb_image_);
 
                 left_rgb_cam_info_pub_->publish(stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t));
             }
 
-            if (left_node_->count_subscribers(RECT_COLOR_TOPIC) > 0 ||
-                left_node_->count_subscribers(COLOR_POINTCLOUD_TOPIC) > 0 ||
-                left_node_->count_subscribers(COLOR_ORGANIZED_POINTCLOUD_TOPIC) > 0)
+            if (numSubscribers(left_node_, RECT_COLOR_TOPIC) > 0 ||
+                numSubscribers(left_node_, COLOR_POINTCLOUD_TOPIC) > 0 ||
+                numSubscribers(left_node_, COLOR_ORGANIZED_POINTCLOUD_TOPIC) > 0)
             {
                 left_rgb_rect_image_.data.resize(imageSize);
 
@@ -1367,7 +1367,7 @@ void Camera::colorImageCallback(const image::Header& header)
 
                 left_rgb_rect_frame_id_              = header.frameId;
 
-                if (left_node_->count_subscribers(RECT_COLOR_TOPIC) > 0)
+                if (numSubscribers(left_node_, RECT_COLOR_TOPIC) > 0)
                 {
                     const auto left_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t);
 
@@ -1558,49 +1558,46 @@ void Camera::stop()
     }
 }
 
-bool Camera::handleSubscription(const rclcpp::Node::SharedPtr node, const std::string &topic)
+size_t Camera::numSubscribers(const rclcpp::Node::SharedPtr node, const std::string &topic)
 {
-    return handleSubscription(node.get(), topic);
+    return numSubscribers(node.get(), topic);
 }
 
-bool Camera::handleSubscription(const rclcpp::Node* node, const std::string &topic)
+size_t Camera::numSubscribers(const rclcpp::Node* node, const std::string &topic)
 {
-    //
-    // TODO:Remove this when subnode count_subscribers or publisher SubscriberStatusCallback's are implemented
-
     const std::string full_topic = node->get_sub_namespace().empty() ? topic : node->get_sub_namespace()  + "/" + topic;
 
-    return node->count_subscribers(full_topic) > 0;
+    return node->count_subscribers(full_topic) ;
 }
 
 void Camera::timerCallback()
 {
     DataSource enable = Source_Unknown;
 
-    enable |= handleSubscription(left_node_, MONO_TOPIC) ?  Source_Luma_Left : enable;
-    enable |= handleSubscription(right_node_, MONO_TOPIC) ?  Source_Luma_Right : enable;
-    enable |= handleSubscription(left_node_, RECT_TOPIC) ?  Source_Luma_Rectified_Left : enable;
-    enable |= handleSubscription(right_node_, RECT_TOPIC) ?  Source_Luma_Rectified_Right : enable;
-    enable |= handleSubscription(left_node_, DEPTH_TOPIC) ?  Source_Disparity : enable;
-    enable |= handleSubscription(left_node_, OPENNI_DEPTH_TOPIC) ?  Source_Disparity : enable;
+    enable |= numSubscribers(left_node_, MONO_TOPIC) > 0 ?  Source_Luma_Left : enable;
+    enable |= numSubscribers(right_node_, MONO_TOPIC) > 0 ?  Source_Luma_Right : enable;
+    enable |= numSubscribers(left_node_, RECT_TOPIC) > 0 ?  Source_Luma_Rectified_Left : enable;
+    enable |= numSubscribers(right_node_, RECT_TOPIC) > 0 ?  Source_Luma_Rectified_Right : enable;
+    enable |= numSubscribers(left_node_, DEPTH_TOPIC) > 0 ?  Source_Disparity : enable;
+    enable |= numSubscribers(left_node_, OPENNI_DEPTH_TOPIC) > 0 ?  Source_Disparity : enable;
 
     if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 != device_info_.hardwareRevision)
     {
-        enable |= handleSubscription(left_node_, COLOR_TOPIC) ?  Source_Luma_Left | Source_Chroma_Left : enable;
-        enable |= handleSubscription(left_node_, COLOR_TOPIC) ?  Source_Luma_Left | Source_Chroma_Left : enable;
-        enable |= handleSubscription(this, COLOR_POINTCLOUD_TOPIC) ?  Source_Disparity | Source_Luma_Left | Source_Chroma_Left : enable;
-        enable |= handleSubscription(this, COLOR_ORGANIZED_POINTCLOUD_TOPIC) ?  Source_Disparity | Source_Luma_Left | Source_Chroma_Left : enable;
+        enable |= numSubscribers(left_node_, COLOR_TOPIC) > 0 ?  Source_Luma_Left | Source_Chroma_Left : enable;
+        enable |= numSubscribers(left_node_, COLOR_TOPIC) > 0 ?  Source_Luma_Left | Source_Chroma_Left : enable;
+        enable |= numSubscribers(this, COLOR_POINTCLOUD_TOPIC) > 0 ?  Source_Disparity | Source_Luma_Left | Source_Chroma_Left : enable;
+        enable |= numSubscribers(this, COLOR_ORGANIZED_POINTCLOUD_TOPIC) > 0 ?  Source_Disparity | Source_Luma_Left | Source_Chroma_Left : enable;
     }
 
-    enable |= handleSubscription(this, POINTCLOUD_TOPIC) ?  Source_Luma_Rectified_Left | Source_Disparity : enable;
-    enable |= handleSubscription(this, ORGANIZED_POINTCLOUD_TOPIC) ?  Source_Luma_Rectified_Left | Source_Disparity : enable;
-    enable |= handleSubscription(calibration_node_, RAW_CAM_DATA_TOPIC) ?  Source_Luma_Rectified_Left | Source_Disparity : enable;
-    enable |= handleSubscription(left_node_, DISPARITY_TOPIC) ?  Source_Disparity : enable;
-    enable |= handleSubscription(left_node_, DISPARITY_IMAGE_TOPIC) ?  Source_Disparity : enable;
+    enable |= numSubscribers(this, POINTCLOUD_TOPIC) > 0 ?  Source_Luma_Rectified_Left | Source_Disparity : enable;
+    enable |= numSubscribers(this, ORGANIZED_POINTCLOUD_TOPIC) > 0 ?  Source_Luma_Rectified_Left | Source_Disparity : enable;
+    enable |= numSubscribers(calibration_node_, RAW_CAM_DATA_TOPIC) > 0 ?  Source_Luma_Rectified_Left | Source_Disparity : enable;
+    enable |= numSubscribers(left_node_, DISPARITY_TOPIC) > 0 ?  Source_Disparity : enable;
+    enable |= numSubscribers(left_node_, DISPARITY_IMAGE_TOPIC) > 0 ?  Source_Disparity : enable;
 
-    enable |= handleSubscription(right_node_, DISPARITY_TOPIC) ?  Source_Disparity_Right : enable;
-    enable |= handleSubscription(right_node_, DISPARITY_IMAGE_TOPIC) ?  Source_Disparity_Right : enable;
-    enable |= handleSubscription(left_node_, COST_TOPIC) ?  Source_Disparity_Cost : enable;
+    enable |= numSubscribers(right_node_, DISPARITY_TOPIC) > 0 ?  Source_Disparity_Right : enable;
+    enable |= numSubscribers(right_node_, DISPARITY_IMAGE_TOPIC) > 0 ?  Source_Disparity_Right : enable;
+    enable |= numSubscribers(left_node_, COST_TOPIC) > 0 ?  Source_Disparity_Cost : enable;
 
     //
     // We need to start or stop a stream
