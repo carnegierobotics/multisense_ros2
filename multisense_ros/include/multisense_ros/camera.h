@@ -113,11 +113,12 @@ private:
     static constexpr char DISPARITY_CAMERA_INFO_TOPIC[] = "disparity/camera_info";
     static constexpr char COST_CAMERA_INFO_TOPIC[] = "cost/camera_info";
 
+
     //
     // Device stream control
 
-    bool handleSubscription(const rclcpp::Node::SharedPtr node, const std::string &topic);
-    bool handleSubscription(const rclcpp::Node* node, const std::string &topic);
+    size_t numSubscribers(const rclcpp::Node::SharedPtr node, const std::string &topic);
+    size_t numSubscribers(const rclcpp::Node* node, const std::string &topic);
     void stop();
 
     //
