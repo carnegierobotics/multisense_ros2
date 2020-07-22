@@ -1147,10 +1147,10 @@ void Camera::pointCloudCallback(const image::Header& header)
         return;
     }
 
-    if (numSubscribers(left_node_, POINTCLOUD_TOPIC) == 0 &&
-        numSubscribers(left_node_, COLOR_POINTCLOUD_TOPIC) == 0 &&
-        numSubscribers(left_node_, ORGANIZED_POINTCLOUD_TOPIC) == 0 &&
-        numSubscribers(left_node_, COLOR_ORGANIZED_POINTCLOUD_TOPIC) == 0)
+    if (numSubscribers(this, POINTCLOUD_TOPIC) == 0 &&
+        numSubscribers(this, COLOR_POINTCLOUD_TOPIC) == 0 &&
+        numSubscribers(this, ORGANIZED_POINTCLOUD_TOPIC) == 0 &&
+        numSubscribers(this, COLOR_ORGANIZED_POINTCLOUD_TOPIC) == 0)
     {
         return;
     }
