@@ -1346,8 +1346,8 @@ void Camera::colorImageCallback(const image::Header& header)
 {
     if (numSubscribers(left_node_, COLOR_TOPIC) == 0 &&
         numSubscribers(left_node_, RECT_COLOR_TOPIC) == 0 &&
-        numSubscribers(left_node_, COLOR_POINTCLOUD_TOPIC) == 0 &&
-        numSubscribers(left_node_, COLOR_ORGANIZED_POINTCLOUD_TOPIC) == 0)
+        numSubscribers(this, COLOR_POINTCLOUD_TOPIC) == 0 &&
+        numSubscribers(this, COLOR_ORGANIZED_POINTCLOUD_TOPIC) == 0)
     {
         got_left_luma_ = false;
         return;
@@ -1440,8 +1440,8 @@ void Camera::colorImageCallback(const image::Header& header)
             }
 
             if (numSubscribers(left_node_, RECT_COLOR_TOPIC) > 0 ||
-                numSubscribers(left_node_, COLOR_POINTCLOUD_TOPIC) > 0 ||
-                numSubscribers(left_node_, COLOR_ORGANIZED_POINTCLOUD_TOPIC) > 0)
+                numSubscribers(this, COLOR_POINTCLOUD_TOPIC) > 0 ||
+                numSubscribers(this, COLOR_ORGANIZED_POINTCLOUD_TOPIC) > 0)
             {
                 left_rgb_rect_image_.data.resize(imageSize);
 
