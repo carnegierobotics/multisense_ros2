@@ -16,6 +16,7 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif ()
 
 find_package(ament_cmake REQUIRED)
+find_package(angles REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(multisense_lib REQUIRED)
 find_package(multisense_msgs REQUIRED)
@@ -38,6 +39,7 @@ add_library(${PROJECT_NAME} src/camera.cpp
                             src/utility.cpp)
 
 ament_target_dependencies(${PROJECT_NAME}
+                         angles
                          geometry_msgs
                          multisense_lib
                          multisense_msgs
