@@ -54,7 +54,6 @@ sensor_msgs::msg::PointCloud2 initialize_pointcloud(bool dense,
     point_cloud.is_bigendian    = (htonl(1) == 1);
     point_cloud.is_dense        = dense;
     point_cloud.point_step      = 4 * sizeof(T);
-    point_cloud.height          = 1;
     point_cloud.header.frame_id = frame_id;
     point_cloud.fields.resize(4);
     point_cloud.fields[0].name     = "x";

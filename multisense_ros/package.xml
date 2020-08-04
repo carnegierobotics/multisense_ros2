@@ -10,8 +10,10 @@
   <url type="website">https://bitbucket.org/crl/multisense_ros</url>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>eigen3_cmake_module</buildtool_depend>
   <buildtool_depend>yaml-cpp</buildtool_depend>
 
+  <build_depend>eigen</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>libopencv-dev</build_depend>
   <build_depend>multisense_lib</build_depend>

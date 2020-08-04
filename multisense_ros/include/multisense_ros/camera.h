@@ -135,7 +135,7 @@ private:
     //
     // Generate border clips for point clouds
 
-    void generateBorderClip(const BorderClip& borderClipType, double borderClipValue, uint32_t width, uint32_t height);
+    bool clipPoint(const BorderClip& borderClipType, double borderClipValue, size_t width, size_t height, size_t u, size_t v);
 
     //
     // Callback to check subscriptions to our publishers. This duplicates the behavior of the ROS1
@@ -173,7 +173,6 @@ private:
     rclcpp::Node::SharedPtr left_node_;
     rclcpp::Node::SharedPtr right_node_;
     rclcpp::Node::SharedPtr calibration_node_;
-
 
     //
     // Data publishers
@@ -221,7 +220,7 @@ private:
     rclcpp::Publisher<multisense_msgs::msg::Histogram>::SharedPtr histogram_pub_;
 
     //
-    // Store outgoing messages for efficiency
+    // Store outgoing messages to avoid repeated allocations
 
     sensor_msgs::msg::Image         left_mono_image_;
     sensor_msgs::msg::Image         right_mono_image_;
@@ -234,7 +233,6 @@ private:
     sensor_msgs::msg::PointCloud2   luma_organized_point_cloud_;
     sensor_msgs::msg::PointCloud2   color_organized_point_cloud_;
 
-    sensor_msgs::msg::Image         left_luma_image_;
     sensor_msgs::msg::Image         left_rgb_image_;
     sensor_msgs::msg::Image         left_rgb_rect_image_;
 
@@ -245,16 +243,10 @@ private:
     stereo_msgs::msg::DisparityImage left_stereo_disparity_;
     stereo_msgs::msg::DisparityImage right_stereo_disparity_;
 
-    bool                       got_raw_cam_left_;
-    bool                       got_left_luma_;
-    int64_t                    left_luma_frame_id_;
-    int64_t                    left_rect_frame_id_;
-    int64_t                    left_rgb_rect_frame_id_;
-    int64_t                    luma_point_cloud_frame_id_;
-    int64_t                    luma_organized_point_cloud_frame_id_;
-    int64_t                    color_point_cloud_frame_id_;
-    int64_t                    color_organized_point_cloud_frame_id_;
     multisense_msgs::msg::RawCamData raw_cam_data_;
+
+    std::vector<uint8_t> pointcloud_color_buffer_;
+    std::vector<uint8_t> pointcloud_rect_color_buffer_;
 
     //
     // Calibration from sensor
@@ -277,10 +269,7 @@ private:
     //
     // For pointcloud generation
 
-    std::vector<float>            disparity_buff_;
-    std::vector<cv::Vec3f>        points_buff_;
-    int64_t                       points_buff_frame_id_;
-    double                        pointcloud_max_range_;
+    double pointcloud_max_range_;
 
     //
     // Stream subscriptions
@@ -293,25 +282,15 @@ private:
     int64_t last_frame_id_;
 
     //
-    // Luma Color Depth
-
-    uint8_t luma_color_depth_;
-
-    //
-    // If the color pointcloud data should be written packed. If false
-    // it will be static_cast to a flat and interpreted literally
-
-    bool write_pc_color_packed_;
-
-    //
     // The mask used to perform the border clipping of the disparity image
-
-    std::mutex border_clip_lock_;
-
-    cv::Mat_<uint8_t> border_clip_mask_;
 
     BorderClip border_clip_type_;
     double border_clip_value_;
+
+    //
+    // Storage of images which we use for pointcloud colorizing
+
+    std::unordered_map<crl::multisense::DataSource, std::shared_ptr<BufferWrapper<crl::multisense::image::Header>>> image_buffers_;
 };
 
 }// namespace
