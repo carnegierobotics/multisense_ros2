@@ -93,7 +93,7 @@ bool isValidReprojectedPoint(const Eigen::Vector3f& pt, double maxRange)
 
 void writePoint(sensor_msgs::msg::PointCloud2 &pointcloud, size_t index, const Eigen::Vector3f &point, uint32_t color)
 {
-    float* cloudP = reinterpret_cast<float*>(pointcloud.data[index * pointcloud.point_step]);
+    float* cloudP = reinterpret_cast<float*>(&(pointcloud.data[index * pointcloud.point_step]));
     cloudP[0] = point[0];
     cloudP[1] = point[1];
     cloudP[2] = point[2];
@@ -107,8 +107,7 @@ void writePoint(sensor_msgs::msg::PointCloud2 &pointcloud, size_t index, const E
         case 8:
         {
             const uint32_t luma = static_cast<uint32_t>(reinterpret_cast<const uint8_t*>(image.imageDataP)[index]);
-            const uint32_t packed_luma = luma << 16 | luma << 8 | luma;
-            return writePoint(pointcloud, index, point, packed_luma);
+            return writePoint(pointcloud, index, point, luma);
         }
         case 16:
         {
@@ -592,14 +591,6 @@ void Camera::monoCallback(const image::Header& header)
         return;
     }
 
-    //
-    // We need the left luma images for colorizing pointclouds
-
-    if (Source_Luma_Left == header.source)
-    {
-        image_buffers_[header.source] = std::make_shared<BufferWrapper<crl::multisense::image::Header>>(driver_, header);
-    }
-
     rclcpp::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
     switch(header.source)
@@ -685,7 +676,10 @@ void Camera::rectCallback(const image::Header& header)
     //
     // We need the rectified images for colorizing pointclouds
 
-    image_buffers_[header.source] = std::make_shared<BufferWrapper<crl::multisense::image::Header>>(driver_, header);
+    if (Source_Luma_Rectified_Left == header.source)
+    {
+        image_buffers_[header.source] = std::make_shared<BufferWrapper<crl::multisense::image::Header>>(driver_, header);
+    }
 
     rclcpp::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
@@ -1032,7 +1026,7 @@ void Camera::pointCloudCallback(const image::Header& header)
             if (rectified_color)
             {
                 const auto color_pixel = rectified_color.value().at<cv::Vec3b>(x, y);
-                packed_color = color_pixel[0] << 16 | color_pixel[1] << 8 | color_pixel[2];
+                packed_color = color_pixel[2] << 16 | color_pixel[1] << 8 | color_pixel[0];
             }
 
             if (disparity == 0.0f || clipPoint(border_clip_type_, border_clip_value_, header.width, header.height, x, y))
@@ -1062,26 +1056,23 @@ void Camera::pointCloudCallback(const image::Header& header)
             if (pub_pointcloud && valid)
             {
                 const auto luma_rect_ptr = left_luma_rect.value();
-                writePoint(luma_point_cloud_, index, point, luma_rect_ptr->data());
+                writePoint(luma_point_cloud_, valid_points, point, luma_rect_ptr->data());
             }
 
             if(pub_color_pointcloud && valid)
             {
-                writePoint(color_point_cloud_, index, point, packed_color);
+                writePoint(color_point_cloud_, valid_points, point, packed_color);
             }
 
             if (pub_organized_pointcloud)
             {
-                const Eigen::Vector3f organized_point = valid ? point : invalid_point;
-
                 const auto luma_rect_ptr = left_luma_rect.value();
-                writePoint(luma_organized_point_cloud_, index, organized_point, luma_rect_ptr->data());
+                writePoint(luma_organized_point_cloud_, index, valid ? point : invalid_point, luma_rect_ptr->data());
             }
 
             if (pub_color_organized_pointcloud)
             {
-                const Eigen::Vector3f organized_point = valid ? point : invalid_point;
-                writePoint(color_organized_point_cloud_, index, organized_point, packed_color);
+                writePoint(color_organized_point_cloud_, index, valid ? point : invalid_point, packed_color);
             }
 
             ++valid_points;
@@ -1124,11 +1115,7 @@ void Camera::rawCamDataCallback(const image::Header& header)
         return;
     }
 
-    if (Source_Luma_Rectified_Left == header.source)
-    {
-        image_buffers_[header.source] = std::make_shared<BufferWrapper<crl::multisense::image::Header>>(driver_, header);
-    }
-    else if(Source_Disparity == header.source)
+    if(Source_Disparity == header.source)
     {
         if (const auto image = image_buffers_.find(Source_Luma_Rectified_Left);
                 image != std::end(image_buffers_) && image->second->data().frameId == header.frameId)
