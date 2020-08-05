@@ -929,7 +929,7 @@ void Camera::pointCloudCallback(const image::Header& header)
     const bool pub_pointcloud = numSubscribers(this, POINTCLOUD_TOPIC) > 0 && left_luma_rect;
     const bool pub_color_pointcloud = numSubscribers(this, COLOR_POINTCLOUD_TOPIC) > 0 && left_luma && left_chroma;
     const bool pub_organized_pointcloud = numSubscribers(this, ORGANIZED_POINTCLOUD_TOPIC) > 0 && left_luma_rect;
-    const bool pub_color_organized_pointcloud = numSubscribers(this, COLOR_POINTCLOUD_TOPIC) > 0 && left_luma && left_chroma;
+    const bool pub_color_organized_pointcloud = numSubscribers(this, COLOR_ORGANIZED_POINTCLOUD_TOPIC) > 0 && left_luma && left_chroma;
 
     if (!(pub_pointcloud || pub_color_pointcloud || pub_organized_pointcloud || pub_color_organized_pointcloud))
     {
@@ -1007,7 +1007,7 @@ void Camera::pointCloudCallback(const image::Header& header)
     {
         for (size_t x = 0 ; x < header.width ; ++x)
         {
-            size_t index = y * header.width + x;
+            const size_t index = y * header.width + x;
 
             double disparity = 0.0f;
             switch(header.bitsPerPixel)
@@ -1054,7 +1054,7 @@ void Camera::pointCloudCallback(const image::Header& header)
             const Eigen::Vector3f point = ((Q * Eigen::Vector4d(static_cast<double>(x),
                                                                 static_cast<double>(y),
                                                                 disparity,
-                                                                1.0)).hnormalized()). cast<float>();
+                                                                1.0)).hnormalized()).cast<float>();
 
 
             const bool valid = isValidReprojectedPoint(point, pointcloud_max_range_);
@@ -1072,13 +1072,16 @@ void Camera::pointCloudCallback(const image::Header& header)
 
             if (pub_organized_pointcloud)
             {
+                const Eigen::Vector3f organized_point = valid ? point : invalid_point;
+
                 const auto luma_rect_ptr = left_luma_rect.value();
-                writePoint(luma_organized_point_cloud_, index, valid ? point : invalid_point, luma_rect_ptr->data());
+                writePoint(luma_organized_point_cloud_, index, organized_point, luma_rect_ptr->data());
             }
 
             if (pub_color_organized_pointcloud)
             {
-                writePoint(color_organized_point_cloud_, index, valid ? point : invalid_point, packed_color);
+                const Eigen::Vector3f organized_point = valid ? point : invalid_point;
+                writePoint(color_organized_point_cloud_, index, organized_point, packed_color);
             }
 
             ++valid_points;
