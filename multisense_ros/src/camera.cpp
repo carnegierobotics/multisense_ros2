@@ -97,27 +97,33 @@ void writePoint(sensor_msgs::msg::PointCloud2 &pointcloud, size_t index, const E
     cloudP[0] = point[0];
     cloudP[1] = point[1];
     cloudP[2] = point[2];
-    cloudP[3] = color;
+
+    uint32_t* colorP = reinterpret_cast<uint32_t*>(&(cloudP[3]));
+    colorP[0] = color;
 }
 
-void writePoint(sensor_msgs::msg::PointCloud2 &pointcloud, size_t index, const Eigen::Vector3f &point, const image::Header &image)
+void writePoint(sensor_msgs::msg::PointCloud2 &pointcloud,
+                size_t pointcloud_index,
+                const Eigen::Vector3f &point,
+                size_t image_index,
+                const image::Header &image)
 {
     switch (image.bitsPerPixel)
     {
         case 8:
         {
-            const uint32_t luma = static_cast<uint32_t>(reinterpret_cast<const uint8_t*>(image.imageDataP)[index]);
-            return writePoint(pointcloud, index, point, luma);
+            const uint32_t luma = static_cast<uint32_t>(reinterpret_cast<const uint8_t*>(image.imageDataP)[image_index]);
+            return writePoint(pointcloud, pointcloud_index, point, luma);
         }
         case 16:
         {
-            const uint32_t luma = static_cast<uint32_t>(reinterpret_cast<const uint16_t*>(image.imageDataP)[index]);
-            return writePoint(pointcloud, index, point, luma);
+            const uint32_t luma = static_cast<uint32_t>(reinterpret_cast<const uint16_t*>(image.imageDataP)[image_index]);
+            return writePoint(pointcloud, pointcloud_index, point, luma);
         }
         case 32:
         {
-            const uint32_t luma = reinterpret_cast<const uint32_t*>(image.imageDataP)[index];
-            return writePoint(pointcloud, index, point, luma);
+            const uint32_t luma = reinterpret_cast<const uint32_t*>(image.imageDataP)[image_index];
+            return writePoint(pointcloud, pointcloud_index, point, luma);
         }
     }
 }
@@ -968,8 +974,6 @@ void Camera::pointCloudCallback(const image::Header& header)
     //
     // Iterate through our disparity image once populating our pointcloud structures if we plan to publish them
 
-    const auto left_remap = stereo_calibration_manager_->leftRemap();
-
     const Eigen::Matrix4d Q = stereo_calibration_manager_->Q();
 
     const Eigen::Vector3f invalid_point(std::numeric_limits<float>::quiet_NaN(),
@@ -982,12 +986,16 @@ void Camera::pointCloudCallback(const image::Header& header)
         const auto luma_ptr = left_luma.value();
         const auto &luma = luma_ptr->data();
 
+        const auto chroma_ptr = left_chroma.value();
+
         pointcloud_color_buffer_.resize(3 * luma.width * luma.height);
         pointcloud_rect_color_buffer_.resize(3 * luma.width * luma.height);
-        ycbcrToBgr(luma, left_chroma.value()->data(), &pointcloud_color_buffer_[0]);
+        ycbcrToBgr(luma, chroma_ptr->data(), &(pointcloud_color_buffer_[0]));
 
         cv::Mat rgb_image(luma.height, luma.width, CV_8UC3, &(pointcloud_color_buffer_[0]));
         cv::Mat rect_rgb_image(luma.height, luma.width, CV_8UC3, &(pointcloud_rect_color_buffer_[0]));
+
+        const auto left_remap = stereo_calibration_manager_->leftRemap();
 
         cv::remap(rgb_image, rect_rgb_image, left_remap->map1, left_remap->map2, cv::INTER_LINEAR);
 
@@ -1025,8 +1033,9 @@ void Camera::pointCloudCallback(const image::Header& header)
 
             if (rectified_color)
             {
-                const auto color_pixel = rectified_color.value().at<cv::Vec3b>(x, y);
-                packed_color = color_pixel[2] << 16 | color_pixel[1] << 8 | color_pixel[0];
+                packed_color = 0;
+                const auto color_pixel = rectified_color.value().at<cv::Vec3b>(y, x);
+                packed_color |= color_pixel[2] << 16 | color_pixel[1] << 8 | color_pixel[0];
             }
 
             if (disparity == 0.0f || clipPoint(border_clip_type_, border_clip_value_, header.width, header.height, x, y))
@@ -1034,7 +1043,7 @@ void Camera::pointCloudCallback(const image::Header& header)
                 if (pub_organized_pointcloud)
                 {
                     const auto luma_rect_ptr = left_luma_rect.value();
-                    writePoint(luma_organized_point_cloud_, index, invalid_point, luma_rect_ptr->data());
+                    writePoint(luma_organized_point_cloud_, index, invalid_point, index, luma_rect_ptr->data());
                 }
 
                 if (pub_color_organized_pointcloud)
@@ -1056,7 +1065,7 @@ void Camera::pointCloudCallback(const image::Header& header)
             if (pub_pointcloud && valid)
             {
                 const auto luma_rect_ptr = left_luma_rect.value();
-                writePoint(luma_point_cloud_, valid_points, point, luma_rect_ptr->data());
+                writePoint(luma_point_cloud_, valid_points, point, index, luma_rect_ptr->data());
             }
 
             if(pub_color_pointcloud && valid)
@@ -1067,7 +1076,7 @@ void Camera::pointCloudCallback(const image::Header& header)
             if (pub_organized_pointcloud)
             {
                 const auto luma_rect_ptr = left_luma_rect.value();
-                writePoint(luma_organized_point_cloud_, index, valid ? point : invalid_point, luma_rect_ptr->data());
+                writePoint(luma_organized_point_cloud_, index, valid ? point : invalid_point, index, luma_rect_ptr->data());
             }
 
             if (pub_color_organized_pointcloud)
@@ -1154,7 +1163,6 @@ void Camera::colorImageCallback(const image::Header& header)
 {
     if (Source_Luma_Left  != header.source && Source_Chroma_Left != header.source)
     {
-
         RCLCPP_ERROR(get_logger(), "Camera: unexpected image source: 0x%x", header.source);
         return;
     }
