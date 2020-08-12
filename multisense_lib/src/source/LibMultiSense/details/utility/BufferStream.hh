@@ -39,7 +39,10 @@
 #ifndef CRL_MULTISENSE_BUFFERSTREAM_HH
 #define CRL_MULTISENSE_BUFFERSTREAM_HH
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
 #include "Exception.hh"
+#pragma clang diagnostic pop
 #include "TimeStamp.hh"
 #include "ReferenceCount.hh"
 #include "Portability.hh"
