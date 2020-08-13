@@ -86,9 +86,9 @@ void dispCB(const image::Header& header, void* userDataP)
 void histCB(const image::Header& header, void* userDataP)
 { reinterpret_cast<Camera*>(userDataP)->histogramCallback(header); }
 
-bool isValidReprojectedPoint(const Eigen::Vector3f& pt, double maxRange)
+bool isValidReprojectedPoint(const Eigen::Vector3f& pt, double squared_max_range)
 {
-    return pt[2] > 0.0f && std::isfinite(pt[2]) && pt.norm() < maxRange;
+    return pt[2] > 0.0f && std::isfinite(pt[2]) && pt.squaredNorm() < squared_max_range;
 }
 
 void writePoint(sensor_msgs::msg::PointCloud2 &pointcloud, size_t index, const Eigen::Vector3f &point, uint32_t color)
@@ -354,7 +354,7 @@ Camera::Camera(const std::string& node_name,
     driver_->addIsolatedCallback(rectCB,  Source_Luma_Rectified_Left | Source_Luma_Rectified_Right, this);
     driver_->addIsolatedCallback(depthCB, Source_Disparity, this);
     driver_->addIsolatedCallback(pointCB, Source_Disparity, this);
-    driver_->addIsolatedCallback(rawCB,   Source_Disparity | Source_Luma_Rectified_Left, this);
+    driver_->addIsolatedCallback(rawCB,   Source_Disparity, this);
     driver_->addIsolatedCallback(colorCB, Source_Luma_Left | Source_Chroma_Left, this);
     driver_->addIsolatedCallback(dispCB,  Source_Disparity | Source_Disparity_Right | Source_Disparity_Cost, this);
     driver_->addIsolatedCallback(histCB,  allImageSources, this);
@@ -427,9 +427,9 @@ void Camera::disparityImageCallback(const image::Header& header)
         return;
     }
 
-    const uint32_t imageSize = (header.width * header.height * header.bitsPerPixel) / 8;
+    const size_t image_size = (header.width * header.height * header.bitsPerPixel) / 8;
 
-    rclcpp::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
+    const rclcpp::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
     switch(header.source) {
     case Source_Disparity:
@@ -471,8 +471,8 @@ void Camera::disparityImageCallback(const image::Header& header)
 
         if (numSubscribers(node, DISPARITY_TOPIC) > 0)
         {
-            imageP->data.resize(imageSize);
-            memcpy(&imageP->data[0], header.imageDataP, imageSize);
+            imageP->data.resize(image_size);
+            memcpy(&imageP->data[0], header.imageDataP, image_size);
 
             imageP->header.stamp    = t;
             imageP->height          = header.height;
@@ -569,8 +569,8 @@ void Camera::disparityImageCallback(const image::Header& header)
     }
     case Source_Disparity_Cost:
 
-        left_disparity_cost_image_.data.resize(imageSize);
-        memcpy(&left_disparity_cost_image_.data[0], header.imageDataP, imageSize);
+        left_disparity_cost_image_.data.resize(image_size);
+        memcpy(&left_disparity_cost_image_.data[0], header.imageDataP, image_size);
 
         left_disparity_cost_image_.header.frame_id = frame_id_left_;
         left_disparity_cost_image_.header.stamp    = t;
@@ -597,7 +597,7 @@ void Camera::monoCallback(const image::Header& header)
         return;
     }
 
-    rclcpp::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
+    const rclcpp::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
     switch(header.source)
     {
@@ -672,22 +672,21 @@ void Camera::monoCallback(const image::Header& header)
 
 void Camera::rectCallback(const image::Header& header)
 {
-    if (Source_Luma_Rectified_Left  != header.source &&
-        Source_Luma_Rectified_Right != header.source) {
+    if (Source_Luma_Rectified_Left  != header.source && Source_Luma_Rectified_Right != header.source) {
 
         RCLCPP_ERROR(get_logger(), "Camera: unexpected image source: 0x%x", header.source);
         return;
     }
 
     //
-    // We need the rectified images for colorizing pointclouds
+    // We need the rectified images for colorizing pointclouds and publishing raw_cam_data
 
     if (Source_Luma_Rectified_Left == header.source)
     {
         image_buffers_[header.source] = std::make_shared<BufferWrapper<crl::multisense::image::Header>>(driver_, header);
     }
 
-    rclcpp::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
+    const rclcpp::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
     switch(header.source)
     {
@@ -787,7 +786,7 @@ void Camera::depthCallback(const image::Header& header)
     const uint32_t niDepthSize = header.height * header.width * sizeof(uint16_t);
     const uint32_t imageSize = header.width * header.height;
 
-    rclcpp::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
+    const rclcpp::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
     depth_image_.header.stamp = t;
     depth_image_.header.frame_id = frame_id_left_;
     depth_image_.height          = header.height;
@@ -901,26 +900,26 @@ void Camera::pointCloudCallback(const image::Header& header)
     //
     // Get the corresponding visual images so we can colorize properly
 
-    std::optional<std::shared_ptr<BufferWrapper<image::Header>>> left_luma_rect = std::nullopt;
-    std::optional<std::shared_ptr<BufferWrapper<image::Header>>> left_luma = std::nullopt;
-    std::optional<std::shared_ptr<BufferWrapper<image::Header>>> left_chroma = std::nullopt;
+    std::shared_ptr<BufferWrapper<image::Header>> left_luma_rect = nullptr;
+    std::shared_ptr<BufferWrapper<image::Header>> left_luma = nullptr;
+    std::shared_ptr<BufferWrapper<image::Header>> left_chroma = nullptr;
 
     if (const auto image = image_buffers_.find(Source_Luma_Rectified_Left);
             image != std::end(image_buffers_) && image->second->data().frameId == header.frameId)
     {
-        left_luma_rect = std::make_optional(image->second);
+        left_luma_rect = image->second;
     }
 
     if (const auto image = image_buffers_.find(Source_Luma_Left);
             image != std::end(image_buffers_) && image->second->data().frameId == header.frameId)
     {
-        left_luma = std::make_optional(image->second);
+        left_luma = image->second;
     }
 
     if (const auto image = image_buffers_.find(Source_Chroma_Left);
             image != std::end(image_buffers_) && image->second->data().frameId == header.frameId)
     {
-        left_chroma = std::make_optional(image->second);
+        left_chroma = image->second;
     }
 
     //
@@ -936,7 +935,7 @@ void Camera::pointCloudCallback(const image::Header& header)
         return;
     }
 
-    rclcpp::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
+    const rclcpp::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
 
     //
     // Resize our corresponding pointclouds if we plan on publishing them
@@ -971,26 +970,23 @@ void Camera::pointCloudCallback(const image::Header& header)
         color_organized_point_cloud_.row_step = header.width * color_organized_point_cloud_.point_step;
     }
 
-    //
-    // Iterate through our disparity image once populating our pointcloud structures if we plan to publish them
-
     const Eigen::Matrix4d Q = stereo_calibration_manager_->Q();
 
     const Eigen::Vector3f invalid_point(std::numeric_limits<float>::quiet_NaN(),
                                         std::numeric_limits<float>::quiet_NaN(),
                                         std::numeric_limits<float>::quiet_NaN());
 
+    //
+    // Create rectified color image upfront if we are planning to publish color pointclouds
+
     std::optional<cv::Mat> rectified_color = std::nullopt;
     if (pub_color_pointcloud || pub_color_organized_pointcloud)
     {
-        const auto luma_ptr = left_luma.value();
-        const auto &luma = luma_ptr->data();
-
-        const auto chroma_ptr = left_chroma.value();
+        const auto &luma = left_luma->data();
 
         pointcloud_color_buffer_.resize(3 * luma.width * luma.height);
         pointcloud_rect_color_buffer_.resize(3 * luma.width * luma.height);
-        ycbcrToBgr(luma, chroma_ptr->data(), &(pointcloud_color_buffer_[0]));
+        ycbcrToBgr(luma, left_chroma->data(), &(pointcloud_color_buffer_[0]));
 
         cv::Mat rgb_image(luma.height, luma.width, CV_8UC3, &(pointcloud_color_buffer_[0]));
         cv::Mat rect_rgb_image(luma.height, luma.width, CV_8UC3, &(pointcloud_rect_color_buffer_[0]));
@@ -1002,7 +998,12 @@ void Camera::pointCloudCallback(const image::Header& header)
         rectified_color = std::make_optional(std::move(rect_rgb_image));
     }
 
+    //
+    // Iterate through our disparity image once populating our pointcloud structures if we plan to publish them
+
     uint32_t packed_color = 0;
+
+    const double squared_max_range = pointcloud_max_range_ * pointcloud_max_range_;
 
     size_t valid_points = 0;
     for (size_t y = 0 ; y < header.height ; ++y)
@@ -1031,6 +1032,10 @@ void Camera::pointCloudCallback(const image::Header& header)
                 }
             }
 
+            //
+            // We have a valid rectified color image meaning we plan to publish color pointcloud topics. Assembe the
+            // color pixel here since it may be needed in our organized pointclouds
+
             if (rectified_color)
             {
                 packed_color = 0;
@@ -1038,21 +1043,24 @@ void Camera::pointCloudCallback(const image::Header& header)
                 packed_color |= color_pixel[2] << 16 | color_pixel[1] << 8 | color_pixel[0];
             }
 
+            //
+            // If our disparity is 0 pixels our corresponding 3D point is infinite. If we plan to publish organized
+            // pointclouds we will need to add a invalid point to our pointcloud(s)
+
             if (disparity == 0.0f || clipPoint(border_clip_type_, border_clip_value_, header.width, header.height, x, y))
             {
                 if (pub_organized_pointcloud)
                 {
-                    const auto luma_rect_ptr = left_luma_rect.value();
-                    writePoint(luma_organized_point_cloud_, index, invalid_point, index, luma_rect_ptr->data());
+                    writePoint(luma_organized_point_cloud_, index, invalid_point, index, left_luma_rect->data());
                 }
 
                 if (pub_color_organized_pointcloud)
                 {
                     writePoint(color_organized_point_cloud_, index, invalid_point, packed_color);
                 }
+
                 continue;
             }
-
 
             const Eigen::Vector3f point = ((Q * Eigen::Vector4d(static_cast<double>(x),
                                                                 static_cast<double>(y),
@@ -1060,12 +1068,11 @@ void Camera::pointCloudCallback(const image::Header& header)
                                                                 1.0)).hnormalized()).cast<float>();
 
 
-            const bool valid = isValidReprojectedPoint(point, pointcloud_max_range_);
+            const bool valid = isValidReprojectedPoint(point, squared_max_range);
 
             if (pub_pointcloud && valid)
             {
-                const auto luma_rect_ptr = left_luma_rect.value();
-                writePoint(luma_point_cloud_, valid_points, point, index, luma_rect_ptr->data());
+                writePoint(luma_point_cloud_, valid_points, point, index, left_luma_rect->data());
             }
 
             if(pub_color_pointcloud && valid)
@@ -1075,8 +1082,7 @@ void Camera::pointCloudCallback(const image::Header& header)
 
             if (pub_organized_pointcloud)
             {
-                const auto luma_rect_ptr = left_luma_rect.value();
-                writePoint(luma_organized_point_cloud_, index, valid ? point : invalid_point, index, luma_rect_ptr->data());
+                writePoint(luma_organized_point_cloud_, index, valid ? point : invalid_point, index, left_luma_rect->data());
             }
 
             if (pub_color_organized_pointcloud)
@@ -1173,7 +1179,10 @@ void Camera::colorImageCallback(const image::Header& header)
 
     image_buffers_[header.source] = std::make_shared<BufferWrapper<crl::multisense::image::Header>>(driver_, header);
 
-    if (numSubscribers(left_node_, COLOR_TOPIC) == 0 && numSubscribers(left_node_, RECT_COLOR_TOPIC) == 0)
+    const color_subscribers = numSubscribers(left_node_, COLOR_TOPIC);
+    const color_rect_subscribers = numSubscribers(left_node_, RECT_COLOR_TOPIC);
+
+    if (color_subscribers == 0 && color_rect_subscribers == 0)
     {
         return;
     }
@@ -1195,6 +1204,8 @@ void Camera::colorImageCallback(const image::Header& header)
 
         if (header.frameId == luma_ptr->data().frameId)
         {
+            const rclcpp::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
+
             const size_t height    = luma_ptr->data().height;
             const size_t width     = luma_ptr->data().width;
             const size_t image_size = 3 * height * width;
@@ -1202,7 +1213,6 @@ void Camera::colorImageCallback(const image::Header& header)
             left_rgb_image_.data.resize(image_size);
 
             left_rgb_image_.header.frame_id = frame_id_left_;
-            rclcpp::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
             left_rgb_image_.header.stamp = t;
             left_rgb_image_.height = height;
             left_rgb_image_.width  = width;
@@ -1216,14 +1226,14 @@ void Camera::colorImageCallback(const image::Header& header)
 
             ycbcrToBgr(luma_ptr->data(), header, reinterpret_cast<uint8_t*>(&(left_rgb_image_.data[0])));
 
-            if (numSubscribers(left_node_, COLOR_TOPIC) != 0)
+            if (color_subscribers != 0)
             {
                 left_rgb_cam_pub_->publish(left_rgb_image_);
 
                 left_rgb_cam_info_pub_->publish(stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t));
             }
 
-            if (numSubscribers(left_node_, RECT_COLOR_TOPIC) > 0)
+            if (color_rect_subscribers > 0)
             {
                 left_rgb_rect_image_.data.resize(image_size);
 
@@ -1234,7 +1244,6 @@ void Camera::colorImageCallback(const image::Header& header)
 
                 cv::remap(rgb_image, rect_rgb_image, remaps->map1, remaps->map2, cv::INTER_LINEAR);
 
-                rclcpp::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
                 left_rgb_rect_image_.header.frame_id = frame_id_left_;
                 left_rgb_rect_image_.header.stamp    = t;
                 left_rgb_rect_image_.height          = height;

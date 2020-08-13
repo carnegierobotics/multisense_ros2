@@ -13,6 +13,7 @@
   <buildtool_depend>eigen3_cmake_module</buildtool_depend>
   <buildtool_depend>yaml-cpp</buildtool_depend>
 
+  <build_depend>angles</build_depend>
   <build_depend>eigen</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>libopencv-dev</build_depend>
@@ -24,6 +25,8 @@
   <build_depend>tf2</build_depend>
   <build_depend>tf2_ros</build_depend>
 
+  <exec_depend>angles</exec_depend>
+  <exec_depend>eigen</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>libopencv-dev</exec_depend>
   <exec_depend>multisense_lib</exec_depend>
@@ -33,6 +36,7 @@
   <exec_depend>stereo_msgs</exec_depend>
   <exec_depend>tf2</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>xacro</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

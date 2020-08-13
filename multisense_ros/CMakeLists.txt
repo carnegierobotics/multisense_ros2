@@ -16,6 +16,7 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif ()
 
 find_package(ament_cmake REQUIRED)
+find_package(angles REQUIRED)
 find_package(eigen3_cmake_module REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -41,6 +42,7 @@ add_library(${PROJECT_NAME} src/camera.cpp
                             src/status.cpp)
 
 ament_target_dependencies(${PROJECT_NAME}
+                         angles
                          Eigen3
                          geometry_msgs
                          multisense_lib

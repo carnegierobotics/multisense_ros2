@@ -24,8 +24,13 @@ colcon build
 source install/setup.bash
 ```
 
-Note the recent foxy release does not have a pre-built xacro package. Until this is available xacro must be manually
-built alongside the multisense_ros2 driver. Assuming the installation instructions above were followed:
+The launch file depends on xacro being installed. To install:
+```
+sudo apt install ros-<distro>-xacro
+```
+
+If your release does not have a pre-built xacro package, you can build it manually
+alongside the multisense_ros2 driver. Assuming the installation instructions above were followed:
 
 ```
 cd ros2_ws/src
