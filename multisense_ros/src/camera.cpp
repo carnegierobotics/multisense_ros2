@@ -1179,8 +1179,8 @@ void Camera::colorImageCallback(const image::Header& header)
 
     image_buffers_[header.source] = std::make_shared<BufferWrapper<crl::multisense::image::Header>>(driver_, header);
 
-    const color_subscribers = numSubscribers(left_node_, COLOR_TOPIC);
-    const color_rect_subscribers = numSubscribers(left_node_, RECT_COLOR_TOPIC);
+    const auto color_subscribers = numSubscribers(left_node_, COLOR_TOPIC);
+    const auto color_rect_subscribers = numSubscribers(left_node_, RECT_COLOR_TOPIC);
 
     if (color_subscribers == 0 && color_rect_subscribers == 0)
     {
