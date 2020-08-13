@@ -17,6 +17,8 @@ endif ()
 
 find_package(ament_cmake REQUIRED)
 find_package(angles REQUIRED)
+find_package(eigen3_cmake_module REQUIRED)
+find_package(Eigen3 REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(multisense_lib REQUIRED)
 find_package(multisense_msgs REQUIRED)
@@ -34,12 +36,14 @@ add_library(${PROJECT_NAME} src/camera.cpp
                             src/config.cpp
                             src/imu.cpp
                             src/laser.cpp
+                            src/parameter_utilities.cpp
+                            src/point_cloud_utilities.cpp
                             src/pps.cpp
-                            src/status.cpp
-                            src/utility.cpp)
+                            src/status.cpp)
 
 ament_target_dependencies(${PROJECT_NAME}
                          angles
+                         Eigen3
                          geometry_msgs
                          multisense_lib
                          multisense_msgs

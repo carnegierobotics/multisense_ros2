@@ -35,7 +35,7 @@
 #include <cmath>
 
 #include <multisense_ros/imu.h>
-#include <multisense_ros/utility.h>
+#include <multisense_ros/parameter_utilities.h>
 
 using namespace crl::multisense;
 using namespace std::chrono_literals;

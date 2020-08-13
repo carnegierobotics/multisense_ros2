@@ -31,6 +31,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
+#include <algorithm>
+
 #include <sensor_msgs/distortion_models.hpp>
 
 #include <multisense_ros/camera_utilities.h>
@@ -51,7 +53,7 @@ ScaleT compute_scale(const crl::multisense::image::Config &config,
                      const crl::multisense::system::DeviceInfo& device_info)
 {
 
-    const auto crop = config.camMode();
+    const auto crop = config.camMode() == 2000;
 
     const double x_scale = 1.0 / ((static_cast<double>(device_info.imagerWidth) /
                                    static_cast<double>(config.width())));
@@ -72,11 +74,62 @@ ScaleT compute_scale(const crl::multisense::image::Config &config,
 
 }// namespace
 
-cv::Matx44d makeQ(const crl::multisense::image::Config& config,
-                  const crl::multisense::image::Calibration& calibration,
-                  const crl::multisense::system::DeviceInfo& device_info)
+void ycbcrToBgr(const crl::multisense::image::Header &luma,
+                const crl::multisense::image::Header &chroma,
+                uint8_t *output)
 {
-    cv::Matx44d q_matrix;
+    const size_t rgb_stride = luma.width * 3;
+
+    for(uint32_t y=0; y< luma.height; ++y)
+    {
+        for(uint32_t x=0; x< luma.width; ++x)
+        {
+            const auto &[px_b, px_g, px_r] = ycbcrToBgr(luma, chroma, x, y);
+
+            const size_t rgb_offset = (y * rgb_stride) + (3 * x);
+
+            output[rgb_offset + 0] = px_b;
+            output[rgb_offset + 1] = px_g;
+            output[rgb_offset + 2] = px_r;
+        }
+    }
+}
+
+
+std::tuple<uint8_t, uint8_t, uint8_t> ycbcrToBgr(const crl::multisense::image::Header &luma,
+                                                 const crl::multisense::image::Header &chroma,
+                                                 size_t u,
+                                                 size_t v)
+{
+    const uint8_t *lumaP = reinterpret_cast<const uint8_t*>(luma.imageDataP);
+    const uint8_t *chromaP = reinterpret_cast<const uint8_t*>(chroma.imageDataP);
+
+    const size_t luma_offset = (v * luma.width) + u;
+    const size_t chroma_offset = 2 * (((v/2) * (luma.width/2)) + (u/2));
+
+    const float px_y = static_cast<float>(lumaP[luma_offset]);
+    const float px_cb = static_cast<float>(chromaP[chroma_offset+0]) - 128.0f;
+    const float px_cr = static_cast<float>(chromaP[chroma_offset+1]) - 128.0f;
+
+    float px_r  = px_y + 1.402f   * px_cr;
+    float px_g  = px_y - 0.34414f * px_cb - 0.71414f * px_cr;
+    float px_b  = px_y + 1.772f   * px_cb;
+
+    if (px_r < 0.0f)        px_r = 0.0f;
+    else if (px_r > 255.0f) px_r = 255.0f;
+    if (px_g < 0.0f)        px_g = 0.0f;
+    else if (px_g > 255.0f) px_g = 255.0f;
+    if (px_b < 0.0f)        px_b = 0.0f;
+    else if (px_b > 255.0f) px_b = 255.0f;
+
+    return std::make_tuple(static_cast<uint8_t>(px_b), static_cast<uint8_t>(px_g), static_cast<uint8_t>(px_r));
+}
+
+Eigen::Matrix4d makeQ(const crl::multisense::image::Config& config,
+                      const crl::multisense::image::Calibration& calibration,
+                      const crl::multisense::system::DeviceInfo& device_info)
+{
+    Eigen::Matrix4d q_matrix = Eigen::Matrix4d::Zero();
 
     const auto scale = compute_scale(config, device_info);
 
@@ -232,8 +285,8 @@ StereoCalibrationManger::StereoCalibrationManger(const crl::multisense::image::C
     q_matrix_(makeQ(config_, calibration_, device_info_)),
     left_camera_info_(makeCameraInfo(config_, calibration_.left, device_info_)),
     right_camera_info_(makeCameraInfo(config_, calibration_.right, device_info_)),
-    left_remap_(makeRectificationRemap(config_, calibration_.left, device_info_)),
-    right_remap_(makeRectificationRemap(config_, calibration_.right, device_info_))
+    left_remap_(std::make_shared<RectificationRemapT>(makeRectificationRemap(config_, calibration_.left, device_info_))),
+    right_remap_(std::make_shared<RectificationRemapT>(makeRectificationRemap(config_, calibration_.right, device_info_)))
 {
 }
 
@@ -252,8 +305,8 @@ void StereoCalibrationManger::updateConfig(const crl::multisense::image::Config&
     auto q_matrix = makeQ(config, calibration_, device_info_);
     auto left_camera_info = makeCameraInfo(config, calibration_.left, device_info_);
     auto right_camera_info = makeCameraInfo(config, calibration_.right, device_info_);
-    auto left_remap = makeRectificationRemap(config_, calibration_.left, device_info_);
-    auto right_remap = makeRectificationRemap(config_, calibration_.right, device_info_);
+    auto left_remap = std::make_shared<RectificationRemapT>(makeRectificationRemap(config_, calibration_.left, device_info_));
+    auto right_remap = std::make_shared<RectificationRemapT>(makeRectificationRemap(config_, calibration_.right, device_info_));
 
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -261,8 +314,8 @@ void StereoCalibrationManger::updateConfig(const crl::multisense::image::Config&
     q_matrix_ = std::move(q_matrix);
     left_camera_info_ = std::move(left_camera_info);
     right_camera_info_ = std::move(right_camera_info);
-    left_remap_ = std::move(left_remap);
-    right_remap_ = std::move(right_remap);
+    left_remap_ = left_remap;
+    right_remap_ = right_remap;
 }
 
 crl::multisense::image::Config StereoCalibrationManger::config() const
@@ -272,7 +325,7 @@ crl::multisense::image::Config StereoCalibrationManger::config() const
     return config_;
 }
 
-cv::Matx44d StereoCalibrationManger::Q() const
+Eigen::Matrix4d StereoCalibrationManger::Q() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -317,14 +370,14 @@ sensor_msgs::msg::CameraInfo StereoCalibrationManger::rightCameraInfo(const std:
     return camera_info;
 }
 
-RectificationRemapT StereoCalibrationManger::leftRemap() const
+std::shared_ptr<RectificationRemapT> StereoCalibrationManger::leftRemap() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
     return left_remap_;
 }
 
-RectificationRemapT StereoCalibrationManger::rightRemap() const
+std::shared_ptr<RectificationRemapT> StereoCalibrationManger::rightRemap() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
 

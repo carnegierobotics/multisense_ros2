@@ -32,7 +32,7 @@
  **/
 
 #include <multisense_ros/config.h>
-#include <multisense_ros/utility.h>
+#include <multisense_ros/parameter_utilities.h>
 
 namespace multisense_ros {
 

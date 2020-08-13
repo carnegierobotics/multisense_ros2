@@ -37,11 +37,13 @@
 #include <tuple>
 #include <mutex>
 
+#include <Eigen/Core>
 #include <opencv2/opencv.hpp>
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 
+#include <LibMultiSense/MultiSenseChannel.hh>
 #include <LibMultiSense/MultiSenseTypes.hh>
 
 namespace multisense_ros {
@@ -52,9 +54,51 @@ struct RectificationRemapT
     cv::Mat map2;
 };
 
-cv::Matx44d makeQ(const crl::multisense::image::Config& config,
-                  const crl::multisense::image::Calibration& calibration,
-                  const crl::multisense::system::DeviceInfo& device_info);
+template <typename T>
+class BufferWrapper
+{
+public:
+    BufferWrapper(crl::multisense::Channel* driver,
+                 const T &data):
+        driver_(driver),
+        callback_buffer_(driver->reserveCallbackBuffer()),
+        data_(data)
+    {
+    }
+
+    ~BufferWrapper()
+    {
+        driver_->releaseCallbackBuffer(callback_buffer_);
+    }
+
+    const T &data() const noexcept
+    {
+        return data_;
+    }
+
+private:
+
+    BufferWrapper(const BufferWrapper&) = delete;
+    BufferWrapper operator=(const BufferWrapper&) = delete;
+
+    crl::multisense::Channel * driver_;
+    void* callback_buffer_;
+    const T data_;
+
+};
+
+void ycbcrToBgr(const crl::multisense::image::Header &luma,
+                const crl::multisense::image::Header &chroma,
+                uint8_t *output);
+
+std::tuple<uint8_t, uint8_t, uint8_t> ycbcrToBgr(const crl::multisense::image::Header &luma,
+                                                 const crl::multisense::image::Header &chroma,
+                                                 size_t u,
+                                                 size_t v);
+
+Eigen::Matrix4d makeQ(const crl::multisense::image::Config& config,
+                      const crl::multisense::image::Calibration& calibration,
+                      const crl::multisense::system::DeviceInfo& device_info);
 
 sensor_msgs::msg::CameraInfo makeCameraInfo(const crl::multisense::image::Config& config,
                                             const crl::multisense::image::Calibration::Data& calibration,
@@ -66,6 +110,7 @@ RectificationRemapT makeRectificationRemap(const crl::multisense::image::Config&
 class StereoCalibrationManger
 {
 public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     RCLCPP_SMART_PTR_DEFINITIONS(StereoCalibrationManger)
 
     StereoCalibrationManger(const crl::multisense::image::Config& config,
@@ -80,7 +125,7 @@ public:
     /// @brief Q stereo reprojection matrix see:
     /// https://docs.opencv.org/4.3.0/d9/d0c/group__calib3d.html#ga1bc1152bd57d63bc524204f21fde6e02
     ///
-    cv::Matx44d Q() const;
+    Eigen::Matrix4d Q() const;
 
     ///
     /// @brief Translation which transforms points from the right camera frame into the left camera frame
@@ -90,8 +135,8 @@ public:
     sensor_msgs::msg::CameraInfo leftCameraInfo(const std::string& frame_id, const rclcpp::Time& stamp) const;
     sensor_msgs::msg::CameraInfo rightCameraInfo(const std::string& frame_id, const rclcpp::Time& stamp) const;
 
-    RectificationRemapT leftRemap() const;
-    RectificationRemapT rightRemap() const;
+    std::shared_ptr<RectificationRemapT> leftRemap() const;
+    std::shared_ptr<RectificationRemapT> rightRemap() const;
 
 private:
 
@@ -107,13 +152,13 @@ private:
     //
     // Cache for quick queries
 
-    cv::Matx44d q_matrix_;
+    Eigen::Matrix4d q_matrix_;
 
     sensor_msgs::msg::CameraInfo left_camera_info_;
     sensor_msgs::msg::CameraInfo right_camera_info_;
 
-    RectificationRemapT left_remap_;
-    RectificationRemapT right_remap_;
+    std::shared_ptr<RectificationRemapT> left_remap_;
+    std::shared_ptr<RectificationRemapT> right_remap_;
 };
 
 }// namespace
