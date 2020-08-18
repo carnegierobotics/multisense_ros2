@@ -23,9 +23,9 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 
-add_subdirectory(src)
+add_subdirectory(LibMultiSense)
 
-ament_export_include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/source/LibMultiSense/include)
+ament_export_include_directories(${CMAKE_CURRENT_SOURCE_DIR}/LibMultiSense/source)
 ament_export_libraries(MultiSense)
 
 ament_package()

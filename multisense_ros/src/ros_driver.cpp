@@ -97,7 +97,7 @@ int main(int argc, char** argv)
         if (const auto status = d->setMtu(sensor_mtu.as_int()); status != Status_Ok)
         {
             RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: failed to set sensor MTU to %d: %s",
-                         sensor_mtu, Channel::statusString(status));
+                         sensor_mtu.as_int(), Channel::statusString(status));
             Channel::Destroy(d);
             return EXIT_FAILURE;
         }
