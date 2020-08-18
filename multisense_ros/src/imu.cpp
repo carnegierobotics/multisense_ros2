@@ -108,7 +108,7 @@ Imu::Imu(const std::string& node_name,
 
     if (imu_configs.empty())
     {
-        RCLCPP_INFO(get_logger(), "IMU: hardware does not support an IMU");
+        RCLCPP_INFO(get_logger(), "IMU: hardware does not support a IMU");
         return;
     }
 
