@@ -13,13 +13,14 @@ This driver was tested using Foxy Fitzroy. Earlier ROS2 distros are not supporte
 - Merge multisense_bringup and multisense_description into the multisense_ros package
 - General cleanup and port to c++17 and gcc 9.3.0
 - Update launch file to new ROS2 launch file format
+- multisense_lib has LibMultiSense as a submodule
 
 ## Build
 
 ```
 source /opt/ros/<ros2_distro>/setup.bash
 mkdir ros2_ws && cd ros2_ws
-git clone https://github.com/carnegierobotics/multisense_ros2 src
+git clone --recurse-submodules https://github.com/carnegierobotics/multisense_ros2 src
 colcon build
 source install/setup.bash
 ```
