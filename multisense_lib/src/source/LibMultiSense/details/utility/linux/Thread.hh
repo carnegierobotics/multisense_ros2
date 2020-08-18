@@ -56,7 +56,10 @@
 
 #include "details/utility/Portability.hh"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
 #include "../Exception.hh"
+#pragma clang diagnostic pop
 
 namespace crl {
 namespace multisense {
