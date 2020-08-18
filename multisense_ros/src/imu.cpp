@@ -102,8 +102,13 @@ Imu::Imu(const std::string& node_name,
     std::vector<imu::Config> imu_configs;
     if (const auto status = driver_->getImuConfig(imu_samples_per_message_, imu_configs); status != Status_Ok)
     {
-        RCLCPP_ERROR(get_logger(), "IMU: failed to query IMU config: %s",
-                  Channel::statusString(status));
+        RCLCPP_ERROR(get_logger(), "IMU: failed to query IMU config: %s", Channel::statusString(status));
+        return;
+    }
+
+    if (imu_configs.empty())
+    {
+        RCLCPP_INFO(get_logger(), "IMU: hardware does not support a IMU");
         return;
     }
 
