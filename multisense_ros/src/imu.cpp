@@ -65,6 +65,29 @@ Imu::Imu(const std::string& node_name,
     imu_samples_per_message_(30),
     active_streams_(Source_Unknown)
 {
+    //
+    // Get device info
+
+    system::DeviceInfo  device_info;
+    if (const auto status = driver_->getDeviceInfo(device_info); status != Status_Ok)
+    {
+        RCLCPP_ERROR(get_logger(), "IMU: failed to query device info: %s",
+                  Channel::statusString(status));
+        return;
+    }
+
+    switch(device_info.hardwareRevision)
+    {
+        case system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27:
+        {
+            RCLCPP_INFO(get_logger(), "IMU: hardware does not support a laser");
+            return;
+        }
+        default:
+        {
+            break;
+        }
+    }
 
     //
     // Initialize the sensor_msgs::Imu topic
