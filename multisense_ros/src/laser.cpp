@@ -127,7 +127,7 @@ Laser::Laser(const std::string& node_name,
         }
         default:
         {
-            RCLCPP_INFO(get_logger(), "hardware does not support a laser");
+            RCLCPP_INFO(get_logger(), "Laser: hardware does not support a laser");
             return;
         }
     }
