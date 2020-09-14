@@ -2138,9 +2138,16 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             return result.set__successful(false).set__reason(Channel::statusString(status));
         }
 
+        if (const auto status = driver_->getImageConfig(image_config); status != Status_Ok)
+        {
+            RCLCPP_ERROR(get_logger(), "Camera: failed to query sensor configuration: %s",
+                         Channel::statusString(status));
+
+            return result.set__successful(false).set__reason(Channel::statusString(status));
+        }
+
         //
         // This is a no-op if the resolution of the camera did not change
-
         updateConfig(image_config);
     }
 
