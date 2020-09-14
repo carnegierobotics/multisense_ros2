@@ -80,7 +80,7 @@ Imu::Imu(const std::string& node_name,
     {
         case system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27:
         {
-            RCLCPP_INFO(get_logger(), "IMU: hardware does not support a laser");
+            RCLCPP_INFO(get_logger(), "IMU: hardware does not support a imu");
             return;
         }
         default:
