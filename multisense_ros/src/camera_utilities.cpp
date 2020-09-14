@@ -305,8 +305,8 @@ void StereoCalibrationManger::updateConfig(const crl::multisense::image::Config&
     auto q_matrix = makeQ(config, calibration_, device_info_);
     auto left_camera_info = makeCameraInfo(config, calibration_.left, device_info_);
     auto right_camera_info = makeCameraInfo(config, calibration_.right, device_info_);
-    auto left_remap = std::make_shared<RectificationRemapT>(makeRectificationRemap(config_, calibration_.left, device_info_));
-    auto right_remap = std::make_shared<RectificationRemapT>(makeRectificationRemap(config_, calibration_.right, device_info_));
+    auto left_remap = std::make_shared<RectificationRemapT>(makeRectificationRemap(config, calibration_.left, device_info_));
+    auto right_remap = std::make_shared<RectificationRemapT>(makeRectificationRemap(config, calibration_.right, device_info_));
 
     std::lock_guard<std::mutex> lock(mutex_);
 
