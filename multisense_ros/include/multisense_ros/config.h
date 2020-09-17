@@ -36,7 +36,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <LibMultiSense/MultiSenseChannel.hh>
+#include <MultiSense/MultiSenseChannel.hh>
 
 namespace multisense_ros {
 

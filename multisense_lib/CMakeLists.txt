@@ -25,7 +25,8 @@ find_package(ament_cmake REQUIRED)
 
 add_subdirectory(LibMultiSense)
 
-ament_export_include_directories(${CMAKE_CURRENT_SOURCE_DIR}/LibMultiSense/source)
+ament_export_include_directories(${CMAKE_CURRENT_SOURCE_DIR}/LibMultiSense/source/LibMultiSense)
+ament_export_targets(MultiSenseConfig HAS_LIBRARY_TARGET)
 ament_export_libraries(MultiSense)
 
 ament_package()

@@ -49,7 +49,7 @@
 #include <multisense_msgs/msg/raw_cam_config.hpp>
 #include <multisense_msgs/msg/raw_cam_data.hpp>
 
-#include <LibMultiSense/MultiSenseChannel.hh>
+#include <MultiSense/MultiSenseChannel.hh>
 
 #include <multisense_ros/camera_utilities.h>
 

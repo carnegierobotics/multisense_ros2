@@ -42,7 +42,7 @@
 #include <geometry_msgs/msg/vector3_stamped.hpp>
 
 #include <multisense_msgs/msg/raw_imu_data.hpp>
-#include <LibMultiSense/MultiSenseChannel.hh>
+#include <MultiSense/MultiSenseChannel.hh>
 
 namespace multisense_ros {
 

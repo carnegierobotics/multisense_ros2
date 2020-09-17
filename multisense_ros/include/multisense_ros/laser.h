@@ -42,7 +42,7 @@
 #include <tf2/LinearMath/Transform.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 
-#include <LibMultiSense/MultiSenseChannel.hh>
+#include <MultiSense/MultiSenseChannel.hh>
 #include <multisense_msgs/msg/raw_lidar_data.hpp>
 #include <multisense_msgs/msg/raw_lidar_cal.hpp>
 

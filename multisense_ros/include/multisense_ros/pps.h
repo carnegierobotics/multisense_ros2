@@ -38,7 +38,7 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <multisense_msgs/msg/stamped_pps.hpp>
-#include <LibMultiSense/MultiSenseChannel.hh>
+#include <MultiSense/MultiSenseChannel.hh>
 
 namespace multisense_ros
 {

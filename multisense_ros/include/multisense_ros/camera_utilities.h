@@ -43,8 +43,8 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 
-#include <LibMultiSense/MultiSenseChannel.hh>
-#include <LibMultiSense/MultiSenseTypes.hh>
+#include <MultiSense/MultiSenseChannel.hh>
+#include <MultiSense/MultiSenseTypes.hh>
 
 namespace multisense_ros {
 
