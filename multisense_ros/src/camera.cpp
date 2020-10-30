@@ -1636,8 +1636,8 @@ void Camera::initalizeParameters(const image::Config& config)
 
         rcl_interfaces::msg::FloatingPointRange exposure_time_range;
         exposure_time_range.set__from_value(0.0)
-                           .set__to_value(0.5)
-                           .set__step(0.001);
+                           .set__to_value(1.0)
+                           .set__step(0.000001);
 
         rcl_interfaces::msg::ParameterDescriptor exposure_time_desc;
         exposure_time_desc.set__name("exposure_time")
