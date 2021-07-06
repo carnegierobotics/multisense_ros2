@@ -356,6 +356,27 @@ double StereoCalibrationManger::T() const
     return right_camera_info_.p[3] / right_camera_info_.p[0];
 }
 
+double StereoCalibrationManger::aux_T() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    //
+    // The aux camera projection matrix is of the form:
+    //
+    // [fx,  0, cx, t * fx]
+    // [ 0, fy, cy, 0     ]
+    // [ 0,  0,  1, 0     ]
+    //
+    // divide the t * fx term by fx to get t
+
+    return aux_camera_info_.p[3] / aux_camera_info_.p[0];
+}
+
+bool StereoCalibrationManger::validAux() const
+{
+    return std::isfinite(aux_T());
+}
+
 sensor_msgs::msg::CameraInfo StereoCalibrationManger::leftCameraInfo(const std::string& frame_id,
                                                                      const rclcpp::Time& stamp) const
 {

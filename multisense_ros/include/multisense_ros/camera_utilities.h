@@ -132,6 +132,16 @@ public:
     ///
     double T() const;
 
+    ///
+    /// @brief Translation which transforms points from the aux camera frame into the left camera frame
+    ///
+    double aux_T() const;
+
+    ///
+    /// @brief Determine if the Aux calibration is valid
+    ///
+    bool validAux() const;
+
     sensor_msgs::msg::CameraInfo leftCameraInfo(const std::string& frame_id, const rclcpp::Time& stamp) const;
     sensor_msgs::msg::CameraInfo rightCameraInfo(const std::string& frame_id, const rclcpp::Time& stamp) const;
     sensor_msgs::msg::CameraInfo auxCameraInfo(const std::string& frame_id, const rclcpp::Time& stamp) const;

@@ -38,6 +38,7 @@
 
 #include <Eigen/Geometry>
 #include <sensor_msgs/image_encodings.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 #include <multisense_msgs/msg/raw_cam_config.hpp>
 #include <multisense_msgs/msg/raw_cam_cal.hpp>
@@ -53,6 +54,19 @@ using namespace std::chrono_literals;
 namespace multisense_ros {
 
 namespace { // anonymous
+
+tf2::Matrix3x3 toRotation(float R[3][3])
+{
+    return tf2::Matrix3x3{R[0][0],
+                          R[0][1],
+                          R[0][2],
+                          R[1][0],
+                          R[1][1],
+                          R[1][2],
+                          R[2][0],
+                          R[2][1],
+                          R[2][2]};
+}
 
 //
 // All of the data sources that we control here
@@ -130,6 +144,46 @@ void writePoint(sensor_msgs::msg::PointCloud2 &pointcloud,
     }
 }
 
+bool clipPoint(const BorderClip& borderClipType,
+                      double borderClipValue,
+                      size_t height,
+                      size_t width,
+                      size_t u,
+                      size_t v)
+{
+    //
+    // Precompute the maximum radius from the center of the image for a point
+    // to be considered in the circle
+
+    switch (borderClipType)
+    {
+        case BorderClip::NONE:
+        {
+            return false;
+        }
+        case BorderClip::RECTANGULAR:
+        {
+            return !( u >= borderClipValue && u <= width - borderClipValue &&
+                      v >= borderClipValue && v <= height - borderClipValue);
+        }
+        case BorderClip::CIRCULAR:
+        {
+            const double halfWidth = static_cast<double>(width)/2.0;
+            const double halfHeight = static_cast<double>(height)/2.0;
+
+            const double radius = sqrt( halfWidth * halfWidth + halfHeight * halfHeight ) - borderClipValue;
+
+            return !(Eigen::Vector2d{halfWidth - u, halfHeight - v}.norm() < radius);
+        }
+        default:
+        {
+            break;
+        }
+    }
+
+    return true;
+}
+
 } // anonymous
 
 //
@@ -189,6 +243,7 @@ Camera::Camera(const std::string& node_name,
     frame_id_rectified_left_(tf_prefix + LEFT_RECTIFIED_FRAME),
     frame_id_rectified_right_(tf_prefix + RIGHT_RECTIFIED_FRAME),
     frame_id_rectified_aux_(tf_prefix + AUX_RECTIFIED_FRAME),
+    static_tf_broadcaster_(std::make_shared<tf2_ros::StaticTransformBroadcaster>(*this)),
     pointcloud_max_range_(15.0),
     active_streams_(Source_Unknown),
     last_frame_id_(-1),
@@ -401,6 +456,51 @@ Camera::Camera(const std::string& node_name,
     for(uint32_t i=0; i<12; i++) cal.right_p[i] = cP[i];
 
     raw_cam_cal_pub_->publish(cal);
+
+    //
+    // Publish the static transforms for our camera extrinsics for the left/right/aux frames. We will
+    // use the left camera frame as the reference coordinate frame
+
+    const bool has_aux_extrinsics = has_aux_camera_ && stereo_calibration_manager_->validAux();
+
+    std::vector<geometry_msgs::msg::TransformStamped> stamped_transforms(3 + (has_aux_extrinsics ? 2 : 0));
+
+    tf2::Transform rectified_left_T_left{toRotation(image_calibration.left.R), tf2::Vector3{0., 0., 0.}};
+    stamped_transforms[0].header.stamp = rclcpp::Clock().now();
+    stamped_transforms[0].header.frame_id = frame_id_rectified_left_;
+    stamped_transforms[0].child_frame_id = frame_id_left_;
+    stamped_transforms[0].transform = tf2::toMsg(rectified_left_T_left);
+
+    tf2::Transform rectified_right_T_rectified_left{tf2::Matrix3x3::getIdentity(),
+                                                    tf2::Vector3{stereo_calibration_manager_->T(), 0., 0.}};
+    stamped_transforms[1].header.stamp = rclcpp::Clock().now();
+    stamped_transforms[1].header.frame_id = frame_id_rectified_left_;
+    stamped_transforms[1].child_frame_id = frame_id_rectified_right_;
+    stamped_transforms[1].transform = tf2::toMsg(rectified_right_T_rectified_left.inverse());
+
+    tf2::Transform rectified_right_T_right{toRotation(image_calibration.right.R), tf2::Vector3{0., 0., 0.}};
+    stamped_transforms[2].header.stamp = rclcpp::Clock().now();
+    stamped_transforms[2].header.frame_id = frame_id_rectified_right_;
+    stamped_transforms[2].child_frame_id = frame_id_right_;
+    stamped_transforms[2].transform = tf2::toMsg(rectified_right_T_right);
+
+    if (has_aux_extrinsics)
+    {
+        tf2::Transform rectified_aux_T_rectified_left{tf2::Matrix3x3::getIdentity(),
+                                                      tf2::Vector3{stereo_calibration_manager_->aux_T(), 0., 0.}};
+        stamped_transforms[3].header.stamp = rclcpp::Clock().now();
+        stamped_transforms[3].header.frame_id = frame_id_rectified_left_;
+        stamped_transforms[3].child_frame_id = frame_id_rectified_aux_;
+        stamped_transforms[3].transform = tf2::toMsg(rectified_aux_T_rectified_left.inverse());
+
+        tf2::Transform rectified_aux_T_aux{toRotation(image_calibration.aux.R), tf2::Vector3{0., 0., 0.}};
+        stamped_transforms[4].header.stamp = rclcpp::Clock().now();
+        stamped_transforms[4].header.frame_id = frame_id_rectified_aux_;
+        stamped_transforms[4].child_frame_id = frame_id_aux_;
+        stamped_transforms[4].transform = tf2::toMsg(rectified_aux_T_aux);
+    }
+
+    static_tf_broadcaster_->sendTransform(stamped_transforms);
 
     updateConfig(image_config);
 
@@ -1598,47 +1698,6 @@ void Camera::publishAllCameraInfo()
     left_disp_cam_info_pub_->publish(left_camera_info);
     depth_cam_info_pub_->publish(left_camera_info);
 
-}
-
-bool Camera::clipPoint(const BorderClip& borderClipType,
-                      double borderClipValue,
-                      size_t height,
-                      size_t width,
-                      size_t u,
-                      size_t v)
-{
-    //
-    // Precompute the maximum radius from the center of the image for a point
-    // to be considered in the circle
-
-    switch (borderClipType)
-    {
-        case BorderClip::NONE:
-        {
-            return false;
-        }
-        case BorderClip::RECTANGULAR:
-        {
-            return !( u >= borderClipValue && u <= width - borderClipValue &&
-                      v >= borderClipValue && v <= height - borderClipValue);
-        }
-        case BorderClip::CIRCULAR:
-        {
-            const double halfWidth = static_cast<double>(width)/2.0;
-            const double halfHeight = static_cast<double>(height)/2.0;
-
-            const double radius = sqrt( halfWidth * halfWidth + halfHeight * halfHeight ) - borderClipValue;
-
-            return !(Eigen::Vector2d{halfWidth - u, halfHeight - v}.norm() < radius);
-        }
-        default:
-        {
-            RCLCPP_WARN(get_logger(), "Camera: Unknown border clip type.");
-            break;
-        }
-    }
-
-    return true;
 }
 
 void Camera::stop()

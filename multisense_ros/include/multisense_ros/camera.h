@@ -42,6 +42,7 @@
 #include <sensor_msgs/distortion_models.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <stereo_msgs/msg/disparity_image.hpp>
+#include <tf2_ros/static_transform_broadcaster.h>
 
 #include <multisense_msgs/msg/device_info.hpp>
 #include <multisense_msgs/msg/histogram.hpp>
@@ -143,11 +144,6 @@ private:
     // Used whenever the resolution of the camera changes
 
     void publishAllCameraInfo();
-
-    //
-    // Generate border clips for point clouds
-
-    bool clipPoint(const BorderClip& borderClipType, double borderClipValue, size_t width, size_t height, size_t u, size_t v);
 
     //
     // Callback to check subscriptions to our publishers. This duplicates the behavior of the ROS1
@@ -294,6 +290,8 @@ private:
     const std::string frame_id_rectified_left_;
     const std::string frame_id_rectified_right_;
     const std::string frame_id_rectified_aux_;
+
+    std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
 
     //
     // For pointcloud generation
