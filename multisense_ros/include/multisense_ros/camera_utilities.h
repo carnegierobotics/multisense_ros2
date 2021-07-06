@@ -134,6 +134,7 @@ public:
 
     sensor_msgs::msg::CameraInfo leftCameraInfo(const std::string& frame_id, const rclcpp::Time& stamp) const;
     sensor_msgs::msg::CameraInfo rightCameraInfo(const std::string& frame_id, const rclcpp::Time& stamp) const;
+    sensor_msgs::msg::CameraInfo auxCameraInfo(const std::string& frame_id, const rclcpp::Time& stamp) const;
 
     std::shared_ptr<RectificationRemapT> leftRemap() const;
     std::shared_ptr<RectificationRemapT> rightRemap() const;
@@ -156,6 +157,7 @@ private:
 
     sensor_msgs::msg::CameraInfo left_camera_info_;
     sensor_msgs::msg::CameraInfo right_camera_info_;
+    sensor_msgs::msg::CameraInfo aux_camera_info_;
 
     std::shared_ptr<RectificationRemapT> left_remap_;
     std::shared_ptr<RectificationRemapT> right_remap_;
