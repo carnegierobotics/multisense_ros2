@@ -184,6 +184,28 @@ bool clipPoint(const BorderClip& borderClipType,
     return true;
 }
 
+cv::Vec3b u_interpolate_color(double u, double v, const cv::Mat &image)
+{
+    const double width = image.cols;
+
+    //
+    // Interpolate in just the u dimension
+    //
+    const size_t min_u = static_cast<size_t>(std::min(std::max(std::floor(u), 0.), width - 1.));
+    const size_t max_u = static_cast<size_t>(std::min(std::max(std::ceil(u), 0.), width - 1.));
+
+    const cv::Vec3d element0 = image.at<cv::Vec3b>(width * v + min_u);
+    const cv::Vec3d element1 = image.at<cv::Vec3b>(width * v + max_u);
+
+    const size_t delta_u = max_u - min_u;
+
+    const double u_ratio = delta_u == 0 ? 1. : (static_cast<double>(max_u) - u) / static_cast<double>(delta_u);
+
+    const cv::Vec3b result = (element0 * u_ratio + element1 * (1. - u_ratio));
+
+    return result;
+}
+
 } // anonymous
 
 //
@@ -880,6 +902,7 @@ void Camera::monoCallback(const image::Header& header)
 
             //
             // Publish a specific camera info message for the aux mono image
+
             aux_mono_cam_info_pub_->publish(stereo_calibration_manager_->auxCameraInfo(frame_id_aux_, t));
             break;
 
@@ -1158,6 +1181,8 @@ void Camera::pointCloudCallback(const image::Header& header)
     std::shared_ptr<BufferWrapper<image::Header>> left_luma_rect = nullptr;
     std::shared_ptr<BufferWrapper<image::Header>> left_luma = nullptr;
     std::shared_ptr<BufferWrapper<image::Header>> left_chroma = nullptr;
+    std::shared_ptr<BufferWrapper<image::Header>> aux_luma_rectified = nullptr;
+    std::shared_ptr<BufferWrapper<image::Header>> aux_chroma_rectified = nullptr;
 
     if (const auto image = image_buffers_.find(Source_Luma_Rectified_Left);
             image != std::end(image_buffers_) && image->second->data().frameId == header.frameId)
@@ -1177,13 +1202,28 @@ void Camera::pointCloudCallback(const image::Header& header)
         left_chroma = image->second;
     }
 
+    const auto aux_luma_rectified_image = image_buffers_.find(Source_Luma_Rectified_Aux);
+    if (aux_luma_rectified_image != std::end(image_buffers_) && aux_luma_rectified_image->second->data().frameId == header.frameId)
+    {
+        aux_luma_rectified = aux_luma_rectified_image->second;
+    }
+
+    const auto aux_chroma_rectified_image = image_buffers_.find(Source_Chroma_Rectified_Aux);
+    if (aux_chroma_rectified_image != std::end(image_buffers_) && aux_chroma_rectified_image->second->data().frameId == header.frameId)
+    {
+        aux_chroma_rectified = aux_chroma_rectified_image->second;
+    }
+
+    const bool color_data = (has_aux_camera_ && aux_luma_rectified && aux_chroma_rectified && stereo_calibration_manager_->validAux()) ||
+                            (!has_aux_camera_ && left_luma && left_chroma);
+
     //
     // Check if we have all the data to publish and if the user wants us to publish
 
     const bool pub_pointcloud = numSubscribers(this, POINTCLOUD_TOPIC) > 0 && left_luma_rect;
-    const bool pub_color_pointcloud = numSubscribers(this, COLOR_POINTCLOUD_TOPIC) > 0 && left_luma && left_chroma;
+    const bool pub_color_pointcloud = numSubscribers(this, COLOR_POINTCLOUD_TOPIC) > 0 && color_data;
     const bool pub_organized_pointcloud = numSubscribers(this, ORGANIZED_POINTCLOUD_TOPIC) > 0 && left_luma_rect;
-    const bool pub_color_organized_pointcloud = numSubscribers(this, COLOR_ORGANIZED_POINTCLOUD_TOPIC) > 0 && left_luma && left_chroma;
+    const bool pub_color_organized_pointcloud = numSubscribers(this, COLOR_ORGANIZED_POINTCLOUD_TOPIC) > 0 && color_data;
 
     if (!(pub_pointcloud || pub_color_pointcloud || pub_organized_pointcloud || pub_color_organized_pointcloud))
     {
@@ -1235,7 +1275,7 @@ void Camera::pointCloudCallback(const image::Header& header)
     // Create rectified color image upfront if we are planning to publish color pointclouds
 
     std::optional<cv::Mat> rectified_color = std::nullopt;
-    if (pub_color_pointcloud || pub_color_organized_pointcloud)
+    if (!has_aux_camera_ && (pub_color_pointcloud || pub_color_organized_pointcloud))
     {
         const auto &luma = left_luma->data();
 
@@ -1252,6 +1292,18 @@ void Camera::pointCloudCallback(const image::Header& header)
 
         rectified_color = std::make_optional(std::move(rect_rgb_image));
     }
+    else if(has_aux_camera_ && (pub_color_pointcloud || pub_color_organized_pointcloud))
+    {
+        const auto &luma = aux_luma_rectified->data();
+
+        pointcloud_rect_color_buffer_.resize(3 * luma.width * luma.height);
+
+        ycbcrToBgr(luma, aux_chroma_rectified->data(), reinterpret_cast<uint8_t*>(&(pointcloud_rect_color_buffer_[0])));
+
+        cv::Mat rect_rgb_image(luma.height, luma.width, CV_8UC3, &(pointcloud_rect_color_buffer_[0]));
+
+        rectified_color = std::move(rect_rgb_image);
+    }
 
     //
     // Iterate through our disparity image once populating our pointcloud structures if we plan to publish them
@@ -1259,6 +1311,9 @@ void Camera::pointCloudCallback(const image::Header& header)
     uint32_t packed_color = 0;
 
     const double squared_max_range = pointcloud_max_range_ * pointcloud_max_range_;
+
+    const double aux_T = has_aux_camera_ ? stereo_calibration_manager_->aux_T() : stereo_calibration_manager_->T();
+    const double T = stereo_calibration_manager_->T();
 
     size_t valid_points = 0;
     for (size_t y = 0 ; y < header.height ; ++y)
@@ -1282,7 +1337,7 @@ void Camera::pointCloudCallback(const image::Header& header)
                 }
                 default:
                 {
-                    RCLCPP_ERROR(get_logger(), "Camera: unsupported disparity detph: %d", header.bitsPerPixel);
+                    RCLCPP_ERROR(get_logger(), "Camera: unsupported disparity depth: %d", header.bitsPerPixel);
                     return;
                 }
             }
@@ -1294,7 +1349,12 @@ void Camera::pointCloudCallback(const image::Header& header)
             if (rectified_color)
             {
                 packed_color = 0;
-                const auto color_pixel = rectified_color.value().at<cv::Vec3b>(y, x);
+
+                const double color_d = has_aux_camera_ ? (disparity * aux_T) / T : 0.0;
+
+                const auto color_pixel = has_aux_camera_ ? u_interpolate_color(std::max(x - color_d, 0.), y, rectified_color.value()) :
+                                                          rectified_color->at<cv::Vec3b>(y, x);
+
                 packed_color |= color_pixel[2] << 16 | color_pixel[1] << 8 | color_pixel[0];
             }
 
