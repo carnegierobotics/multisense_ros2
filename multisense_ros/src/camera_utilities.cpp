@@ -52,24 +52,28 @@ struct ScaleT
 ScaleT compute_scale(const crl::multisense::image::Config &config,
                      const crl::multisense::system::DeviceInfo& device_info)
 {
+    const auto crop = config.camMode() == 2000 &&
+                      (device_info.imagerType == crl::multisense::system::DeviceInfo::IMAGER_TYPE_CMV4000_GREY ||
+                      device_info.imagerType == crl::multisense::system::DeviceInfo::IMAGER_TYPE_CMV4000_COLOR);
 
-    const auto crop = config.camMode() == 2000;
+    // crop mode causes the imager to behave completely like a CMV2000, but the device info imager height does not get modified
+    const auto imagerHeight = crop ? 1088 : device_info.imagerHeight;
 
     const double x_scale = 1.0 / ((static_cast<double>(device_info.imagerWidth) /
                                    static_cast<double>(config.width())));
 
-    const double y_scale = 1.0 / ((static_cast<double>(device_info.imagerHeight) /
+    const double y_scale = 1.0 / ((static_cast<double>(imagerHeight) /
                                    static_cast<double>(config.height())));
 
     //
-    // In crop mode we dont want to scale our fx/fy and cx/cy value. We just want to offset our cx/cy values
+    // In crop mode we want to offset our cx/cy values
     // by the current crop offset. This is because the pixel size does not change in crop mode, and instead a cropped
     // region of the original image is returned
 
-    return ScaleT{crop ? 1.0 : x_scale,
-                  crop ? 1.0 : y_scale,
-                  crop ? config.offset() : 0.0,
-                  crop ? config.offset() : 0.0};
+    return ScaleT{x_scale,
+                  y_scale,
+                  0.0,
+                  crop ? -config.offset()*y_scale : 0.0};
 }
 
 }// namespace
@@ -160,6 +164,9 @@ sensor_msgs::msg::CameraInfo makeCameraInfo(const crl::multisense::image::Config
     const auto scale = compute_scale(config, device_info);
 
     sensor_msgs::msg::CameraInfo camera_info;
+
+    camera_info.width = config.width();
+    camera_info.height = config.height();
 
     camera_info.p[0] = calibration.P[0][0] * scale.x_scale;
     camera_info.p[1] = calibration.P[0][1];
@@ -285,6 +292,7 @@ StereoCalibrationManger::StereoCalibrationManger(const crl::multisense::image::C
     q_matrix_(makeQ(config_, calibration_, device_info_)),
     left_camera_info_(makeCameraInfo(config_, calibration_.left, device_info_)),
     right_camera_info_(makeCameraInfo(config_, calibration_.right, device_info_)),
+    aux_camera_info_(makeCameraInfo(config_, calibration_.aux, device_info_)),
     left_remap_(std::make_shared<RectificationRemapT>(makeRectificationRemap(config_, calibration_.left, device_info_))),
     right_remap_(std::make_shared<RectificationRemapT>(makeRectificationRemap(config_, calibration_.right, device_info_)))
 {
@@ -348,6 +356,27 @@ double StereoCalibrationManger::T() const
     return right_camera_info_.p[3] / right_camera_info_.p[0];
 }
 
+double StereoCalibrationManger::aux_T() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    //
+    // The aux camera projection matrix is of the form:
+    //
+    // [fx,  0, cx, t * fx]
+    // [ 0, fy, cy, 0     ]
+    // [ 0,  0,  1, 0     ]
+    //
+    // divide the t * fx term by fx to get t
+
+    return aux_camera_info_.p[3] / aux_camera_info_.p[0];
+}
+
+bool StereoCalibrationManger::validAux() const
+{
+    return std::isfinite(aux_T());
+}
+
 sensor_msgs::msg::CameraInfo StereoCalibrationManger::leftCameraInfo(const std::string& frame_id,
                                                                      const rclcpp::Time& stamp) const
 {
@@ -365,6 +394,17 @@ sensor_msgs::msg::CameraInfo StereoCalibrationManger::rightCameraInfo(const std:
     std::lock_guard<std::mutex> lock(mutex_);
 
     auto camera_info = right_camera_info_;
+    camera_info.header.set__frame_id(frame_id).set__stamp(stamp);
+
+    return camera_info;
+}
+
+sensor_msgs::msg::CameraInfo StereoCalibrationManger::auxCameraInfo(const std::string& frame_id,
+                                                                    const rclcpp::Time& stamp) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    auto camera_info = aux_camera_info_;
     camera_info.header.set__frame_id(frame_id).set__stamp(stamp);
 
     return camera_info;

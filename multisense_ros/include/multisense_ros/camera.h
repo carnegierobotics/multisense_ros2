@@ -42,6 +42,7 @@
 #include <sensor_msgs/distortion_models.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <stereo_msgs/msg/disparity_image.hpp>
+#include <tf2_ros/static_transform_broadcaster.h>
 
 #include <multisense_msgs/msg/device_info.hpp>
 #include <multisense_msgs/msg/histogram.hpp>
@@ -75,14 +76,27 @@ public:
     void colorImageCallback(const crl::multisense::image::Header& header);
     void disparityImageCallback(const crl::multisense::image::Header& header);
     void histogramCallback(const crl::multisense::image::Header& header);
+    void colorizeCallback(const crl::multisense::image::Header& header);
 
 private:
+
     //
     // Node names
 
     static constexpr char LEFT[] = "left";
     static constexpr char RIGHT[] = "right";
+    static constexpr char AUX[] = "aux";
     static constexpr char CALIBRATION[] = "calibration";
+
+    //
+    // Frames
+
+    static constexpr char LEFT_CAMERA_FRAME[] = "/left_camera_frame";
+    static constexpr char LEFT_RECTIFIED_FRAME[] = "/left_camera_optical_frame";
+    static constexpr char RIGHT_CAMERA_FRAME[] = "/right_camera_frame";
+    static constexpr char RIGHT_RECTIFIED_FRAME[] = "/right_camera_optical_frame";
+    static constexpr char AUX_CAMERA_FRAME[] = "/aux_camera_frame";
+    static constexpr char AUX_RECTIFIED_FRAME[] = "/aux_camera_optical_frame";
 
     //
     // Topic names
@@ -113,7 +127,6 @@ private:
     static constexpr char DISPARITY_CAMERA_INFO_TOPIC[] = "disparity/camera_info";
     static constexpr char COST_CAMERA_INFO_TOPIC[] = "cost/camera_info";
 
-
     //
     // Device stream control
 
@@ -131,11 +144,6 @@ private:
     // Used whenever the resolution of the camera changes
 
     void publishAllCameraInfo();
-
-    //
-    // Generate border clips for point clouds
-
-    bool clipPoint(const BorderClip& borderClipType, double borderClipValue, size_t width, size_t height, size_t u, size_t v);
 
     //
     // Callback to check subscriptions to our publishers. This duplicates the behavior of the ROS1
@@ -172,6 +180,7 @@ private:
 
     rclcpp::Node::SharedPtr left_node_;
     rclcpp::Node::SharedPtr right_node_;
+    rclcpp::Node::SharedPtr aux_node_;
     rclcpp::Node::SharedPtr calibration_node_;
 
     //
@@ -185,6 +194,10 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  ni_depth_cam_pub_;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  left_rgb_cam_pub_;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  left_rgb_rect_cam_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  aux_rgb_cam_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  aux_mono_cam_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  aux_rect_cam_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  aux_rgb_rect_cam_pub_;
 
     rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr left_mono_cam_info_pub_;
     rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr right_mono_cam_info_pub_;
@@ -196,6 +209,10 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr left_rgb_cam_info_pub_;
     rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr left_rgb_rect_cam_info_pub_;
     rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr depth_cam_info_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr aux_mono_cam_info_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr aux_rgb_cam_info_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr aux_rect_cam_info_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr aux_rgb_rect_cam_info_pub_;
 
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr luma_point_cloud_pub_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr color_point_cloud_pub_;
@@ -233,8 +250,12 @@ private:
     sensor_msgs::msg::PointCloud2   luma_organized_point_cloud_;
     sensor_msgs::msg::PointCloud2   color_organized_point_cloud_;
 
+    sensor_msgs::msg::Image         aux_mono_image_;
     sensor_msgs::msg::Image         left_rgb_image_;
+    sensor_msgs::msg::Image         aux_rgb_image_;
     sensor_msgs::msg::Image         left_rgb_rect_image_;
+    sensor_msgs::msg::Image         aux_rect_image_;
+    sensor_msgs::msg::Image         aux_rect_rgb_image_;
 
     sensor_msgs::msg::Image         left_disparity_image_;
     sensor_msgs::msg::Image         left_disparity_cost_image_;
@@ -265,6 +286,12 @@ private:
 
     const std::string frame_id_left_;
     const std::string frame_id_right_;
+    const std::string frame_id_aux_;
+    const std::string frame_id_rectified_left_;
+    const std::string frame_id_rectified_right_;
+    const std::string frame_id_rectified_aux_;
+
+    std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
 
     //
     // For pointcloud generation
@@ -291,6 +318,11 @@ private:
     // Storage of images which we use for pointcloud colorizing
 
     std::unordered_map<crl::multisense::DataSource, std::shared_ptr<BufferWrapper<crl::multisense::image::Header>>> image_buffers_;
+
+    //
+    // Has a 3rd aux color camera
+
+    bool has_aux_camera_ = false;
 };
 
 }// namespace
