@@ -25,13 +25,15 @@ colcon build
 source install/setup.bash
 ```
 
-The launch file depends on xacro being installed. To install:
+The launch file depends on xacro being installed. To install xacro execute the following command.
 ```
 sudo apt install ros-<distro>-xacro
 ```
 
 If your release does not have a pre-built xacro package, you can build it manually
-alongside the multisense_ros2 driver. Assuming the installation instructions above were followed:
+alongside the multisense_ros2 driver. 
+
+Execute the following commands to build xacro from source. This assmes the workspace setup and clone instructions above were followed.
 
 ```
 cd ros2_ws/src
