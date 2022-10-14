@@ -2264,8 +2264,8 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
                 image_config.height() != height ||
                 image_config.disparities() != disparities)
             {
-                RCLCPP_WARN(get_logger(), "Camera: changing sensor resolution to %dx%d (%d disparities), from %dx%d "
-                     "(%d disparities): reconfiguration may take up to 30 seconds",
+                RCLCPP_WARN(get_logger(), "Camera: changing sensor resolution to %ldx%ld (%ld disparities), from %ux%u "
+                     "(%u disparities): reconfiguration may take up to 30 seconds",
                          width, height, disparities,
                          image_config.width(), image_config.height(), image_config.disparities());
 

@@ -17,6 +17,7 @@
   <build_depend>eigen</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>libopencv-dev</build_depend>
+  <build_depend>image-geometry</build_depend>
   <build_depend>multisense_lib</build_depend>
   <build_depend>multisense_msgs</build_depend>
   <build_depend>rclcpp</build_depend>
@@ -24,10 +25,12 @@
   <build_depend>stereo_msgs</build_depend>
   <build_depend>tf2</build_depend>
   <build_depend>tf2_ros</build_depend>
+  <build_depend>tf2_geometry_msgs</build_depend>
 
   <exec_depend>angles</exec_depend>
   <exec_depend>eigen</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>image-geometry</exec_depend>
   <exec_depend>libopencv-dev</exec_depend>
   <exec_depend>multisense_lib</exec_depend>
   <exec_depend>multisense_msgs</exec_depend>
@@ -36,6 +39,7 @@
   <exec_depend>stereo_msgs</exec_depend>
   <exec_depend>tf2</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>tf2_geometry_msgs</exec_depend>
   <exec_depend>xacro</exec_depend>
 
   <export>
