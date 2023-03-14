@@ -2111,15 +2111,12 @@ void Camera::initalizeParameters(const image::Config& config)
             auto_white_balance_red_range.set__from_value(0.2)
                                         .set__to_value(4.0);
 
-            RCLCPP_ERROR(get_logger(), "White Balance: %f %f", static_cast<double>(config.whiteBalanceRed()), static_cast<double>(config.whiteBalanceBlue()));
-
             rcl_interfaces::msg::ParameterDescriptor auto_white_balance_red_desc;
             auto_white_balance_red_desc.set__name("auto_white_balance_red")
                                        .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                                        .set__description("auto white balance red gain")
                                        .set__floating_point_range({auto_white_balance_red_range});
-            //declare_parameter("auto_white_balance_red", static_cast<double>(config.whiteBalanceRed()), auto_white_balance_red_desc);
-            declare_parameter("auto_white_balance_red", 1.0, auto_white_balance_red_desc);
+            declare_parameter("auto_white_balance_red", config.whiteBalanceRed(), auto_white_balance_red_desc);
 
             //
             // Auto white balance blue
@@ -2128,14 +2125,12 @@ void Camera::initalizeParameters(const image::Config& config)
             auto_white_balance_blue_range.set__from_value(0.2)
                                           .set__to_value(4.0);
 
-            const double current_white_balance_blue = config.whiteBalanceBlue();
             rcl_interfaces::msg::ParameterDescriptor auto_white_balance_blue_desc;
             auto_white_balance_blue_desc.set__name("auto_white_balance_blue")
                                           .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                                           .set__description("auto white balance blue gain")
                                           .set__floating_point_range({auto_white_balance_blue_range});
-            declare_parameter("auto_white_balance_blue", rclcpp::ParameterValue{current_white_balance_blue}, auto_white_balance_blue_desc);
-            //declare_parameter("auto_white_balance_blue", 1.0, auto_white_balance_blue_desc);
+            declare_parameter("auto_white_balance_blue", config.whiteBalanceBlue(), auto_white_balance_blue_desc);
 
             //
             // HDR enable
