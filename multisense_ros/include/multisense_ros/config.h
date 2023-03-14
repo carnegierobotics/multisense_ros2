@@ -59,7 +59,8 @@ private:
     //
     // Lighting config
 
-    bool lighting_enabled_;
+    bool lighting_supported_ = false;
+    bool lighting_enabled_ = false;
     crl::multisense::lighting::Config lighting_config_;
 
     //
