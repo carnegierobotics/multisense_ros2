@@ -323,6 +323,7 @@ private:
     // Has a 3rd aux color camera
 
     bool has_aux_camera_ = false;
+    bool aux_control_supported_ = false;
 };
 
 }// namespace

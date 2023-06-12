@@ -200,7 +200,19 @@ void Imu::imuCallback(const imu::Header& header)
         vector_msg.vector.y = s.y;
         vector_msg.vector.z = s.z;
 
+        //
+        // There are cases where the accel and gyro data are published with the same timestamps. Instead of
+        // publishing two IMU messages for each, publish a new IMU message once we know for sure we have all the
+        // samples from the same timestamp
+
+        const bool publish_previous_imu_message = (s.type == imu::Sample::Type_Accelerometer ||
+                                                   s.type == imu::Sample::Type_Gyroscope) &&
+                                                  imu_message_.header.stamp != msg.time_stamp;
+
         imu_message_.header.stamp = msg.time_stamp;
+
+        if (publish_previous_imu_message && imu_subscribers > 0)
+            imu_pub_->publish(imu_message_);
 
         switch(s.type)
         {
@@ -216,9 +228,6 @@ void Imu::imuCallback(const imu::Header& header)
 
                 if (accel_subscribers > 0)
                     accelerometer_pub_->publish(msg);
-
-                if (imu_subscribers > 0)
-                    imu_pub_->publish(imu_message_);
 
                 if (accel_vector_subscribers > 0)
                 {
@@ -245,9 +254,6 @@ void Imu::imuCallback(const imu::Header& header)
 
                 if (gyro_subscribers > 0)
                     gyroscope_pub_->publish(msg);
-
-                if (imu_subscribers > 0)
-                    imu_pub_->publish(imu_message_);
 
                 if (gyro_vector_subscribers > 0)
                 {
