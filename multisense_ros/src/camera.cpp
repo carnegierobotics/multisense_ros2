@@ -2164,9 +2164,9 @@ void Camera::initalizeParameters(const image::Config& config)
         // Gamma
         //
         rcl_interfaces::msg::FloatingPointRange gamma_range;
-        auto_white_balance_blue_range.set__from_value(1.7)
-                                         .set__to_value(8.0)
-                                         .set__step(0.01);
+        gamma_range.set__from_value(1.7)
+                   .set__to_value(8.0)
+                   .set__step(0.01);
 
         rcl_interfaces::msg::ParameterDescriptor gamma_desc;
         gamma_desc.set__name("gamma")

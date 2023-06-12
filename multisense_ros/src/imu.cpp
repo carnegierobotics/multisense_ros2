@@ -59,35 +59,34 @@ Imu::Imu(const std::string& node_name,
          const std::string& tf_prefix) :
     Node(node_name, options),
     driver_(driver),
+    accelerometer_pub_(nullptr),
+    gyroscope_pub_(nullptr),
+    magnetometer_pub_(nullptr),
+    accelerometer_vector_pub_(nullptr),
+    gyroscope_vector_pub_(nullptr),
+    magnetometer_vector_pub_(nullptr),
     accel_frameId_(tf_prefix + "/accel"),
     gyro_frameId_(tf_prefix + "/gyro"),
     mag_frameId_(tf_prefix + "/mag"),
     imu_samples_per_message_(30),
-    active_streams_(Source_Unknown)
+    active_streams_(Source_Unknown),
+    next_gen_camera_(false)
 {
     //
-    // Get device info
+    // Get version info
 
-    system::DeviceInfo  device_info;
-    if (const auto status = driver_->getDeviceInfo(device_info); status != Status_Ok)
+    system::VersionInfo  version_info;
+    if (const auto status = driver_->getVersionInfo(version_info); status != Status_Ok)
     {
-        RCLCPP_ERROR(get_logger(), "IMU: failed to query device info: %s",
+        RCLCPP_ERROR(get_logger(), "IMU: failed to query version info: %s",
                   Channel::statusString(status));
         return;
     }
 
-    switch(device_info.hardwareRevision)
-    {
-        case system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27:
-        {
-            RCLCPP_INFO(get_logger(), "IMU: hardware does not support a imu");
-            return;
-        }
-        default:
-        {
-            break;
-        }
-    }
+    //
+    // All cameras running firmware greater than version 4.3 are next gen cameras
+
+    next_gen_camera_ = version_info.sensorFirmwareVersion > 0x0403;
 
     //
     // Initialize the sensor_msgs::Imu topic
@@ -143,21 +142,26 @@ Imu::Imu(const std::string& node_name,
                                     [](const imu::Config &c) { return c.name == "gyroscope"; });
     gyroscope_config_ = gyro_config == std::end(imu_configs) ? std::nullopt : std::make_optional(*gyro_config);
 
-    auto mag_config = std::find_if(std::begin(imu_configs), std::end(imu_configs),
-                                   [](const imu::Config &c) { return c.name == "magnetometer"; });
-    magnetometer_config_ = mag_config == std::end(imu_configs) ? std::nullopt : std::make_optional(*mag_config);
-
     driver_->stopStreams(Source_Imu);
 
     accelerometer_pub_ = create_publisher<multisense_msgs::msg::RawImuData>(RAW_ACCEL_TOPIC, rclcpp::SensorDataQoS());
     gyroscope_pub_ = create_publisher<multisense_msgs::msg::RawImuData>(RAW_GYRO_TOPIC, rclcpp::SensorDataQoS());
-    magnetometer_pub_ = create_publisher<multisense_msgs::msg::RawImuData>(RAW_MAG_TOPIC, rclcpp::SensorDataQoS());
 
     imu_pub_ = create_publisher<sensor_msgs::msg::Imu>(IMU_TOPIC, rclcpp::SensorDataQoS());
 
     accelerometer_vector_pub_ = create_publisher<geometry_msgs::msg::Vector3Stamped>(ACCEL_VECTOR_TOPIC, rclcpp::SensorDataQoS());
     gyroscope_vector_pub_ = create_publisher<geometry_msgs::msg::Vector3Stamped>(GYRO_VECTOR_TOPIC, rclcpp::SensorDataQoS());
-    magnetometer_vector_pub_ = create_publisher<geometry_msgs::msg::Vector3Stamped>(MAG_VECTOR_TOPIC, rclcpp::SensorDataQoS());
+
+    if (!next_gen_camera_)
+    {
+        auto mag_config = std::find_if(std::begin(imu_configs), std::end(imu_configs),
+                                       [](const imu::Config &c) { return c.name == "magnetometer"; });
+        magnetometer_config_ = mag_config == std::end(imu_configs) ? std::nullopt : std::make_optional(*mag_config);
+
+        magnetometer_pub_ = create_publisher<multisense_msgs::msg::RawImuData>(RAW_MAG_TOPIC, rclcpp::SensorDataQoS());
+
+        magnetometer_vector_pub_ = create_publisher<geometry_msgs::msg::Vector3Stamped>(MAG_VECTOR_TOPIC, rclcpp::SensorDataQoS());
+    }
 
     driver_->addIsolatedCallback(imuCB, this);
 
@@ -176,13 +180,13 @@ Imu::~Imu()
 
 void Imu::imuCallback(const imu::Header& header)
 {
-    size_t accel_subscribers = count_subscribers(RAW_ACCEL_TOPIC);
-    size_t gyro_subscribers = count_subscribers(RAW_GYRO_TOPIC);
-    size_t mag_subscribers = count_subscribers(RAW_MAG_TOPIC);
-    size_t imu_subscribers = count_subscribers(IMU_TOPIC);
-    size_t accel_vector_subscribers = count_subscribers(ACCEL_VECTOR_TOPIC);
-    size_t gyro_vector_subscribers = count_subscribers(GYRO_VECTOR_TOPIC);
-    size_t mag_vector_subscribers = count_subscribers(MAG_VECTOR_TOPIC);
+    const size_t accel_subscribers = count_subscribers(RAW_ACCEL_TOPIC);
+    const size_t gyro_subscribers = count_subscribers(RAW_GYRO_TOPIC);
+    const size_t mag_subscribers = next_gen_camera_ ? 0 : count_subscribers(RAW_MAG_TOPIC);
+    const size_t imu_subscribers = count_subscribers(IMU_TOPIC);
+    const size_t accel_vector_subscribers = count_subscribers(ACCEL_VECTOR_TOPIC);
+    const size_t gyro_vector_subscribers = count_subscribers(GYRO_VECTOR_TOPIC);
+    const size_t mag_vector_subscribers = next_gen_camera_ ? 0 : count_subscribers(MAG_VECTOR_TOPIC);
 
     for (const auto& s : header.samples)
     {
@@ -212,7 +216,9 @@ void Imu::imuCallback(const imu::Header& header)
         imu_message_.header.stamp = msg.time_stamp;
 
         if (publish_previous_imu_message && imu_subscribers > 0)
+        {
             imu_pub_->publish(imu_message_);
+        }
 
         switch(s.type)
         {
@@ -226,10 +232,12 @@ void Imu::imuCallback(const imu::Header& header)
                 imu_message_.linear_acceleration.z = s.z * 9.80665;
 
 
-                if (accel_subscribers > 0)
+                if (accel_subscribers > 0 && accelerometer_pub_)
+                {
                     accelerometer_pub_->publish(msg);
+                }
 
-                if (accel_vector_subscribers > 0)
+                if (accel_vector_subscribers > 0 && accelerometer_vector_pub_)
                 {
                     vector_msg.header.frame_id = accel_frameId_;
                     accelerometer_vector_pub_->publish(vector_msg);
@@ -239,23 +247,34 @@ void Imu::imuCallback(const imu::Header& header)
             }
             case imu::Sample::Type_Gyroscope:
             {
-
                 //
                 // Convert from deg/sec to rad/sec and apply the nominal
                 // calibration from the gyro to the accelerometer. Since all points
                 // on a rigid body have the same angular velocity only the rotation
                 // about the z axis of 90 degrees needs to be applied. (i.e.
-                // new_x = orig_y ; new_y = -orig_x)
+                // new_x = orig_y ; new_y = -orig_x). Note this only applies for older cameras where
+                // the gyro and accelerometer are on independent ICs.
 
-                imu_message_.angular_velocity.x = s.y * M_PI/180.;
-                imu_message_.angular_velocity.y = -s.x * M_PI/180.;
-                imu_message_.angular_velocity.z = s.z * M_PI/180.;
+                if (next_gen_camera_)
+                {
+                    imu_message_.angular_velocity.x = s.x * M_PI/180.;
+                    imu_message_.angular_velocity.y = s.y * M_PI/180.;
+                    imu_message_.angular_velocity.z = s.z * M_PI/180.;
+                }
+                else
+                {
+                    imu_message_.angular_velocity.x = s.y * M_PI/180.;
+                    imu_message_.angular_velocity.y = -s.x * M_PI/180.;
+                    imu_message_.angular_velocity.z = s.z * M_PI/180.;
+                }
 
 
-                if (gyro_subscribers > 0)
+                if (gyro_subscribers > 0 && gyroscope_pub_)
+                {
                     gyroscope_pub_->publish(msg);
+                }
 
-                if (gyro_vector_subscribers > 0)
+                if (gyro_vector_subscribers > 0 && gyroscope_vector_pub_)
                 {
                     vector_msg.header.frame_id = gyro_frameId_;
                     gyroscope_vector_pub_->publish(vector_msg);
@@ -265,14 +284,18 @@ void Imu::imuCallback(const imu::Header& header)
             }
             case imu::Sample::Type_Magnetometer:
             {
-
-                if (mag_subscribers > 0)
-                    magnetometer_pub_->publish(msg);
-
-                if (mag_vector_subscribers > 0)
+                if (!next_gen_camera_)
                 {
-                    vector_msg.header.frame_id = mag_frameId_;
-                    magnetometer_vector_pub_->publish(vector_msg);
+                    if (mag_subscribers > 0 && magnetometer_pub_)
+                    {
+                        magnetometer_pub_->publish(msg);
+                    }
+
+                    if (mag_vector_subscribers > 0 && magnetometer_vector_pub_)
+                    {
+                        vector_msg.header.frame_id = mag_frameId_;
+                        magnetometer_vector_pub_->publish(vector_msg);
+                    }
                 }
 
                 break;
