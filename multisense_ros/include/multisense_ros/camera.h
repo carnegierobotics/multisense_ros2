@@ -306,13 +306,13 @@ private:
     //
     // Histogram tracking
 
-    int64_t last_frame_id_;
+    int64_t last_frame_id_ = -1;
 
     //
     // The mask used to perform the border clipping of the disparity image
 
     BorderClip border_clip_type_;
-    double border_clip_value_;
+    double border_clip_value_ = 0.0;
 
     //
     // Storage of images which we use for pointcloud colorizing
@@ -323,6 +323,16 @@ private:
     // Has a 3rd aux color camera
 
     bool has_aux_camera_ = false;
+
+    //
+    // Supports color images (either left color, right color, or aux color)
+
+    bool supports_color_ = false;
+
+    //
+    // Contains the next-gen stereo hardware (i.e S30/S27 etc)
+
+    bool next_gen_camera_ = false;
 };
 
 }// namespace
