@@ -76,6 +76,10 @@ constexpr DataSource allImageSources = (Source_Luma_Left            |
                                         Source_Luma_Rectified_Left  |
                                         Source_Luma_Rectified_Right |
                                         Source_Chroma_Left          |
+                                        Source_Luma_Aux             |
+                                        Source_Luma_Rectified_Aux   |
+                                        Source_Chroma_Aux           |
+                                        Source_Chroma_Rectified_Aux |
                                         Source_Disparity            |
                                         Source_Disparity_Right      |
                                         Source_Disparity_Cost);
@@ -341,6 +345,20 @@ Camera::Camera(const std::string& node_name,
     has_aux_camera_ = system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision;
 
+    supports_color_ = has_aux_camera_ ||
+                      (system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 != device_info_.hardwareRevision &&
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 != device_info_.hardwareRevision &&
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_VPB != device_info_.hardwareRevision &&
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_STEREO != device_info_.hardwareRevision &&
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_MONOCAM != device_info_.hardwareRevision);
+
+    next_gen_camera_ = system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_MONOCAM == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_STEREO == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_MONOCAM == device_info_.hardwareRevision;
+
     stereo_calibration_manager_ = std::make_shared<StereoCalibrationManger>(image_config, image_calibration, device_info_);
 
     timer_ = create_wall_timer(500ms, std::bind(&Camera::timerCallback, this));
@@ -368,7 +386,7 @@ Camera::Camera(const std::string& node_name,
     depth_cam_pub_      = left_node_->create_publisher<sensor_msgs::msg::Image>(DEPTH_TOPIC, rclcpp::SensorDataQoS());
     ni_depth_cam_pub_   = left_node_->create_publisher<sensor_msgs::msg::Image>(OPENNI_DEPTH_TOPIC, rclcpp::SensorDataQoS());
 
-    if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 != device_info_.hardwareRevision)
+    if (supports_color_)
     {
         if (has_aux_camera_)
         {
@@ -1232,7 +1250,7 @@ void Camera::pointCloudCallback(const image::Header& header)
     }
 
     const bool color_data = (has_aux_camera_ && aux_luma_rectified && aux_chroma_rectified && stereo_calibration_manager_->validAux()) ||
-                            (!has_aux_camera_ && left_luma && left_chroma);
+                            (!has_aux_camera_ && supports_color_ && left_luma && left_chroma);
 
     //
     // Check if we have all the data to publish and if the user wants us to publish
@@ -1292,7 +1310,7 @@ void Camera::pointCloudCallback(const image::Header& header)
     // Create rectified color image upfront if we are planning to publish color pointclouds
 
     std::optional<cv::Mat> rectified_color = std::nullopt;
-    if (!has_aux_camera_ && (pub_color_pointcloud || pub_color_organized_pointcloud))
+    if (!has_aux_camera_ && supports_color_ && (pub_color_pointcloud || pub_color_organized_pointcloud))
     {
         const auto &luma = left_luma->data();
 
@@ -1748,7 +1766,7 @@ void Camera::publishAllCameraInfo()
     // callbacks. This makes it easier when a user is trying access a camera_info
     // for a topic which they are not subscribed to
 
-    if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 != device_info_.hardwareRevision)
+    if (supports_color_)
     {
         if (has_aux_camera_) {
 
@@ -1795,6 +1813,11 @@ size_t Camera::numSubscribers(const rclcpp::Node* node, const std::string &topic
 {
     const std::string full_topic = node->get_sub_namespace().empty() ? topic : node->get_sub_namespace()  + "/" + topic;
 
+    if (!rclcpp::ok())
+    {
+        return 0;
+    }
+
     return node->count_subscribers(full_topic) ;
 }
 
@@ -1809,7 +1832,7 @@ void Camera::timerCallback()
     enable |= numSubscribers(left_node_, DEPTH_TOPIC) > 0 ?  Source_Disparity : enable;
     enable |= numSubscribers(left_node_, OPENNI_DEPTH_TOPIC) > 0 ?  Source_Disparity : enable;
 
-    if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21 != device_info_.hardwareRevision)
+    if (supports_color_)
     {
         if (has_aux_camera_)
         {
@@ -1917,15 +1940,13 @@ void Camera::initalizeParameters(const image::Config& config)
     //
     // Fps
 
-    double max_fps = 30.0;
-    double default_fps = 10.0;
+    float max_fps = 30.0f;
 
     switch(device_info_.hardwareRevision)
     {
         case system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21:
         {
-            default_fps = 20.0;
-            max_fps = 29.97;
+            max_fps = 29.97f;
 
             break;
         }
@@ -1936,16 +1957,14 @@ void Camera::initalizeParameters(const image::Config& config)
                 case system::DeviceInfo::IMAGER_TYPE_CMV2000_GREY:
                 case system::DeviceInfo::IMAGER_TYPE_CMV2000_COLOR:
                 {
-                    max_fps = 30.0;
-                    default_fps = 10.0;
+                    max_fps = 30.0f;
 
                     break;
                 }
                 case system::DeviceInfo::IMAGER_TYPE_CMV4000_GREY:
                 case system::DeviceInfo::IMAGER_TYPE_CMV4000_COLOR:
                 {
-                    max_fps = 15.0;
-                    default_fps = 5.0;
+                    max_fps = 15.0f;
 
                     break;
                 }
@@ -1956,30 +1975,28 @@ void Camera::initalizeParameters(const image::Config& config)
 
     rcl_interfaces::msg::FloatingPointRange fps_range;
     fps_range.set__from_value(1.0)
-              .set__to_value(max_fps)
-              .set__step(0.01);
+              .set__to_value(max_fps);
 
     rcl_interfaces::msg::ParameterDescriptor fps_desc;
     fps_desc.set__name("fps")
             .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
             .set__description("camera fps")
             .set__floating_point_range({fps_range});
-    declare_parameter("fps", default_fps, fps_desc);
+    declare_parameter("fps", config.fps(), fps_desc);
 
     //
     // Stereo Post Filtering
 
     rcl_interfaces::msg::FloatingPointRange stereo_post_filter_range;
     stereo_post_filter_range.set__from_value(0.0)
-                            .set__to_value(1.0)
-                            .set__step(0.01);
+                            .set__to_value(1.0);
 
     rcl_interfaces::msg::ParameterDescriptor stereo_post_filter_desc;
     stereo_post_filter_desc.set__name("stereo_post_filtering")
                            .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                            .set__description("SGM stereo post filter")
                            .set__floating_point_range({stereo_post_filter_range});
-    declare_parameter("stereo_post_filtering", 0.75, stereo_post_filter_desc);
+    declare_parameter("stereo_post_filtering", config.stereoPostFilterStrength(), stereo_post_filter_desc);
 
     if (device_info_.hardwareRevision != system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21)
     {
@@ -1988,15 +2005,15 @@ void Camera::initalizeParameters(const image::Config& config)
 
         rcl_interfaces::msg::FloatingPointRange gain_range;
         gain_range.set__from_value(1.0)
-                  .set__to_value(8.0)
-                  .set__step(0.01);
+                  .set__to_value(16.0);
 
         rcl_interfaces::msg::ParameterDescriptor gain_desc;
         gain_desc.set__name("gain")
                  .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                  .set__description("imager gain")
                  .set__floating_point_range({gain_range});
-        declare_parameter("gain", 1.0, gain_desc);
+        declare_parameter("gain", config.gain(), gain_desc);
+
 
         //
         // Auto exposure enable
@@ -2005,52 +2022,49 @@ void Camera::initalizeParameters(const image::Config& config)
         auto_exposure_enable_desc.set__name("auto_exposure")
                                  .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
                                  .set__description("enable auto exposure");
-        declare_parameter("auto_exposure", true, auto_exposure_enable_desc);
+        declare_parameter("auto_exposure", config.autoExposure(), auto_exposure_enable_desc);
 
         //
         // Auto exposure max time
 
         rcl_interfaces::msg::FloatingPointRange auto_exposure_max_time_range;
         auto_exposure_max_time_range.set__from_value(0.0)
-                                    .set__to_value(0.5)
-                                    .set__step(0.01);
+                                    .set__to_value(0.5);
 
         rcl_interfaces::msg::ParameterDescriptor auto_exposure_max_time_desc;
         auto_exposure_max_time_desc.set__name("auto_exposure_max_time")
                                    .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                                    .set__description("max exposure time using auto exposure")
                                    .set__floating_point_range({auto_exposure_max_time_range});
-        declare_parameter("auto_exposure_max_time", 0.5, auto_exposure_max_time_desc);
+        declare_parameter("auto_exposure_max_time", static_cast<float>(config.autoExposureMax()) / 1e6, auto_exposure_max_time_desc);
 
         //
         // Auto exposure decay
 
         rcl_interfaces::msg::FloatingPointRange auto_exposure_decay_range;
         auto_exposure_decay_range.set__from_value(0.0)
-                                 .set__to_value(20.0)
-                                 .set__step(0.01);
+                                 .set__to_value(20.0);
 
         rcl_interfaces::msg::ParameterDescriptor auto_exposure_decay_desc;
         auto_exposure_decay_desc.set__name("auto_exposure_decay")
                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                                 .set__description("auto exposure time decay")
                                 .set__floating_point_range({auto_exposure_decay_range});
-        declare_parameter("auto_exposure_decay", 7.0, auto_exposure_decay_desc);
+        declare_parameter("auto_exposure_decay", static_cast<double>(config.autoExposureDecay()), auto_exposure_decay_desc);
 
         //
         // Auto exposure threshold
 
         rcl_interfaces::msg::FloatingPointRange auto_exposure_thresh_range;
         auto_exposure_thresh_range.set__from_value(0.0)
-                                  .set__to_value(1.0)
-                                  .set__step(0.01);
+                                  .set__to_value(1.0);
 
         rcl_interfaces::msg::ParameterDescriptor auto_exposure_thresh_desc;
         auto_exposure_thresh_desc.set__name("auto_exposure_thresh")
                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                                 .set__description("auto exposure threshold")
                                 .set__floating_point_range({auto_exposure_thresh_range});
-        declare_parameter("auto_exposure_thresh", 0.75, auto_exposure_thresh_desc);
+        declare_parameter("auto_exposure_thresh", config.autoExposureThresh(), auto_exposure_thresh_desc);
 
         //
         // Auto exposure target intensity
@@ -2072,178 +2086,178 @@ void Camera::initalizeParameters(const image::Config& config)
 
         rcl_interfaces::msg::FloatingPointRange exposure_time_range;
         exposure_time_range.set__from_value(0.0)
-                           .set__to_value(1.0)
-                           .set__step(0.000001);
+                           .set__to_value(1.0);
 
         rcl_interfaces::msg::ParameterDescriptor exposure_time_desc;
         exposure_time_desc.set__name("exposure_time")
                           .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                           .set__description("imager exposure time in seconds")
                           .set__floating_point_range({exposure_time_range});
-        declare_parameter("exposure_time", 0.025, exposure_time_desc);
+        declare_parameter("exposure_time", static_cast<double>(config.exposure()) / 1e6, exposure_time_desc);
 
-        //
-        // Auto white balance enable
+        if (!next_gen_camera_)
+        {
 
-        rcl_interfaces::msg::ParameterDescriptor auto_white_balance_enable_desc;
-        auto_white_balance_enable_desc.set__name("auto_white_balance")
-                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
-                 .set__description("enable auto white balance");
-        declare_parameter("auto_white_balance", true, auto_white_balance_enable_desc);
+            //
+            // Auto white balance enable
 
-        //
-        // Auto white balance decay
+            rcl_interfaces::msg::ParameterDescriptor auto_white_balance_enable_desc;
+            auto_white_balance_enable_desc.set__name("auto_white_balance")
+                     .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
+                     .set__description("enable auto white balance");
+            declare_parameter("auto_white_balance", config.autoWhiteBalance(), auto_white_balance_enable_desc);
 
-        rcl_interfaces::msg::FloatingPointRange auto_white_balance_decay_range;
-        auto_white_balance_decay_range.set__from_value(0.0)
-                                      .set__to_value(20.0)
-                                      .set__step(0.01);
+            //
+            // Auto white balance decay
 
-        rcl_interfaces::msg::ParameterDescriptor auto_white_balance_decay_desc;
-        auto_white_balance_decay_desc.set__name("auto_white_balance_decay")
-                                     .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
-                                     .set__description("auto white balance decay")
-                                     .set__floating_point_range({auto_white_balance_decay_range});
-        declare_parameter("auto_white_balance_decay", 3.0, auto_white_balance_decay_desc);
+            rcl_interfaces::msg::FloatingPointRange auto_white_balance_decay_range;
+            auto_white_balance_decay_range.set__from_value(0.0)
+                                          .set__to_value(20.0);
 
-        //
-        // Auto white balance thresh
+            rcl_interfaces::msg::ParameterDescriptor auto_white_balance_decay_desc;
+            auto_white_balance_decay_desc.set__name("auto_white_balance_decay")
+                                         .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                                         .set__description("auto white balance decay")
+                                         .set__floating_point_range({auto_white_balance_decay_range});
+            declare_parameter("auto_white_balance_decay", static_cast<double>(config.autoWhiteBalanceDecay()),
+                              auto_white_balance_decay_desc);
 
-        rcl_interfaces::msg::FloatingPointRange auto_white_balance_thresh_range;
-        auto_white_balance_thresh_range.set__from_value(0.0)
-                                       .set__to_value(1.0)
-                                       .set__step(0.01);
+            //
+            // Auto white balance thresh
 
-        rcl_interfaces::msg::ParameterDescriptor auto_white_balance_thresh_desc;
-        auto_white_balance_thresh_desc.set__name("auto_white_balance_thresh")
-                                      .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
-                                      .set__description("auto white balance threshold")
-                                      .set__floating_point_range({auto_white_balance_thresh_range});
-        declare_parameter("auto_white_balance_thresh", 0.5, auto_white_balance_thresh_desc);
+            rcl_interfaces::msg::FloatingPointRange auto_white_balance_thresh_range;
+            auto_white_balance_thresh_range.set__from_value(0.0)
+                                           .set__to_value(1.0);
 
-        //
-        // Auto white balance red
+            rcl_interfaces::msg::ParameterDescriptor auto_white_balance_thresh_desc;
+            auto_white_balance_thresh_desc.set__name("auto_white_balance_thresh")
+                                          .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                                          .set__description("auto white balance threshold")
+                                          .set__floating_point_range({auto_white_balance_thresh_range});
+            declare_parameter("auto_white_balance_thresh", config.autoWhiteBalanceThresh(), auto_white_balance_thresh_desc);
 
-        rcl_interfaces::msg::FloatingPointRange auto_white_balance_red_range;
-        auto_white_balance_red_range.set__from_value(0.25)
-                                    .set__to_value(4.0)
-                                    .set__step(0.01);
+            //
+            // Auto white balance red
 
-        rcl_interfaces::msg::ParameterDescriptor auto_white_balance_red_desc;
-        auto_white_balance_red_desc.set__name("auto_white_balance_red")
-                                   .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
-                                   .set__description("auto white balance red gain")
-                                   .set__floating_point_range({auto_white_balance_red_range});
-        declare_parameter("auto_white_balance_red", 1.0, auto_white_balance_red_desc);
+            rcl_interfaces::msg::FloatingPointRange auto_white_balance_red_range;
+            auto_white_balance_red_range.set__from_value(0.2)
+                                        .set__to_value(4.0);
 
-        //
-        // Auto white balance blue
+            rcl_interfaces::msg::ParameterDescriptor auto_white_balance_red_desc;
+            auto_white_balance_red_desc.set__name("auto_white_balance_red")
+                                       .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                                       .set__description("auto white balance red gain")
+                                       .set__floating_point_range({auto_white_balance_red_range});
+            declare_parameter("auto_white_balance_red", config.whiteBalanceRed(), auto_white_balance_red_desc);
 
-        rcl_interfaces::msg::FloatingPointRange auto_white_balance_blue_range;
-        auto_white_balance_blue_range.set__from_value(0.25)
-                                     .set__to_value(4.0)
-                                     .set__step(0.01);
+            //
+            // Auto white balance blue
 
-        rcl_interfaces::msg::ParameterDescriptor auto_white_balance_blue_desc;
-        auto_white_balance_blue_desc.set__name("auto_white_balance_blue")
-                                     .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
-                                     .set__description("auto white balance blue gain")
-                                     .set__floating_point_range({auto_white_balance_blue_range});
-        declare_parameter("auto_white_balance_blue", 1.0, auto_white_balance_blue_desc);
+            rcl_interfaces::msg::FloatingPointRange auto_white_balance_blue_range;
+            auto_white_balance_blue_range.set__from_value(0.2)
+                                          .set__to_value(4.0);
 
-        //
-        // HDR enable
+            rcl_interfaces::msg::ParameterDescriptor auto_white_balance_blue_desc;
+            auto_white_balance_blue_desc.set__name("auto_white_balance_blue")
+                                          .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                                          .set__description("auto white balance blue gain")
+                                          .set__floating_point_range({auto_white_balance_blue_range});
+            declare_parameter("auto_white_balance_blue", config.whiteBalanceBlue(), auto_white_balance_blue_desc);
 
-        rcl_interfaces::msg::ParameterDescriptor hdr_enable_desc;
-        hdr_enable_desc.set__name("hdr_enable")
-                       .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
-                       .set__description("enable hdr");
-        declare_parameter("hdr_enable", false, hdr_enable_desc);
+            //
+            // HDR enable
 
-        //
-        // Gamma
-        //
-        rcl_interfaces::msg::FloatingPointRange gamma_range;
-        gamma_range.set__from_value(1.7)
-                   .set__to_value(8.0)
-                   .set__step(0.01);
+            rcl_interfaces::msg::ParameterDescriptor hdr_enable_desc;
+            hdr_enable_desc.set__name("hdr_enable")
+                           .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
+                           .set__description("enable hdr");
+            declare_parameter("hdr_enable", false, hdr_enable_desc);
 
-        rcl_interfaces::msg::ParameterDescriptor gamma_desc;
-        gamma_desc.set__name("gamma")
-                   .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
-                   .set__description("Gamma")
-                   .set__floating_point_range({gamma_range});
-        declare_parameter("gamma", 1.7, gamma_desc);
+            //
+            // Gamma
+            //
+            rcl_interfaces::msg::FloatingPointRange gamma_range;
+            gamma_range.set__from_value(1.7)
+                       .set__to_value(8.0)
+                       .set__step(0.01);
 
-        //
-        // Enable ROI auto exposure control
+            rcl_interfaces::msg::ParameterDescriptor gamma_desc;
+            gamma_desc.set__name("gamma")
+                       .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                       .set__description("Gamma")
+                       .set__floating_point_range({gamma_range});
+            declare_parameter("gamma", 1.7, gamma_desc);
 
-        rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_enable_desc;
-        auto_exposure_roi_enable_desc.set__name("auto_exposure_roi_enable")
-                                   .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
-                                   .set__description("enable auto exposure ROI");
-        declare_parameter("auto_exposure_roi_enable", false, auto_exposure_roi_enable_desc);
+            //
+            // Enable ROI auto exposure control
 
-        //
-        // Auto exposure ROI x
-        //
-        rcl_interfaces::msg::FloatingPointRange auto_exposure_roi_x_range;
-        auto_exposure_roi_x_range.set__from_value(0)
-                       .set__to_value(device_info_.imagerWidth)
-                       .set__step(1);
+            rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_enable_desc;
+            auto_exposure_roi_enable_desc.set__name("auto_exposure_roi_enable")
+                                       .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
+                                       .set__description("enable auto exposure ROI");
+            declare_parameter("auto_exposure_roi_enable", false, auto_exposure_roi_enable_desc);
 
-        rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_x_desc;
-        auto_exposure_roi_x_desc.set__name("auto_exposure_roi_x")
-                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                                 .set__description("auto exposure ROI x value")
-                                 .set__floating_point_range({auto_exposure_roi_x_range});
-        declare_parameter("auto_exposure_roi_x", 0.0, auto_exposure_roi_x_desc);
+            //
+            // Auto exposure ROI x
+            //
+            rcl_interfaces::msg::FloatingPointRange auto_exposure_roi_x_range;
+            auto_exposure_roi_x_range.set__from_value(0)
+                           .set__to_value(device_info_.imagerWidth)
+                           .set__step(1);
 
-        //
-        // Auto exposure ROI y
-        //
-        rcl_interfaces::msg::FloatingPointRange auto_exposure_roi_y_range;
-        auto_exposure_roi_y_range.set__from_value(0)
-                       .set__to_value(device_info_.imagerHeight)
-                       .set__step(1);
+            rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_x_desc;
+            auto_exposure_roi_x_desc.set__name("auto_exposure_roi_x")
+                                     .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
+                                     .set__description("auto exposure ROI x value")
+                                     .set__floating_point_range({auto_exposure_roi_x_range});
+            declare_parameter("auto_exposure_roi_x", 0.0, auto_exposure_roi_x_desc);
 
-        rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_y_desc;
-        auto_exposure_roi_y_desc.set__name("auto_exposure_roi_y")
-                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                                 .set__description("auto exposure ROI y value")
-                                 .set__floating_point_range({auto_exposure_roi_y_range});
-        declare_parameter("auto_exposure_roi_y", 0.0, auto_exposure_roi_y_desc);
+            //
+            // Auto exposure ROI y
+            //
+            rcl_interfaces::msg::FloatingPointRange auto_exposure_roi_y_range;
+            auto_exposure_roi_y_range.set__from_value(0)
+                           .set__to_value(device_info_.imagerHeight)
+                           .set__step(1);
 
-        //
-        // Auto exposure ROI width
-        //
-        rcl_interfaces::msg::FloatingPointRange auto_exposure_roi_width_range;
-        auto_exposure_roi_width_range.set__from_value(0)
-                       .set__to_value(device_info_.imagerWidth)
-                       .set__step(1);
+            rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_y_desc;
+            auto_exposure_roi_y_desc.set__name("auto_exposure_roi_y")
+                                     .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
+                                     .set__description("auto exposure ROI y value")
+                                     .set__floating_point_range({auto_exposure_roi_y_range});
+            declare_parameter("auto_exposure_roi_y", 0.0, auto_exposure_roi_y_desc);
 
-        rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_width_desc;
-        auto_exposure_roi_width_desc.set__name("auto_exposure_roi_width")
-                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                                 .set__description("auto exposure ROI width value")
-                                 .set__floating_point_range({auto_exposure_roi_width_range});
-        declare_parameter("auto_exposure_roi_width", crl::multisense::Roi_Full_Image, auto_exposure_roi_width_desc);
+            //
+            // Auto exposure ROI width
+            //
+            rcl_interfaces::msg::FloatingPointRange auto_exposure_roi_width_range;
+            auto_exposure_roi_width_range.set__from_value(0)
+                           .set__to_value(device_info_.imagerWidth)
+                           .set__step(1);
 
-        //
-        // Auto exposure ROI height
-        //
-        rcl_interfaces::msg::FloatingPointRange auto_exposure_roi_height_range;
-        auto_exposure_roi_height_range.set__from_value(0)
-                       .set__to_value(device_info_.imagerHeight)
-                       .set__step(1);
+            rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_width_desc;
+            auto_exposure_roi_width_desc.set__name("auto_exposure_roi_width")
+                                     .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
+                                     .set__description("auto exposure ROI width value")
+                                     .set__floating_point_range({auto_exposure_roi_width_range});
+            declare_parameter("auto_exposure_roi_width", crl::multisense::Roi_Full_Image, auto_exposure_roi_width_desc);
 
-        rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_height_desc;
-        auto_exposure_roi_height_desc.set__name("auto_exposure_roi_height")
-                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                                 .set__description("auto exposure ROI height value")
-                                 .set__floating_point_range({auto_exposure_roi_height_range});
-        declare_parameter("auto_exposure_roi_height", crl::multisense::Roi_Full_Image, auto_exposure_roi_height_desc);
+            //
+            // Auto exposure ROI height
+            //
+            rcl_interfaces::msg::FloatingPointRange auto_exposure_roi_height_range;
+            auto_exposure_roi_height_range.set__from_value(0)
+                           .set__to_value(device_info_.imagerHeight)
+                           .set__step(1);
 
+            rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_height_desc;
+            auto_exposure_roi_height_desc.set__name("auto_exposure_roi_height")
+                                     .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
+                                     .set__description("auto exposure ROI height value")
+                                     .set__floating_point_range({auto_exposure_roi_height_range});
+            declare_parameter("auto_exposure_roi_height", crl::multisense::Roi_Full_Image, auto_exposure_roi_height_desc);
+
+        }
     }
 
     if (has_aux_camera_ && aux_control_supported_)
@@ -2573,8 +2587,7 @@ void Camera::initalizeParameters(const image::Config& config)
                              device_info_.imagerType == system::DeviceInfo::IMAGER_TYPE_CMV4000_COLOR) ? 400.0 : 200.0;
     rcl_interfaces::msg::FloatingPointRange border_clip_value_range;
     border_clip_value_range.set__from_value(0.0)
-                           .set__to_value(max_clip)
-                           .set__step(0.1);
+                           .set__to_value(max_clip);
 
     rcl_interfaces::msg::ParameterDescriptor border_clip_value_desc;
     border_clip_value_desc.set__name("border_clip_value")
@@ -2588,8 +2601,7 @@ void Camera::initalizeParameters(const image::Config& config)
 
     rcl_interfaces::msg::FloatingPointRange max_pointcloud_range_range;
     max_pointcloud_range_range.set__from_value(0.1)
-                              .set__to_value(1000.0)
-                              .set__step(0.1);
+                              .set__to_value(1000.0);
 
     rcl_interfaces::msg::ParameterDescriptor max_pointcloud_range_desc;
     max_pointcloud_range_desc.set__name("max pointcloud range")

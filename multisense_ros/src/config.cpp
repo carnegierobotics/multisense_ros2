@@ -34,6 +34,8 @@
 #include <multisense_ros/config.h>
 #include <multisense_ros/parameter_utilities.h>
 
+using namespace crl::multisense;
+
 namespace multisense_ros {
 
 Config::Config(const std::string& node_name, crl::multisense::Channel* driver):
@@ -47,7 +49,10 @@ Config::Config(const std::string& node_name, crl::multisense::Channel* driver):
         return;
     }
 
-    if (device_info_.lightingType != 0)
+    lighting_supported_ = device_info_.lightingType != 0 ||
+                          device_info_.hardwareRevision == system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21;
+
+    if (lighting_supported_)
     {
         if (const auto status = driver_->getLightingConfig(lighting_config_); status != crl::multisense::Status_Ok)
         {
@@ -83,7 +88,7 @@ Config::Config(const std::string& node_name, crl::multisense::Channel* driver):
 
     if (device_info_.hardwareRevision != crl::multisense::system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21)
     {
-        if (device_info_.lightingType != 0)
+        if (lighting_supported_)
         {
             //
             // Lighting

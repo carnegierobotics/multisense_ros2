@@ -1,7 +1,6 @@
 <?xml version="1.0" ?>
 <robot xmlns:xacro="http://ros.org/wiki/xacro">
     <xacro:macro name="multisenseKS21" params="name">
-
         <link name="${name}/head">
             <visual>
                 <origin xyz="-0.1 -0.25 -0.0235" rpy="1.57079632679 0.0 1.57079632679" />
@@ -32,6 +31,4 @@
         <link name="${name}/left_camera_optical_frame"/>
 
     </xacro:macro>
-
 </robot>
-
