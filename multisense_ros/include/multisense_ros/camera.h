@@ -331,18 +331,7 @@ private:
     // Has a 3rd aux color camera
 
     bool has_aux_camera_ = false;
-<<<<<<< HEAD
     bool aux_control_supported_ = false;
-
-    //
-    // ROI control
-
-    bool enable_roi_auto_exposure_control_ = false;
-    bool enable_aux_roi_auto_exposure_control_ = false;
-
-    RegionOfIntrest auto_exposure_roi_;
-    RegionOfIntrest aux_auto_exposure_roi_;
-=======
 
     //
     // Supports color images (either left color, right color, or aux color)
@@ -353,7 +342,16 @@ private:
     // Contains the next-gen stereo hardware (i.e S30/S27 etc)
 
     bool next_gen_camera_ = false;
->>>>>>> master
+
+    //
+    // ROI control
+
+    bool enable_roi_auto_exposure_control_ = false;
+    bool enable_aux_roi_auto_exposure_control_ = false;
+
+    RegionOfIntrest auto_exposure_roi_;
+    RegionOfIntrest aux_auto_exposure_roi_;
+
 };
 
 }// namespace
