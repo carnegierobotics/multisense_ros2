@@ -1440,7 +1440,10 @@ void Camera::pointCloudCallback(const image::Header& header)
                 writePoint(color_organized_point_cloud_, index, valid ? point : invalid_point, packed_color);
             }
 
-            ++valid_points;
+            if (valid)
+            {
+                ++valid_points;
+            }
         }
     }
 
@@ -1982,7 +1985,7 @@ void Camera::initalizeParameters(const image::Config& config)
             .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
             .set__description("camera fps")
             .set__floating_point_range({fps_range});
-    declare_parameter("fps", config.fps(), fps_desc);
+    declare_parameter("fps", 10.0, fps_desc);
 
     //
     // Stereo Post Filtering
@@ -1996,7 +1999,7 @@ void Camera::initalizeParameters(const image::Config& config)
                            .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                            .set__description("SGM stereo post filter")
                            .set__floating_point_range({stereo_post_filter_range});
-    declare_parameter("stereo_post_filtering", config.stereoPostFilterStrength(), stereo_post_filter_desc);
+    declare_parameter("stereo_post_filtering", 0.75, stereo_post_filter_desc);
 
     if (device_info_.hardwareRevision != system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21)
     {
@@ -2027,7 +2030,7 @@ void Camera::initalizeParameters(const image::Config& config)
                      .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                      .set__description("imager gain")
                      .set__floating_point_range({gain_range});
-            declare_parameter("gain", config.gain(), gain_desc);
+            declare_parameter("gain", 1.0, gain_desc);
         }
 
 
