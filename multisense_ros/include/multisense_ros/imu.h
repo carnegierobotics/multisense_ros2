@@ -146,6 +146,8 @@ private:
     // Active streams
 
     crl::multisense::DataSource active_streams_;
+
+    bool next_gen_camera_;
 };
 
 }

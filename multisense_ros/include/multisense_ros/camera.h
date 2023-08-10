@@ -58,6 +58,14 @@ namespace multisense_ros {
 
 enum class BorderClip {NONE, RECTANGULAR, CIRCULAR};
 
+struct RegionOfIntrest
+{
+    int x = 0;
+    int y = 0;
+    int width = crl::multisense::Roi_Full_Image;
+    int height = crl::multisense::Roi_Full_Image;
+};
+
 class Camera : public rclcpp::Node
 {
 public:
@@ -323,6 +331,7 @@ private:
     // Has a 3rd aux color camera
 
     bool has_aux_camera_ = false;
+    bool aux_control_supported_ = false;
 
     //
     // Supports color images (either left color, right color, or aux color)
@@ -333,6 +342,16 @@ private:
     // Contains the next-gen stereo hardware (i.e S30/S27 etc)
 
     bool next_gen_camera_ = false;
+
+    //
+    // ROI control
+
+    bool enable_roi_auto_exposure_control_ = false;
+    bool enable_aux_roi_auto_exposure_control_ = false;
+
+    RegionOfIntrest auto_exposure_roi_;
+    RegionOfIntrest aux_auto_exposure_roi_;
+
 };
 
 }// namespace

@@ -300,6 +300,23 @@ Camera::Camera(const std::string& node_name,
         return;
     }
 
+    if (system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
+        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision)
+    {
+        if (version_info_.sensorFirmwareVersion >= 0x0600) {
+            aux_control_supported_ = true;
+        }
+        else
+        {
+            aux_control_supported_ = false;
+            RCLCPP_WARN(get_logger(),
+                        "Camera: MultiSense firmware version does not support the updated aux camera exposure controls. "
+                        "The ROS2 driver will work normally, but you will have limited control over aux camera exposure parameters. "
+                        "Please contact support@carnegierobotics.com for an updated firmware version greater than 6.0 to "
+                        "enable aux camera exposure controls.");
+        }
+    }
+
     //
     // Get the camera config
 
@@ -1423,7 +1440,10 @@ void Camera::pointCloudCallback(const image::Header& header)
                 writePoint(color_organized_point_cloud_, index, valid ? point : invalid_point, packed_color);
             }
 
-            ++valid_points;
+            if (valid)
+            {
+                ++valid_points;
+            }
         }
     }
 
@@ -1965,7 +1985,7 @@ void Camera::initalizeParameters(const image::Config& config)
             .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
             .set__description("camera fps")
             .set__floating_point_range({fps_range});
-    declare_parameter("fps", config.fps(), fps_desc);
+    declare_parameter("fps", 10.0, fps_desc);
 
     //
     // Stereo Post Filtering
@@ -1979,23 +1999,39 @@ void Camera::initalizeParameters(const image::Config& config)
                            .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                            .set__description("SGM stereo post filter")
                            .set__floating_point_range({stereo_post_filter_range});
-    declare_parameter("stereo_post_filtering", config.stereoPostFilterStrength(), stereo_post_filter_desc);
+    declare_parameter("stereo_post_filtering", 0.75, stereo_post_filter_desc);
 
     if (device_info_.hardwareRevision != system::DeviceInfo::HARDWARE_REV_MULTISENSE_ST21)
     {
+
         //
         // Gain
+        if (next_gen_camera_)
+        {
+            rcl_interfaces::msg::FloatingPointRange gain_range;
+            gain_range.set__from_value(1.68421)
+                      .set__to_value(16.0);
 
-        rcl_interfaces::msg::FloatingPointRange gain_range;
-        gain_range.set__from_value(1.0)
-                  .set__to_value(16.0);
+            rcl_interfaces::msg::ParameterDescriptor gain_desc;
+            gain_desc.set__name("gain")
+                     .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                     .set__description("imager gain")
+                     .set__floating_point_range({gain_range});
+            declare_parameter("gain", 1.68421, gain_desc);
+        }
+        else
+        {
+            rcl_interfaces::msg::FloatingPointRange gain_range;
+            gain_range.set__from_value(1.0)
+                      .set__to_value(16.0);
 
-        rcl_interfaces::msg::ParameterDescriptor gain_desc;
-        gain_desc.set__name("gain")
-                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
-                 .set__description("imager gain")
-                 .set__floating_point_range({gain_range});
-        declare_parameter("gain", config.gain(), gain_desc);
+            rcl_interfaces::msg::ParameterDescriptor gain_desc;
+            gain_desc.set__name("gain")
+                     .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                     .set__description("imager gain")
+                     .set__floating_point_range({gain_range});
+            declare_parameter("gain", 1.0, gain_desc);
+        }
 
 
         //
@@ -2005,21 +2041,21 @@ void Camera::initalizeParameters(const image::Config& config)
         auto_exposure_enable_desc.set__name("auto_exposure")
                                  .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
                                  .set__description("enable auto exposure");
-        declare_parameter("auto_exposure", config.autoExposure(), auto_exposure_enable_desc);
+        declare_parameter("auto_exposure", true, auto_exposure_enable_desc);
 
         //
         // Auto exposure max time
 
         rcl_interfaces::msg::FloatingPointRange auto_exposure_max_time_range;
         auto_exposure_max_time_range.set__from_value(0.0)
-                                    .set__to_value(0.5);
+                                    .set__to_value(0.033);
 
         rcl_interfaces::msg::ParameterDescriptor auto_exposure_max_time_desc;
         auto_exposure_max_time_desc.set__name("auto_exposure_max_time")
                                    .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                                    .set__description("max exposure time using auto exposure")
                                    .set__floating_point_range({auto_exposure_max_time_range});
-        declare_parameter("auto_exposure_max_time", static_cast<float>(config.autoExposureMax()) / 1e6, auto_exposure_max_time_desc);
+        declare_parameter("auto_exposure_max_time", 0.033, auto_exposure_max_time_desc);
 
         //
         // Auto exposure decay
@@ -2033,7 +2069,7 @@ void Camera::initalizeParameters(const image::Config& config)
                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                                 .set__description("auto exposure time decay")
                                 .set__floating_point_range({auto_exposure_decay_range});
-        declare_parameter("auto_exposure_decay", static_cast<double>(config.autoExposureDecay()), auto_exposure_decay_desc);
+        declare_parameter("auto_exposure_decay", 7.0, auto_exposure_decay_desc);
 
         //
         // Auto exposure threshold
@@ -2047,25 +2083,40 @@ void Camera::initalizeParameters(const image::Config& config)
                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                                 .set__description("auto exposure threshold")
                                 .set__floating_point_range({auto_exposure_thresh_range});
-        declare_parameter("auto_exposure_thresh", config.autoExposureThresh(), auto_exposure_thresh_desc);
+
+        declare_parameter("auto_exposure_thresh", (next_gen_camera_ ? 0.95 : 0.75), auto_exposure_thresh_desc);
+
+        //
+        // Auto exposure target intensity
+
+        rcl_interfaces::msg::FloatingPointRange auto_exposure_target_intensity_range;
+        auto_exposure_target_intensity_range.set__from_value(0.0)
+                                            .set__to_value(1.0)
+                                            .set__step(0.01);
+
+        rcl_interfaces::msg::ParameterDescriptor auto_exposure_target_intensity_desc;
+        auto_exposure_target_intensity_desc.set__name("auto_exposure_target_intensity")
+                                           .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                                           .set__description("auto exposure target intensity")
+                                           .set__floating_point_range({auto_exposure_target_intensity_range});
+        declare_parameter("auto_exposure_target_intensity", 0.5, auto_exposure_target_intensity_desc);
 
         //
         // Exposure time
 
         rcl_interfaces::msg::FloatingPointRange exposure_time_range;
         exposure_time_range.set__from_value(0.0)
-                           .set__to_value(1.0);
+                           .set__to_value(0.033);
 
         rcl_interfaces::msg::ParameterDescriptor exposure_time_desc;
         exposure_time_desc.set__name("exposure_time")
                           .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                           .set__description("imager exposure time in seconds")
                           .set__floating_point_range({exposure_time_range});
-        declare_parameter("exposure_time", static_cast<double>(config.exposure()) / 1e6, exposure_time_desc);
+        declare_parameter("exposure_time", 0.025, exposure_time_desc);
 
-        if (!next_gen_camera_)
+        if (!has_aux_camera_ &&  supports_color_)
         {
-
             //
             // Auto white balance enable
 
@@ -2073,7 +2124,7 @@ void Camera::initalizeParameters(const image::Config& config)
             auto_white_balance_enable_desc.set__name("auto_white_balance")
                      .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
                      .set__description("enable auto white balance");
-            declare_parameter("auto_white_balance", config.autoWhiteBalance(), auto_white_balance_enable_desc);
+            declare_parameter("auto_white_balance", true, auto_white_balance_enable_desc);
 
             //
             // Auto white balance decay
@@ -2087,8 +2138,7 @@ void Camera::initalizeParameters(const image::Config& config)
                                          .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                                          .set__description("auto white balance decay")
                                          .set__floating_point_range({auto_white_balance_decay_range});
-            declare_parameter("auto_white_balance_decay", static_cast<double>(config.autoWhiteBalanceDecay()),
-                              auto_white_balance_decay_desc);
+            declare_parameter("auto_white_balance_decay", 3, auto_white_balance_decay_desc);
 
             //
             // Auto white balance thresh
@@ -2102,7 +2152,7 @@ void Camera::initalizeParameters(const image::Config& config)
                                           .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                                           .set__description("auto white balance threshold")
                                           .set__floating_point_range({auto_white_balance_thresh_range});
-            declare_parameter("auto_white_balance_thresh", config.autoWhiteBalanceThresh(), auto_white_balance_thresh_desc);
+            declare_parameter("auto_white_balance_thresh", 0.5, auto_white_balance_thresh_desc);
 
             //
             // Auto white balance red
@@ -2116,7 +2166,7 @@ void Camera::initalizeParameters(const image::Config& config)
                                        .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                                        .set__description("auto white balance red gain")
                                        .set__floating_point_range({auto_white_balance_red_range});
-            declare_parameter("auto_white_balance_red", config.whiteBalanceRed(), auto_white_balance_red_desc);
+            declare_parameter("auto_white_balance_red", 1.0, auto_white_balance_red_desc);
 
             //
             // Auto white balance blue
@@ -2130,47 +2180,411 @@ void Camera::initalizeParameters(const image::Config& config)
                                           .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                                           .set__description("auto white balance blue gain")
                                           .set__floating_point_range({auto_white_balance_blue_range});
-            declare_parameter("auto_white_balance_blue", config.whiteBalanceBlue(), auto_white_balance_blue_desc);
-
-            //
-            // HDR enable
-
-            rcl_interfaces::msg::ParameterDescriptor hdr_enable_desc;
-            hdr_enable_desc.set__name("hdr_enable")
-                           .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
-                           .set__description("enable hdr");
-            declare_parameter("hdr_enable", config.hdrEnabled(), hdr_enable_desc);
+            declare_parameter("auto_white_balance_blue", 1.0, auto_white_balance_blue_desc);
         }
+
+        //
+        // HDR enable
+
+        rcl_interfaces::msg::ParameterDescriptor hdr_enable_desc;
+        hdr_enable_desc.set__name("hdr_enable")
+                       .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
+                       .set__description("enable hdr");
+        declare_parameter("hdr_enable", false, hdr_enable_desc);
+
+        if (next_gen_camera_)
+        {
+            //
+            // Gamma
+            //
+            rcl_interfaces::msg::FloatingPointRange gamma_range;
+            gamma_range.set__from_value(1.7)
+                       .set__to_value(8.0)
+                       .set__step(0.01);
+
+            rcl_interfaces::msg::ParameterDescriptor gamma_desc;
+            gamma_desc.set__name("gamma")
+                       .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                       .set__description("Gamma")
+                       .set__floating_point_range({gamma_range});
+            declare_parameter("gamma", 1.7, gamma_desc);
+        }
+
+        //
+        // Enable ROI auto exposure control
+
+        rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_enable_desc;
+        auto_exposure_roi_enable_desc.set__name("auto_exposure_roi_enable")
+                                   .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
+                                   .set__description("enable auto exposure ROI");
+        declare_parameter("auto_exposure_roi_enable", false, auto_exposure_roi_enable_desc);
+
+        //
+        // Auto exposure ROI x
+        //
+        rcl_interfaces::msg::FloatingPointRange auto_exposure_roi_x_range;
+        auto_exposure_roi_x_range.set__from_value(0)
+                       .set__to_value(device_info_.imagerWidth)
+                       .set__step(1);
+
+        rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_x_desc;
+        auto_exposure_roi_x_desc.set__name("auto_exposure_roi_x")
+                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
+                                 .set__description("auto exposure ROI x value")
+                                 .set__floating_point_range({auto_exposure_roi_x_range});
+        declare_parameter("auto_exposure_roi_x", 0.0, auto_exposure_roi_x_desc);
+
+        //
+        // Auto exposure ROI y
+        //
+        rcl_interfaces::msg::FloatingPointRange auto_exposure_roi_y_range;
+        auto_exposure_roi_y_range.set__from_value(0)
+                       .set__to_value(device_info_.imagerHeight)
+                       .set__step(1);
+
+        rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_y_desc;
+        auto_exposure_roi_y_desc.set__name("auto_exposure_roi_y")
+                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
+                                 .set__description("auto exposure ROI y value")
+                                 .set__floating_point_range({auto_exposure_roi_y_range});
+        declare_parameter("auto_exposure_roi_y", 0.0, auto_exposure_roi_y_desc);
+
+        //
+        // Auto exposure ROI width
+        //
+        rcl_interfaces::msg::FloatingPointRange auto_exposure_roi_width_range;
+        auto_exposure_roi_width_range.set__from_value(0)
+                       .set__to_value(device_info_.imagerWidth)
+                       .set__step(1);
+
+        rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_width_desc;
+        auto_exposure_roi_width_desc.set__name("auto_exposure_roi_width")
+                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
+                                 .set__description("auto exposure ROI width value")
+                                 .set__floating_point_range({auto_exposure_roi_width_range});
+        declare_parameter("auto_exposure_roi_width", crl::multisense::Roi_Full_Image, auto_exposure_roi_width_desc);
+
+        //
+        // Auto exposure ROI height
+        //
+        rcl_interfaces::msg::FloatingPointRange auto_exposure_roi_height_range;
+        auto_exposure_roi_height_range.set__from_value(0)
+                       .set__to_value(device_info_.imagerHeight)
+                       .set__step(1);
+
+        rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_height_desc;
+        auto_exposure_roi_height_desc.set__name("auto_exposure_roi_height")
+                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
+                                 .set__description("auto exposure ROI height value")
+                                 .set__floating_point_range({auto_exposure_roi_height_range});
+        declare_parameter("auto_exposure_roi_height", crl::multisense::Roi_Full_Image, auto_exposure_roi_height_desc);
+
     }
 
-    if ( device_info_.imagerType == system::DeviceInfo::IMAGER_TYPE_CMV4000_GREY ||
-         device_info_.imagerType == system::DeviceInfo::IMAGER_TYPE_CMV4000_COLOR)
+    if (has_aux_camera_ && aux_control_supported_)
     {
         //
-        // Crop enable
+        // Aux Gain
 
-        rcl_interfaces::msg::ParameterDescriptor crop_enable_desc;
-        crop_enable_desc.set__name("crop_mode")
-                        .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
-                        .set__description("enable crop mode on CVM4000 imagers to crop image to 2MP");
-        declare_parameter("crop_mode", config.camMode() == 2000, crop_enable_desc);
+        rcl_interfaces::msg::FloatingPointRange aux_gain_range;
+        aux_gain_range.set__from_value(1.0)
+                      .set__to_value(8.0)
+                      .set__step(0.01);
+
+        rcl_interfaces::msg::ParameterDescriptor aux_gain_desc;
+        aux_gain_desc.set__name("aux_gain")
+                     .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                     .set__description("aux_imager gain")
+                     .set__floating_point_range({aux_gain_range});
+        declare_parameter("aux_gain", 1.0, aux_gain_desc);
 
         //
-        // Crop offset
+        // Aux Auto exposure enable
 
-        rcl_interfaces::msg::IntegerRange crop_offset_range;
-        crop_offset_range.set__from_value(0)
-                         .set__to_value(960)
-                         .set__step(1);
+        rcl_interfaces::msg::ParameterDescriptor aux_auto_exposure_enable_desc;
+        aux_auto_exposure_enable_desc.set__name("aux_auto_exposure")
+                                     .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
+                                     .set__description("aus enable auto exposure");
+        declare_parameter("aux_auto_exposure", true, aux_auto_exposure_enable_desc);
 
-        rcl_interfaces::msg::ParameterDescriptor crop_offset_desc;
-        crop_offset_desc.set__name("crop_offset")
-                        .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                        .set__description("pixel offset for crop region")
-                        .set__integer_range({crop_offset_range});
-        declare_parameter("crop_offset", config.offset(), crop_offset_desc);
+        //
+        // Aux Auto exposure max time
+
+        rcl_interfaces::msg::FloatingPointRange aux_auto_exposure_max_time_range;
+        aux_auto_exposure_max_time_range.set__from_value(0.0)
+                                        .set__to_value(0.5)
+                                        .set__step(0.01);
+
+        rcl_interfaces::msg::ParameterDescriptor aux_auto_exposure_max_time_desc;
+        aux_auto_exposure_max_time_desc.set__name("aux_auto_exposure_max_time")
+                                       .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                                       .set__description("aux max exposure time using auto exposure")
+                                       .set__floating_point_range({aux_auto_exposure_max_time_range});
+        declare_parameter("aux_auto_exposure_max_time", 0.5, aux_auto_exposure_max_time_desc);
+
+        //
+        // Aux Auto exposure decay
+
+        rcl_interfaces::msg::FloatingPointRange aux_auto_exposure_decay_range;
+        aux_auto_exposure_decay_range.set__from_value(0.0)
+                                     .set__to_value(20.0)
+                                     .set__step(0.01);
+
+        rcl_interfaces::msg::ParameterDescriptor aux_auto_exposure_decay_desc;
+        aux_auto_exposure_decay_desc.set__name("aux_auto_exposure_decay")
+                                    .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                                    .set__description("aux_auto exposure time decay")
+                                    .set__floating_point_range({aux_auto_exposure_decay_range});
+        declare_parameter("aux_auto_exposure_decay", 7.0, aux_auto_exposure_decay_desc);
+
+        //
+        // Aux Auto exposure threshold
+
+        rcl_interfaces::msg::FloatingPointRange aux_auto_exposure_thresh_range;
+        aux_auto_exposure_thresh_range.set__from_value(0.0)
+                                      .set__to_value(1.0)
+                                      .set__step(0.01);
+
+        rcl_interfaces::msg::ParameterDescriptor aux_auto_exposure_thresh_desc;
+        aux_auto_exposure_thresh_desc.set__name("aux_auto_exposure_thresh")
+                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                                 .set__description("aux auto exposure threshold")
+                                 .set__floating_point_range({aux_auto_exposure_thresh_range});
+        declare_parameter("aux_auto_exposure_thresh", 0.75, aux_auto_exposure_thresh_desc);
+
+        //
+        // Aux Auto exposure target intensity
+
+        rcl_interfaces::msg::FloatingPointRange aux_auto_exposure_target_intensity_range;
+        aux_auto_exposure_target_intensity_range.set__from_value(0.0)
+                                                .set__to_value(1.0)
+                                                .set__step(0.01);
+
+        rcl_interfaces::msg::ParameterDescriptor aux_auto_exposure_target_intensity_desc;
+        aux_auto_exposure_target_intensity_desc.set__name("aux_auto_exposure_target_intensity")
+                                                .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                                                .set__description("aux auto exposure target intensity")
+                                                .set__floating_point_range({aux_auto_exposure_target_intensity_range});
+        declare_parameter("aux_auto_exposure_target_intensity", 0.5, aux_auto_exposure_target_intensity_desc);
+
+        //
+        // Aux Exposure time
+
+        rcl_interfaces::msg::FloatingPointRange aux_exposure_time_range;
+        aux_exposure_time_range.set__from_value(0.0)
+                               .set__to_value(1.0)
+                               .set__step(0.000001);
+
+        rcl_interfaces::msg::ParameterDescriptor aux_exposure_time_desc;
+        aux_exposure_time_desc.set__name("aux_exposure_time")
+                              .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                              .set__description("aux imager exposure time in seconds")
+                              .set__floating_point_range({aux_exposure_time_range});
+        declare_parameter("aux_exposure_time", 0.025, aux_exposure_time_desc);
+
+        //
+        // Aux Auto white balance enable
+
+        rcl_interfaces::msg::ParameterDescriptor aux_auto_white_balance_enable_desc;
+        aux_auto_white_balance_enable_desc.set__name("aux_ auto_white_balance")
+                                          .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
+                                          .set__description("enable aux auto white balance");
+        declare_parameter("aux_auto_white_balance", true, aux_auto_white_balance_enable_desc);
+
+        //
+        // Aux Auto white balance decay
+
+        rcl_interfaces::msg::FloatingPointRange aux_auto_white_balance_decay_range;
+        aux_auto_white_balance_decay_range.set__from_value(0.0)
+                                          .set__to_value(20.0)
+                                          .set__step(0.01);
+
+        rcl_interfaces::msg::ParameterDescriptor aux_auto_white_balance_decay_desc;
+        aux_auto_white_balance_decay_desc.set__name("aux_auto_white_balance_decay")
+                                         .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                                         .set__description("aux auto white balance decay")
+                                         .set__floating_point_range({aux_auto_white_balance_decay_range});
+        declare_parameter("aux_auto_white_balance_decay", 3.0, aux_auto_white_balance_decay_desc);
+
+        //
+        // Aux Auto white balance thresh
+
+        rcl_interfaces::msg::FloatingPointRange aux_auto_white_balance_thresh_range;
+        aux_auto_white_balance_thresh_range.set__from_value(0.0)
+                                           .set__to_value(1.0)
+                                           .set__step(0.01);
+
+        rcl_interfaces::msg::ParameterDescriptor aux_auto_white_balance_thresh_desc;
+        aux_auto_white_balance_thresh_desc.set__name("aux_auto_white_balance_thresh")
+                                          .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                                          .set__description("aux auto white balance threshold")
+                                          .set__floating_point_range({aux_auto_white_balance_thresh_range});
+        declare_parameter("aux_auto_white_balance_thresh", 0.5, aux_auto_white_balance_thresh_desc);
+
+        //
+        // Aux Auto white balance red
+
+        rcl_interfaces::msg::FloatingPointRange aux_auto_white_balance_red_range;
+        aux_auto_white_balance_red_range.set__from_value(0.25)
+                                        .set__to_value(4.0)
+                                        .set__step(0.01);
+
+        rcl_interfaces::msg::ParameterDescriptor aux_auto_white_balance_red_desc;
+        aux_auto_white_balance_red_desc.set__name("aux_auto_white_balance_red")
+                                       .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                                       .set__description("aux auto white balance red gain")
+                                       .set__floating_point_range({aux_auto_white_balance_red_range});
+        declare_parameter("aux_auto_white_balance_red", 1.0, aux_auto_white_balance_red_desc);
+
+        //
+        // Aux Auto white balance blue
+
+        rcl_interfaces::msg::FloatingPointRange aux_auto_white_balance_blue_range;
+        aux_auto_white_balance_blue_range.set__from_value(0.25)
+                                         .set__to_value(4.0)
+                                         .set__step(0.01);
+
+        rcl_interfaces::msg::ParameterDescriptor aux_auto_white_balance_blue_desc;
+        aux_auto_white_balance_blue_desc.set__name("aux_auto_white_balance_blue")
+                                         .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                                         .set__description("aux auto white balance blue gain")
+                                         .set__floating_point_range({aux_auto_white_balance_blue_range});
+        declare_parameter("aux_auto_white_balance_blue", 1.0, aux_auto_white_balance_blue_desc);
+
+        //
+        // Aux HDR enable
+
+        rcl_interfaces::msg::ParameterDescriptor aux_hdr_enable_desc;
+        aux_hdr_enable_desc.set__name("aux_hdr_enable")
+                       .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
+                       .set__description("enable aux hdr");
+        declare_parameter("aux_hdr_enable", false, aux_hdr_enable_desc);
+
+        //
+        // Aux gamma
+        //
+        rcl_interfaces::msg::FloatingPointRange aux_gamma_range;
+        aux_gamma_range.set__from_value(1.7)
+                       .set__to_value(8.0)
+                       .set__step(0.01);
+
+        rcl_interfaces::msg::ParameterDescriptor aux_gamma_desc;
+        aux_gamma_desc.set__name("aux_gamma")
+                      .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                      .set__description("aux gamma")
+                      .set__floating_point_range({aux_gamma_range});
+        declare_parameter("aux_gamma", 1.7, aux_gamma_desc);
+
+        //
+        // Aux enable sharpening
+
+        rcl_interfaces::msg::ParameterDescriptor aux_sharpening_enable_desc;
+        aux_sharpening_enable_desc.set__name("aux_sharpening_enable")
+                                   .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
+                                   .set__description("enable aux sharpening");
+        declare_parameter("aux_sharpening_enable", false, aux_sharpening_enable_desc);
+
+        //
+        // Aux sharpening percentage
+        //
+        rcl_interfaces::msg::FloatingPointRange aux_sharpening_percentage_range;
+        aux_sharpening_percentage_range.set__from_value(0.0)
+                                       .set__to_value(100.0)
+                                       .set__step(0.01);
+
+        rcl_interfaces::msg::ParameterDescriptor aux_sharpening_percentage_desc;
+        aux_sharpening_percentage_desc.set__name("aux_sharpening_percentage")
+                                      .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                                      .set__description("aux sharpening percentage")
+                                      .set__floating_point_range({aux_sharpening_percentage_range});
+        declare_parameter("aux_sharpening_percentage", 0.0, aux_sharpening_percentage_desc);
+
+        //
+        // Aux sharpening limit
+        //
+        rcl_interfaces::msg::FloatingPointRange aux_sharpening_limit_range;
+        aux_sharpening_limit_range.set__from_value(0)
+                                  .set__to_value(255)
+                                  .set__step(1);
+
+        rcl_interfaces::msg::ParameterDescriptor aux_sharpening_limit_desc;
+        aux_sharpening_limit_desc.set__name("aux_sharpening_limit")
+                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
+                                 .set__description("aux sharpening limit")
+                                 .set__floating_point_range({aux_sharpening_limit_range});
+        declare_parameter("aux_sharpening_limit", 0.0, aux_sharpening_limit_desc);
+
+        //
+        // Aux enable ROI auto exposure
+
+        rcl_interfaces::msg::ParameterDescriptor aux_auto_exposure_roi_enable_desc;
+        aux_auto_exposure_roi_enable_desc.set__name("aux_auto_exposure_roi_enable")
+                                   .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
+                                   .set__description("enable aux auto exposure ROI");
+        declare_parameter("aux_auto_exposure_roi_enable", false, aux_auto_exposure_roi_enable_desc);
+
+        //
+        // Aux ROI auto exposure x
+        //
+        rcl_interfaces::msg::FloatingPointRange aux_auto_exposure_roi_x_range;
+        aux_auto_exposure_roi_x_range.set__from_value(0)
+                       .set__to_value(device_info_.imagerWidth)
+                       .set__step(1);
+
+        rcl_interfaces::msg::ParameterDescriptor aux_auto_exposure_roi_x_desc;
+        aux_auto_exposure_roi_x_desc.set__name("aux_auto_exposure_roi_x")
+                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
+                                 .set__description("aux auto exposure ROI x value")
+                                 .set__floating_point_range({aux_auto_exposure_roi_x_range});
+        declare_parameter("aux_auto_exposure_roi_x", 0.0, aux_auto_exposure_roi_x_desc);
+
+        //
+        // Aux ROI auto exposure y
+        //
+        rcl_interfaces::msg::FloatingPointRange aux_auto_exposure_roi_y_range;
+        aux_auto_exposure_roi_y_range.set__from_value(0)
+                       .set__to_value(device_info_.imagerHeight)
+                       .set__step(1);
+
+        rcl_interfaces::msg::ParameterDescriptor aux_auto_exposure_roi_y_desc;
+        aux_auto_exposure_roi_y_desc.set__name("aux_auto_exposure_roi_y")
+                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
+                                 .set__description("aux auto exposure ROI y value")
+                                 .set__floating_point_range({aux_auto_exposure_roi_y_range});
+        declare_parameter("aux_auto_exposure_roi_y", 0.0, aux_auto_exposure_roi_y_desc);
+
+        //
+        // Aux ROI auto exposure width
+        //
+        rcl_interfaces::msg::FloatingPointRange aux_auto_exposure_roi_width_range;
+        aux_auto_exposure_roi_width_range.set__from_value(0)
+                       .set__to_value(device_info_.imagerWidth)
+                       .set__step(1);
+
+        rcl_interfaces::msg::ParameterDescriptor aux_auto_exposure_roi_width_desc;
+        aux_auto_exposure_roi_width_desc.set__name("aux_auto_exposure_roi_width")
+                                        .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
+                                        .set__description("aux auto exposure ROI width value")
+                                        .set__floating_point_range({aux_auto_exposure_roi_width_range});
+        declare_parameter("aux_auto_exposure_roi_width", crl::multisense::Roi_Full_Image, aux_auto_exposure_roi_width_desc);
+
+        //
+        // Aux ROI auto exposure height
+        //
+        rcl_interfaces::msg::FloatingPointRange aux_auto_exposure_roi_height_range;
+        aux_auto_exposure_roi_height_range.set__from_value(0)
+                       .set__to_value(device_info_.imagerHeight)
+                       .set__step(1);
+
+        rcl_interfaces::msg::ParameterDescriptor aux_auto_exposure_roi_height_desc;
+        aux_auto_exposure_roi_height_desc.set__name("aux_auto_exposure_roi_height")
+                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
+                                 .set__description("aux auto exposure ROI height value")
+                                 .set__floating_point_range({aux_auto_exposure_roi_height_range});
+        declare_parameter("aux_auto_exposure_roi_height", crl::multisense::Roi_Full_Image, aux_auto_exposure_roi_height_desc);
 
     }
+
 
     //
     // Border clip type
@@ -2224,7 +2638,31 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
     result.set__successful(true);
 
     auto image_config = stereo_calibration_manager_->config();
-    bool update_config = false;
+    bool update_image_config = false;
+
+    std::optional<image::AuxConfig> aux_image_config = image::AuxConfig{};
+    bool update_aux_image_config = false;
+    if (aux_control_supported_)
+    {
+        if (const auto status = driver_->getAuxImageConfig(aux_image_config.value()); status != Status_Ok)
+        {
+            RCLCPP_WARN(get_logger(), "Camera: failed to query aux sensor configuration: %s",
+                        Channel::statusString(status));
+
+            aux_image_config = std::nullopt;
+        }
+        else
+        {
+            aux_auto_exposure_roi_ = RegionOfIntrest{aux_image_config->autoExposureRoiX(),
+                                                     aux_image_config->autoExposureRoiY(),
+                                                     aux_image_config->autoExposureRoiWidth(),
+                                                     aux_image_config->autoExposureRoiHeight()};
+        }
+    }
+    else
+    {
+        aux_image_config = std::nullopt;
+    }
 
     for (const auto &parameter : parameters)
     {
@@ -2283,7 +2721,7 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
 
                 image_config.setResolution(width, height);
                 image_config.setDisparities(disparities);
-                update_config = true;
+                update_image_config = true;
             }
         }
         else if(name == "fps")
@@ -2297,7 +2735,7 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             if (image_config.fps() != value)
             {
                 image_config.setFps(value);
-                update_config = true;
+                update_image_config = true;
             }
         }
         else if(name == "stereo_post_filtering")
@@ -2311,7 +2749,7 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             if (image_config.stereoPostFilterStrength() != value)
             {
                 image_config.setStereoPostFilterStrength(value);
-                update_config = true;
+                update_image_config = true;
             }
         }
         else if(name == "gain")
@@ -2325,7 +2763,7 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             if (image_config.gain() != value)
             {
                 image_config.setGain(value);
-                update_config = true;
+                update_image_config = true;
             }
         }
         else if(name == "auto_exposure")
@@ -2339,7 +2777,7 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             if (image_config.autoExposure() != value)
             {
                 image_config.setAutoExposure(value);
-                update_config = true;
+                update_image_config = true;
             }
         }
         else if(name == "auto_exposure_max_time")
@@ -2353,7 +2791,7 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             if (image_config.autoExposureMax() != value)
             {
                 image_config.setAutoExposureMax(value);
-                update_config = true;
+                update_image_config = true;
             }
         }
         else if(name == "auto_exposure_decay")
@@ -2367,7 +2805,7 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             if (image_config.autoExposureDecay() != value)
             {
                 image_config.setAutoExposureDecay(value);
-                update_config = true;
+                update_image_config = true;
             }
         }
         else if(name == "auto_exposure_thresh")
@@ -2381,7 +2819,21 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             if (image_config.autoExposureThresh() != value)
             {
                 image_config.setAutoExposureThresh(value);
-                update_config = true;
+                update_image_config = true;
+            }
+        }
+        else if(name == "auto_exposure_target_intensity")
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid auto exposure target intensity type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
+            if (image_config.autoExposureTargetIntensity() != value)
+            {
+                image_config.setAutoExposureTargetIntensity(value);
+                update_image_config = true;
             }
         }
         else if(name == "exposure_time")
@@ -2395,7 +2847,7 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             if (image_config.exposure() != value)
             {
                 image_config.setExposure(value);
-                update_config = true;
+                update_image_config = true;
             }
         }
         else if(name == "auto_white_balance")
@@ -2409,7 +2861,7 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             if (image_config.autoWhiteBalance() != value)
             {
                 image_config.setAutoWhiteBalance(value);
-                update_config = true;
+                update_image_config = true;
             }
         }
         else if(name == "auto_white_balance_decay")
@@ -2423,7 +2875,7 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             if (image_config.autoWhiteBalanceDecay() != value)
             {
                 image_config.setAutoWhiteBalanceDecay(value);
-                update_config = true;
+                update_image_config = true;
             }
         }
         else if(name == "auto_white_balance_thresh")
@@ -2437,7 +2889,7 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             if (image_config.autoWhiteBalanceThresh() != value)
             {
                 image_config.setAutoWhiteBalanceThresh(value);
-                update_config = true;
+                update_image_config = true;
             }
         }
         else if(name == "auto_white_balance_red")
@@ -2451,7 +2903,7 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             if (image_config.whiteBalanceRed() != value)
             {
                 image_config.setWhiteBalance(value, image_config.whiteBalanceBlue());
-                update_config = true;
+                update_image_config = true;
             }
         }
         else if(name == "auto_white_balance_blue")
@@ -2465,7 +2917,7 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             if (image_config.whiteBalanceBlue() != value)
             {
                 image_config.setWhiteBalance(image_config.whiteBalanceRed(), value);
-                update_config = true;
+                update_image_config = true;
             }
         }
         else if(name == "hdr_enable")
@@ -2479,37 +2931,399 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             if (image_config.hdrEnabled() != value)
             {
                 image_config.setHdr(value);
-                update_config = true;
+                update_image_config = true;
             }
         }
-        else if (name == "crop_mode")
-        {
-            if (type != rclcpp::ParameterType::PARAMETER_BOOL)
-            {
-                return result.set__successful(false).set__reason("invalid crop mode type");
-            }
-
-            const auto value = parameter.as_bool();
-            const int mode = value ? 2000 : 4000;
-
-            if (image_config.camMode() != mode)
-            {
-                image_config.setCamMode(mode);
-                update_config = true;
-            }
-        }
-        else if (name == "crop_offset")
+        else if(name == "gamma")
         {
             if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
             {
-                return result.set__successful(false).set__reason("invalid crop offset type");
+                return result.set__successful(false).set__reason("invalid gamma type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
+            if (image_config.gamma() != value)
+            {
+                image_config.setGamma(value);
+                update_image_config = true;
+            }
+        }
+        else if(name == "auto_exposure_roi_enable")
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_BOOL)
+            {
+                return result.set__successful(false).set__reason("invalid auto exposure ROI enable");
+            }
+
+            const auto value = parameter.as_bool();
+            if (enable_roi_auto_exposure_control_ != value)
+            {
+                enable_roi_auto_exposure_control_ = value;
+                update_image_config = true;
+            }
+        }
+        else if(name == "auto_exposure_roi_x")
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid auto exposure ROI x");
             }
 
             const auto value = get_as_number<int>(parameter);
-            if (image_config.offset() != value)
+            if (auto_exposure_roi_.x != value)
             {
-                image_config.setOffset(value);
-                update_config = true;
+                auto_exposure_roi_.x = value;
+                update_image_config = true;
+            }
+        }
+        else if(name == "auto_exposure_roi_y")
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid auto exposure ROI y");
+            }
+
+            const auto value = get_as_number<int>(parameter);
+            if (auto_exposure_roi_.y != value)
+            {
+                auto_exposure_roi_.y = value;
+                update_image_config = true;
+            }
+        }
+        else if(name == "auto_exposure_roi_width")
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid auto exposure ROI width");
+            }
+
+            const auto value = get_as_number<int>(parameter);
+            if (auto_exposure_roi_.width != value)
+            {
+                auto_exposure_roi_.width = value;
+                update_image_config = true;
+            }
+        }
+        else if(name == "auto_exposure_roi_height")
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid auto exposure ROI height");
+            }
+
+            const auto value = get_as_number<int>(parameter);
+            if (auto_exposure_roi_.height != value)
+            {
+                auto_exposure_roi_.height = value;
+                update_image_config = true;
+            }
+        }
+        else if(name == "aux_gain" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid aux gain type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
+            if (aux_image_config->gain() != value)
+            {
+                aux_image_config->setGain(value);
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_auto_exposure" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_BOOL)
+            {
+                return result.set__successful(false).set__reason("invalid aux auto exposure type");
+            }
+
+            const auto value = parameter.as_bool();
+            if (aux_image_config->autoExposure() != value)
+            {
+                aux_image_config->setAutoExposure(value);
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_auto_exposure_max_time" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid aux auto exposure max time type");
+            }
+
+            const auto value = static_cast<uint32_t>(get_as_number<double>(parameter) * 1e6);
+            if (aux_image_config->autoExposureMax() != value)
+            {
+                aux_image_config->setAutoExposureMax(value);
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_auto_exposure_decay" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid aux auto exposure decay type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
+            if (aux_image_config->autoExposureDecay() != value)
+            {
+                aux_image_config->setAutoExposureDecay(value);
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_auto_exposure_thresh" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid aux auto exposure thresh type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
+            if (aux_image_config->autoExposureThresh() != value)
+            {
+                aux_image_config->setAutoExposureThresh(value);
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_auto_exposure_target_intensity" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid aux auto exposure target intensity type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
+            if (aux_image_config->autoExposureTargetIntensity() != value)
+            {
+                aux_image_config->setAutoExposureTargetIntensity(value);
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_exposure_time" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid aux exposure time type");
+            }
+
+            const auto value = static_cast<uint32_t>(get_as_number<double>(parameter) * 1e6);
+            if (aux_image_config->exposure() != value)
+            {
+                aux_image_config->setExposure(value);
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_auto_white_balance" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_BOOL)
+            {
+                return result.set__successful(false).set__reason("invalid aux auto white balance type");
+            }
+
+            const auto value = parameter.as_bool();
+            if (aux_image_config->autoWhiteBalance() != value)
+            {
+                aux_image_config->setAutoWhiteBalance(value);
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_auto_white_balance_decay" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid aux auto white balance decay type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
+            if (aux_image_config->autoWhiteBalanceDecay() != value)
+            {
+                aux_image_config->setAutoWhiteBalanceDecay(value);
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_auto_white_balance_thresh" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid aux auto white balance thresh type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
+            if (aux_image_config->autoWhiteBalanceThresh() != value)
+            {
+                aux_image_config->setAutoWhiteBalanceThresh(value);
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_auto_white_balance_red" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid aux auto white balance red type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
+            if (aux_image_config->whiteBalanceRed() != value)
+            {
+                aux_image_config->setWhiteBalance(value, aux_image_config->whiteBalanceBlue());
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_auto_white_balance_blue" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid aux auto white balance blue type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
+            if (aux_image_config->whiteBalanceBlue() != value)
+            {
+                aux_image_config->setWhiteBalance(aux_image_config->whiteBalanceRed(), value);
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_hdr_enable" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_BOOL)
+            {
+                return result.set__successful(false).set__reason("invalid aux hdr enable type");
+            }
+
+            const auto value = parameter.as_bool();
+            if (aux_image_config->hdrEnabled() != value)
+            {
+                aux_image_config->setHdr(value);
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_gamma" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid aux gamma type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
+            if (aux_image_config->gamma() != value)
+            {
+                aux_image_config->setGamma(value);
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_sharpening_enable" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_BOOL)
+            {
+                return result.set__successful(false).set__reason("invalid aux sharpening enable type");
+            }
+
+            const auto value = parameter.as_bool();
+            if (aux_image_config->enableSharpening() != value)
+            {
+                aux_image_config->enableSharpening(value);
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_sharpening_percentage" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid aux sharpening percentage type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
+            if (aux_image_config->sharpeningPercentage() != value)
+            {
+                aux_image_config->setSharpeningPercentage(value);
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_sharpening_limit" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid aux sharpening limit type");
+            }
+
+            const auto value = get_as_number<int>(parameter);
+            if (aux_image_config->sharpeningLimit() != value)
+            {
+                aux_image_config->setSharpeningLimit(value);
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_auto_exposure_roi_enable" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_BOOL)
+            {
+                return result.set__successful(false).set__reason("invalid aux auto exposure ROI enable");
+            }
+
+            const auto value = parameter.as_bool();
+            if (enable_aux_roi_auto_exposure_control_ != value)
+            {
+                enable_aux_roi_auto_exposure_control_ = value;
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_auto_exposure_roi_x" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid aux auto exposure ROI x");
+            }
+
+            const auto value = get_as_number<int>(parameter);
+            if (aux_auto_exposure_roi_.x != value)
+            {
+                aux_auto_exposure_roi_.x = value;
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_auto_exposure_roi_y" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid aux auto exposure ROI y");
+            }
+
+            const auto value = get_as_number<int>(parameter);
+            if (aux_auto_exposure_roi_.y != value)
+            {
+                aux_auto_exposure_roi_.y = value;
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_auto_exposure_roi_width" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid aux auto exposure ROI width");
+            }
+
+            const auto value = get_as_number<int>(parameter);
+            if (aux_auto_exposure_roi_.width != value)
+            {
+                aux_auto_exposure_roi_.width = value;
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_auto_exposure_roi_height" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid aux auto exposure ROI height");
+            }
+
+            const auto value = get_as_number<int>(parameter);
+            if (aux_auto_exposure_roi_.height != value)
+            {
+                aux_auto_exposure_roi_.height = value;
+                update_aux_image_config = true;
             }
         }
         else if (name == "border_clip_type")
@@ -2549,7 +3363,21 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         }
     }
 
-    if (update_config)
+    //
+    // Update our ROI if we are enabled/disabled
+    if (enable_roi_auto_exposure_control_)
+    {
+        image_config.setAutoExposureRoi(auto_exposure_roi_.x,
+                                        auto_exposure_roi_.y,
+                                        auto_exposure_roi_.width,
+                                        auto_exposure_roi_.height);
+    }
+    else
+    {
+        image_config.setAutoExposureRoi(0, 0, crl::multisense::Roi_Full_Image, crl::multisense::Roi_Full_Image);
+    }
+
+    if (update_image_config)
     {
         if (const auto status = driver_->setImageConfig(image_config); status != Status_Ok)
         {
@@ -2567,6 +3395,35 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         //
         // This is a no-op if the resolution of the camera did not change
         updateConfig(image_config);
+
+        //
+        // Update our internal ROI state so we can enable/disable out of band
+        auto_exposure_roi_ = RegionOfIntrest{image_config.autoExposureRoiX(),
+                                             image_config.autoExposureRoiY(),
+                                             image_config.autoExposureRoiWidth(),
+                                             image_config.autoExposureRoiHeight()};
+    }
+
+    //
+    // Update our aux ROI if we are enabled/disabled
+    if (enable_aux_roi_auto_exposure_control_)
+    {
+        aux_image_config->setAutoExposureRoi(aux_auto_exposure_roi_.x,
+                                             aux_auto_exposure_roi_.y,
+                                             aux_auto_exposure_roi_.width,
+                                             aux_auto_exposure_roi_.height);
+    }
+    else
+    {
+        aux_image_config->setAutoExposureRoi(0, 0, crl::multisense::Roi_Full_Image, crl::multisense::Roi_Full_Image);
+    }
+
+    if (update_aux_image_config && aux_image_config)
+    {
+        if (const auto status = driver_->setAuxImageConfig(aux_image_config.value()); status != Status_Ok)
+        {
+            return result.set__successful(false).set__reason(Channel::statusString(status));
+        }
     }
 
     return result;
