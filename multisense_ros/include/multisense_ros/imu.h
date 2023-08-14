@@ -123,9 +123,9 @@ private:
     //
     // TF frame ID's
 
-    const std::string accel_frameId_;
-    const std::string gyro_frameId_;
-    const std::string mag_frameId_;
+    std::string accel_frameId_;
+    std::string gyro_frameId_;
+    std::string mag_frameId_;
 
     //
     // Parameter management

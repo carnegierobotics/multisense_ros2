@@ -88,6 +88,12 @@ Imu::Imu(const std::string& node_name,
 
     next_gen_camera_ = version_info.sensorFirmwareVersion > 0x0403;
 
+    if (next_gen_camera_)
+    {
+        accel_frameId_ = tf_prefix + "/imu";
+        gyro_frameId_ = tf_prefix + "/imu";
+    }
+
     //
     // Initialize the sensor_msgs::Imu topic
     // We will publish the data in the accelerometer frame applying the
