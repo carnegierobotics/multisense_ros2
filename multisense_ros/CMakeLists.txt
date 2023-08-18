@@ -43,6 +43,8 @@ add_library(${PROJECT_NAME} src/camera.cpp
                             src/pps.cpp
                             src/status.cpp)
 
+target_compile_definitions(${PROJECT_NAME} PRIVATE ROS_DISTOR=$ENV{ROS_DISTRO})
+
 ament_target_dependencies(${PROJECT_NAME}
                          angles
                          Eigen3
