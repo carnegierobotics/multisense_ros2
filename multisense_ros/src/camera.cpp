@@ -2060,16 +2060,16 @@ void Camera::initalizeParameters(const image::Config& config)
         //
         // Auto exposure decay
 
-        rcl_interfaces::msg::FloatingPointRange auto_exposure_decay_range;
-        auto_exposure_decay_range.set__from_value(0.0)
-                                 .set__to_value(20.0);
+        rcl_interfaces::msg::IntegerRange auto_exposure_decay_range;
+        auto_exposure_decay_range.set__from_value(1)
+                                 .set__to_value(10);
 
         rcl_interfaces::msg::ParameterDescriptor auto_exposure_decay_desc;
         auto_exposure_decay_desc.set__name("auto_exposure_decay")
-                                .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                                .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
                                 .set__description("auto exposure time decay")
-                                .set__floating_point_range({auto_exposure_decay_range});
-        declare_parameter("auto_exposure_decay", 7.0, auto_exposure_decay_desc);
+                                .set__integer_range({auto_exposure_decay_range});
+        declare_parameter("auto_exposure_decay", 7, auto_exposure_decay_desc);
 
         //
         // Auto exposure threshold
@@ -2129,15 +2129,15 @@ void Camera::initalizeParameters(const image::Config& config)
             //
             // Auto white balance decay
 
-            rcl_interfaces::msg::FloatingPointRange auto_white_balance_decay_range;
-            auto_white_balance_decay_range.set__from_value(0.0)
-                                          .set__to_value(20.0);
+            rcl_interfaces::msg::IntegerRange auto_white_balance_decay_range;
+            auto_white_balance_decay_range.set__from_value(0)
+                                          .set__to_value(20);
 
             rcl_interfaces::msg::ParameterDescriptor auto_white_balance_decay_desc;
             auto_white_balance_decay_desc.set__name("auto_white_balance_decay")
-                                         .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                                         .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
                                          .set__description("auto white balance decay")
-                                         .set__floating_point_range({auto_white_balance_decay_range});
+                                         .set__integer_range({auto_white_balance_decay_range});
             declare_parameter("auto_white_balance_decay", 3, auto_white_balance_decay_desc);
 
             //
@@ -2325,17 +2325,16 @@ void Camera::initalizeParameters(const image::Config& config)
         //
         // Aux Auto exposure decay
 
-        rcl_interfaces::msg::FloatingPointRange aux_auto_exposure_decay_range;
-        aux_auto_exposure_decay_range.set__from_value(0.0)
-                                     .set__to_value(20.0)
-                                     .set__step(0.01);
+        rcl_interfaces::msg::IntegerRange aux_auto_exposure_decay_range;
+        aux_auto_exposure_decay_range.set__from_value(1)
+                                     .set__to_value(10);
 
         rcl_interfaces::msg::ParameterDescriptor aux_auto_exposure_decay_desc;
         aux_auto_exposure_decay_desc.set__name("aux_auto_exposure_decay")
-                                    .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                                    .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
                                     .set__description("aux_auto exposure time decay")
-                                    .set__floating_point_range({aux_auto_exposure_decay_range});
-        declare_parameter("aux_auto_exposure_decay", 7.0, aux_auto_exposure_decay_desc);
+                                    .set__integer_range({aux_auto_exposure_decay_range});
+        declare_parameter("aux_auto_exposure_decay", 7, aux_auto_exposure_decay_desc);
 
         //
         // Aux Auto exposure threshold
@@ -2372,7 +2371,7 @@ void Camera::initalizeParameters(const image::Config& config)
 
         rcl_interfaces::msg::FloatingPointRange aux_exposure_time_range;
         aux_exposure_time_range.set__from_value(0.0)
-                               .set__to_value(1.0)
+                               .set__to_value(0.033)
                                .set__step(0.000001);
 
         rcl_interfaces::msg::ParameterDescriptor aux_exposure_time_desc;
@@ -2394,17 +2393,16 @@ void Camera::initalizeParameters(const image::Config& config)
         //
         // Aux Auto white balance decay
 
-        rcl_interfaces::msg::FloatingPointRange aux_auto_white_balance_decay_range;
-        aux_auto_white_balance_decay_range.set__from_value(0.0)
-                                          .set__to_value(20.0)
-                                          .set__step(0.01);
+        rcl_interfaces::msg::IntegerRange aux_auto_white_balance_decay_range;
+        aux_auto_white_balance_decay_range.set__from_value(0)
+                                          .set__to_value(20);
 
         rcl_interfaces::msg::ParameterDescriptor aux_auto_white_balance_decay_desc;
         aux_auto_white_balance_decay_desc.set__name("aux_auto_white_balance_decay")
-                                         .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                                         .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
                                          .set__description("aux auto white balance decay")
-                                         .set__floating_point_range({aux_auto_white_balance_decay_range});
-        declare_parameter("aux_auto_white_balance_decay", 3.0, aux_auto_white_balance_decay_desc);
+                                         .set__integer_range({aux_auto_white_balance_decay_range});
+        declare_parameter("aux_auto_white_balance_decay", 3, aux_auto_white_balance_decay_desc);
 
         //
         // Aux Auto white balance thresh
