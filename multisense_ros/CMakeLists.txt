@@ -25,6 +25,7 @@ find_package(multisense_lib REQUIRED)
 find_package(multisense_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(ros_environment REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(stereo_msgs REQUIRED)
 find_package(tf2 REQUIRED)
@@ -42,6 +43,8 @@ add_library(${PROJECT_NAME} src/camera.cpp
                             src/point_cloud_utilities.cpp
                             src/pps.cpp
                             src/status.cpp)
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE ROS_DISTRO=$ENV{ROS_DISTRO})
 
 ament_target_dependencies(${PROJECT_NAME}
                          angles
