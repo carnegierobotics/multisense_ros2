@@ -37,7 +37,7 @@
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <sensor_msgs/msg/point_field.hpp>
 
-#if (ROS_DISTRO == foxy || ROS_DISTRO == galactic)
+#if defined(ROS_FOXY) || defined(ROS_GALACTIC)
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #else
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>

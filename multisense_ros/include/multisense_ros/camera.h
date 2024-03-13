@@ -38,7 +38,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#if (ROS_DISTRO == foxy || ROS_DISTRO == galactic || ROS_DISTRO == humble)
+#if defined(ROS_FOXY) || defined(ROS_GALACTIC) || defined(ROS_HUMBLE)
 #include <image_geometry/stereo_camera_model.h>
 #else
 #include <image_geometry/stereo_camera_model.hpp>
