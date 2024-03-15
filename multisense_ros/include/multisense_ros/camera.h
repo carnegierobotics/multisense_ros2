@@ -38,7 +38,12 @@
 
 #include <rclcpp/rclcpp.hpp>
 
+#if defined(ROS_FOXY) || defined(ROS_GALACTIC) || defined(ROS_HUMBLE)
 #include <image_geometry/stereo_camera_model.h>
+#else
+#include <image_geometry/stereo_camera_model.hpp>
+#endif
+
 #include <sensor_msgs/distortion_models.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <stereo_msgs/msg/disparity_image.hpp>
