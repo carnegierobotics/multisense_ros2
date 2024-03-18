@@ -64,6 +64,12 @@ private:
     crl::multisense::lighting::Config lighting_config_;
 
     //
+    // PTP
+
+    bool ptp_supported_ = false;
+    bool ptp_enabled_ = false;
+
+    //
     // Parameter management
 
     OnSetParametersCallbackHandle::SharedPtr paramter_handle_;
