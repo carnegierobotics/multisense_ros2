@@ -62,6 +62,13 @@ Config::Config(const std::string& node_name, crl::multisense::Channel* driver):
         }
     }
 
+    ptp_supported_ = (device_info_.hardwareRevision == system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 ||
+                      device_info_.hardwareRevision == system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 ||
+                      device_info_.hardwareRevision == system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 ||
+                      device_info_.hardwareRevision == system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_VPB ||
+                      device_info_.hardwareRevision == system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_STEREO ||
+                      device_info_.hardwareRevision == system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_MONOCAM);
+
     if (const auto status = driver_->getTransmitDelay(transmit_delay_); status != crl::multisense::Status_Ok)
     {
             RCLCPP_ERROR(get_logger(), "Config: failed to query transmit delay: %s",
@@ -132,6 +139,18 @@ Config::Config(const std::string& node_name, crl::multisense::Channel* driver):
                               .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
                               .set__description("run basic time sync between MultiSense and host");
         declare_parameter("network_time_sync", true, network_time_sync_desc);
+
+        if (ptp_supported_)
+        {
+            //
+            // PTP time sync
+
+            rcl_interfaces::msg::ParameterDescriptor ptp_time_sync_desc;
+            ptp_time_sync_desc.set__name("ptp_time_sync")
+                                  .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
+                                  .set__description("run basic time sync between MultiSense and host");
+            declare_parameter("ptp_time_sync", true, ptp_time_sync_desc);
+        }
     }
 
 }
@@ -229,6 +248,25 @@ rcl_interfaces::msg::SetParametersResult Config::parameterCallback(const std::ve
             if (const auto status = driver_->networkTimeSynchronization(parameter.as_bool());
                     status != crl::multisense::Status_Ok)
             {
+                return result.set__successful(false).set__reason(crl::multisense::Channel::statusString(status));
+            }
+        }
+        else if(name == "ptp_time_sync")
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_BOOL)
+            {
+                return result.set__successful(false).set__reason("invalid ptp time sync type");
+            }
+
+            if (!ptp_supported_)
+            {
+                return result.set__successful(false).set__reason("ptp time sync not supported");
+            }
+
+            if (const auto status = driver_->ptpTimeSynchronization(parameter.as_bool());
+                    status != crl::multisense::Status_Ok)
+            {
+                ptp_enabled_ = parameter.as_bool();
                 return result.set__successful(false).set__reason(crl::multisense::Channel::statusString(status));
             }
         }
