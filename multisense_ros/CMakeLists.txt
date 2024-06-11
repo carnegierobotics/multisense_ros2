@@ -45,7 +45,7 @@ add_library(${PROJECT_NAME} src/camera.cpp
                             src/status.cpp)
 
 string(TOUPPER "ROS_$ENV{ROS_DISTRO}" ROS_DISTRO)
-target_compile_definitions(${PROJECT_NAME} PRIVATE ${ROS_DISTRO}=1)
+target_compile_definitions(${PROJECT_NAME} PRIVATE ${ROS_DISTRO})
 
 ament_target_dependencies(${PROJECT_NAME}
                          angles
