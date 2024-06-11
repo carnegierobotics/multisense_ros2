@@ -829,7 +829,7 @@ void Camera::monoCallback(const image::Header& header)
         Source_Luma_Right != header.source &&
         Source_Luma_Aux != header.source)
     {
-        RCLCPP_ERROR(get_logger(), "Camera: unexpected image source: 0x%x", header.source);
+        RCLCPP_ERROR(get_logger(), "Camera: unexpected image source: 0x%lx", header.source);
         return;
     }
 
@@ -956,7 +956,7 @@ void Camera::rectCallback(const image::Header& header)
         Source_Luma_Rectified_Right != header.source &&
         Source_Luma_Rectified_Aux != header.source) {
 
-        RCLCPP_ERROR(get_logger(), "Camera: unexpected image source: 0x%x", header.source);
+        RCLCPP_ERROR(get_logger(), "Camera: unexpected image source: 0x%lx", header.source);
         return;
     }
 
@@ -1087,7 +1087,7 @@ void Camera::depthCallback(const image::Header& header)
 {
     if (Source_Disparity != header.source)
     {
-        RCLCPP_ERROR(get_logger(), "Camera: unexpected image source: 0x%x", header.source);
+        RCLCPP_ERROR(get_logger(), "Camera: unexpected image source: 0x%lx", header.source);
         return;
     }
 
@@ -1211,7 +1211,7 @@ void Camera::pointCloudCallback(const image::Header& header)
 {
     if (Source_Disparity != header.source)
     {
-        RCLCPP_ERROR(get_logger(), "Camera: unexpected image source: 0x%x", header.source);
+        RCLCPP_ERROR(get_logger(), "Camera: unexpected image source: 0x%lx", header.source);
         return;
     }
 
@@ -1532,7 +1532,7 @@ void Camera::colorImageCallback(const image::Header& header)
         Source_Chroma_Rectified_Aux != header.source &&
         Source_Chroma_Aux != header.source)
     {
-        RCLCPP_ERROR(get_logger(), "Camera: unexpected image source: 0x%x", header.source);
+        RCLCPP_ERROR(get_logger(), "Camera: unexpected image source: 0x%lx", header.source);
         return;
     }
 
@@ -1719,7 +1719,7 @@ void Camera::colorizeCallback(const image::Header& header)
         Source_Chroma_Left != header.source &&
         Source_Luma_Rectified_Left != header.source)
     {
-        RCLCPP_ERROR(get_logger(), "Camera: unexpected image source: 0x%x", header.source);
+        RCLCPP_ERROR(get_logger(), "Camera: unexpected image source: 0x%lx", header.source);
         return;
     }
 
@@ -1904,7 +1904,7 @@ void Camera::timerCallback()
         {
             if (const auto status = driver_->startStreams(start); status != Status_Ok)
             {
-                RCLCPP_ERROR(get_logger(), "Camera: failed to start streams 0x%x: %s",
+                RCLCPP_ERROR(get_logger(), "Camera: failed to start streams 0x%lx: %s",
                              start, Channel::statusString(status));
                 return;
             }
@@ -1914,7 +1914,7 @@ void Camera::timerCallback()
         {
             if (const auto status = driver_->stopStreams(stop); status != Status_Ok)
             {
-                RCLCPP_ERROR(get_logger(), "Camera: failed to stop streams 0x%x: %s\n",
+                RCLCPP_ERROR(get_logger(), "Camera: failed to stop streams 0x%lx: %s\n",
                              stop, Channel::statusString(status));
                 return;
             }
