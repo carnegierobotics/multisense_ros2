@@ -27,7 +27,7 @@ source install/setup.bash
 
 The launch file depends on xacro being installed. To install xacro execute the following command.
 ```
-sudo apt install ros-<distro>-xacro
+sudo apt install ros-<distro>-xacro ros-<distro>-tf2-geometry-msgs
 ```
 
 If your release does not have a pre-built xacro package, you can build it manually
