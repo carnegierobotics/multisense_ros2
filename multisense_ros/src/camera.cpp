@@ -569,10 +569,10 @@ Camera::Camera(const std::string& node_name,
     //
     // Initialze point cloud data structures
 
-    luma_point_cloud_ = initialize_pointcloud<float>(true, frame_id_left_, "intensity");
-    color_point_cloud_ = initialize_pointcloud<float>(true, frame_id_left_, "rgb");
-    luma_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_left_, "intensity");
-    color_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_left_, "rgb");
+    luma_point_cloud_ = initialize_pointcloud<float>(true, frame_id_rectified_left_, "intensity");
+    color_point_cloud_ = initialize_pointcloud<float>(true, frame_id_rectified_left_, "rgb");
+    luma_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_rectified_left_, "intensity");
+    color_organized_point_cloud_ = initialize_pointcloud<float>(false, frame_id_rectified_left_, "rgb");
 
     //
     // Add driver-level callbacks.
@@ -682,24 +682,24 @@ void Camera::disparityImageCallback(const image::Header& header)
         {
             pubP                    = left_disparity_pub_;
             imageP                  = &left_disparity_image_;
-            imageP->header.frame_id = frame_id_left_;
-            camInfo                 = stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t);
+            imageP->header.frame_id = frame_id_rectified_left_;
+            camInfo                 = stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t);
             camInfoPubP             = left_disp_cam_info_pub_;
             stereoDisparityPubP     = left_stereo_disparity_pub_;
             stereoDisparityImageP   = &left_stereo_disparity_;
-            stereoDisparityImageP->header.frame_id = frame_id_left_;
+            stereoDisparityImageP->header.frame_id = frame_id_rectified_left_;
             node = left_node_;
         }
         else
         {
             pubP                    = right_disparity_pub_;
             imageP                  = &right_disparity_image_;
-            imageP->header.frame_id = frame_id_right_;
-            camInfo                 = stereo_calibration_manager_->rightCameraInfo(frame_id_right_, t);
+            imageP->header.frame_id = frame_id_rectified_right_;
+            camInfo                 = stereo_calibration_manager_->rightCameraInfo(frame_id_rectified_right_, t);
             camInfoPubP             = right_disp_cam_info_pub_;
             stereoDisparityPubP     = right_stereo_disparity_pub_;
             stereoDisparityImageP   = &right_stereo_disparity_;
-            stereoDisparityImageP->header.frame_id = frame_id_right_;
+            stereoDisparityImageP->header.frame_id = frame_id_rectified_right_;
             node = right_node_;
         }
 
@@ -806,7 +806,7 @@ void Camera::disparityImageCallback(const image::Header& header)
         left_disparity_cost_image_.data.resize(image_size);
         memcpy(&left_disparity_cost_image_.data[0], header.imageDataP, image_size);
 
-        left_disparity_cost_image_.header.frame_id = frame_id_left_;
+        left_disparity_cost_image_.header.frame_id = frame_id_rectified_left_;
         left_disparity_cost_image_.header.stamp    = t;
         left_disparity_cost_image_.height          = header.height;
         left_disparity_cost_image_.width           = header.width;
@@ -817,7 +817,7 @@ void Camera::disparityImageCallback(const image::Header& header)
 
         left_disparity_cost_pub_->publish(left_disparity_cost_image_);
 
-        left_cost_cam_info_pub_->publish(stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t));
+        left_cost_cam_info_pub_->publish(stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t));
 
         break;
     }
@@ -974,7 +974,7 @@ void Camera::rectCallback(const image::Header& header)
             left_rect_image_.data.resize(header.imageLength);
             memcpy(&left_rect_image_.data[0], header.imageDataP, header.imageLength);
 
-            left_rect_image_.header.frame_id = frame_id_left_;
+            left_rect_image_.header.frame_id = frame_id_rectified_left_;
             left_rect_image_.header.stamp    = t;
             left_rect_image_.height          = header.height;
             left_rect_image_.width           = header.width;
@@ -995,7 +995,7 @@ void Camera::rectCallback(const image::Header& header)
 
             left_rect_image_.is_bigendian    = (htonl(1) == 1);
 
-            const auto left_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t);
+            const auto left_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t);
 
             left_rect_cam_pub_->publish(left_rect_image_);
 
@@ -1013,7 +1013,7 @@ void Camera::rectCallback(const image::Header& header)
             right_rect_image_.data.resize(header.imageLength);
             memcpy(&right_rect_image_.data[0], header.imageDataP, header.imageLength);
 
-            right_rect_image_.header.frame_id = frame_id_left_;
+            right_rect_image_.header.frame_id = frame_id_rectified_right_;
             right_rect_image_.header.stamp    = t;
             right_rect_image_.height          = header.height;
             right_rect_image_.width           = header.width;
@@ -1036,7 +1036,7 @@ void Camera::rectCallback(const image::Header& header)
 
             right_rect_image_.is_bigendian = (htonl(1) == 1);
 
-            const auto right_camera_info = stereo_calibration_manager_->rightCameraInfo(frame_id_left_, t);
+            const auto right_camera_info = stereo_calibration_manager_->rightCameraInfo(frame_id_rectified_right_, t);
 
             right_rect_cam_pub_->publish(right_rect_image_);
 
@@ -1106,7 +1106,7 @@ void Camera::depthCallback(const image::Header& header)
 
     const rclcpp::Time t(header.timeSeconds, 1000 * header.timeMicroSeconds);
     depth_image_.header.stamp = t;
-    depth_image_.header.frame_id = frame_id_left_;
+    depth_image_.header.frame_id = frame_id_rectified_left_;
     depth_image_.height          = header.height;
     depth_image_.width           = header.width;
     depth_image_.is_bigendian    = (htonl(1) == 1);
@@ -1139,7 +1139,7 @@ void Camera::depthCallback(const image::Header& header)
         // The 4th element of the right camera projection matrix is defined
         // as fx*Tx.
 
-        const double scale = stereo_calibration_manager_->rightCameraInfo(frame_id_right_, t).p[3];
+        const double scale = stereo_calibration_manager_->rightCameraInfo(frame_id_rectified_right_, t).p[3];
 
         const float *disparityImageP = reinterpret_cast<const float*>(header.imageDataP);
 
@@ -1169,7 +1169,7 @@ void Camera::depthCallback(const image::Header& header)
         // The 4th element of the right camera projection matrix is defined
         // as fx*Tx.
 
-        const float scale = stereo_calibration_manager_->rightCameraInfo(frame_id_right_, t).p[3] * -16.0f;
+        const float scale = stereo_calibration_manager_->rightCameraInfo(frame_id_rectified_right_, t).p[3] * -16.0f;
 
         const uint16_t *disparityImageP = reinterpret_cast<const uint16_t*>(header.imageDataP);
 
@@ -1204,7 +1204,7 @@ void Camera::depthCallback(const image::Header& header)
         depth_cam_pub_->publish(depth_image_);
     }
 
-    depth_cam_info_pub_->publish(stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t));
+    depth_cam_info_pub_->publish(stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t));
 }
 
 void Camera::pointCloudCallback(const image::Header& header)
@@ -1598,7 +1598,7 @@ void Camera::colorImageCallback(const image::Header& header)
 
                 cv::remap(rgb_image, rect_rgb_image, remaps->map1, remaps->map2, cv::INTER_LINEAR);
 
-                left_rgb_rect_image_.header.frame_id = frame_id_left_;
+                left_rgb_rect_image_.header.frame_id = frame_id_rectified_left_;
                 left_rgb_rect_image_.header.stamp    = t;
                 left_rgb_rect_image_.height          = height;
                 left_rgb_rect_image_.width           = width;
@@ -1607,7 +1607,7 @@ void Camera::colorImageCallback(const image::Header& header)
                 left_rgb_rect_image_.is_bigendian    = (htonl(1) == 1);
                 left_rgb_rect_image_.step            = 3 * width;
 
-                const auto left_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_left_, t);
+                const auto left_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, t);
 
                 left_rgb_rect_cam_pub_->publish(left_rgb_rect_image_);
 
@@ -1767,6 +1767,9 @@ void Camera::publishAllCameraInfo()
     const auto left_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_left_, stamp);
     const auto right_camera_info = stereo_calibration_manager_->rightCameraInfo(frame_id_right_, stamp);
 
+    const auto left_rectified_camera_info = stereo_calibration_manager_->leftCameraInfo(frame_id_rectified_left_, stamp);
+    const auto right_rectified_camera_info = stereo_calibration_manager_->rightCameraInfo(frame_id_rectified_right_, stamp);
+
     //
     // Republish camera info messages outside of image callbacks.
     // The camera info publishers are latching so the messages
@@ -1787,7 +1790,7 @@ void Camera::publishAllCameraInfo()
         else
         {
             left_rgb_cam_info_pub_->publish(left_camera_info);
-            left_rgb_rect_cam_info_pub_->publish(left_camera_info);
+            left_rgb_rect_cam_info_pub_->publish(left_rectified_camera_info);
         }
     }
 
@@ -1795,11 +1798,11 @@ void Camera::publishAllCameraInfo()
     left_cost_cam_info_pub_->publish(left_camera_info);
 
     left_mono_cam_info_pub_->publish(left_camera_info);
-    left_rect_cam_info_pub_->publish(left_camera_info);
+    left_rect_cam_info_pub_->publish(left_rectified_camera_info);
     right_mono_cam_info_pub_->publish(right_camera_info);
-    right_rect_cam_info_pub_->publish(right_camera_info);
-    left_disp_cam_info_pub_->publish(left_camera_info);
-    depth_cam_info_pub_->publish(left_camera_info);
+    right_rect_cam_info_pub_->publish(right_rectified_camera_info);
+    left_disp_cam_info_pub_->publish(left_rectified_camera_info);
+    depth_cam_info_pub_->publish(left_rectified_camera_info);
 
 }
 
