@@ -32,6 +32,7 @@ set(msg_files
     "msg/RawLidarCal.msg"
     "msg/Histogram.msg"
     "msg/DeviceStatus.msg"
+    "msg/PtpStatus.msg"
     "msg/StampedPps.msg")
 
 rosidl_generate_interfaces(${PROJECT_NAME}

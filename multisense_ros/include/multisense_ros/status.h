@@ -39,6 +39,7 @@
 #include <MultiSense/MultiSenseChannel.hh>
 
 #include <multisense_msgs/msg/device_status.hpp>
+#include <multisense_msgs/msg/ptp_status.hpp>
 
 namespace multisense_ros {
 
@@ -51,6 +52,7 @@ public:
 
 private:
     static constexpr char STATUS_TOPIC[] = "status";
+    static constexpr char PTP_STATUS_TOPIC[] = "ptp_status";
 
     //
     // CRL sensor API
@@ -61,6 +63,11 @@ private:
     // Device Status publisher
 
     rclcpp::Publisher<multisense_msgs::msg::DeviceStatus>::SharedPtr status_pub_;
+
+    //
+    // PTP Status publisher
+
+    rclcpp::Publisher<multisense_msgs::msg::PtpStatus>::SharedPtr ptp_status_pub_;
 
     //
     // A timer to query our device status at a fixed rate
