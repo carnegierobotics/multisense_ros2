@@ -48,8 +48,20 @@ Status::Status(const std::string& node_name, crl::multisense::Channel* driver):
         return;
     }
 
+    crl::multisense::system::VersionInfo version_info;
+    if (const auto status = driver_->getVersionInfo(version_info); status != crl::multisense::Status_Ok )
+    {
+        RCLCPP_ERROR(get_logger(), "Status: failed to query version info: %s", crl::multisense::Channel::statusString(status));
+        return;
+    }
+
     status_pub_ = create_publisher<multisense_msgs::msg::DeviceStatus>(STATUS_TOPIC, rclcpp::SensorDataQoS());
-    ptp_status_pub_ = create_publisher<multisense_msgs::msg::PtpStatus>(PTP_STATUS_TOPIC, rclcpp::SensorDataQoS());
+
+    if (version_info.sensorFirmwareVersion >= 0x060A)
+    {
+        ptp_status_supported_ = true;
+        ptp_status_pub_ = create_publisher<multisense_msgs::msg::PtpStatus>(PTP_STATUS_TOPIC, rclcpp::SensorDataQoS());
+    }
 
     timer_ = create_wall_timer(500ms, std::bind(&Status::queryStatus, this));
 }
@@ -64,7 +76,11 @@ void Status::queryStatus()
     {
         crl::multisense::system::StatusMessage statusMessage;
 
-        if (crl::multisense::Status_Ok == driver_->getDeviceStatus(statusMessage))
+        if (const auto status = driver_->getDeviceStatus(statusMessage) != crl::multisense::Status_Ok)
+        {
+            RCLCPP_WARN(get_logger(), "Status: failed to query status: %s", crl::multisense::Channel::statusString(status));
+        }
+        else
         {
             multisense_msgs::msg::DeviceStatus deviceStatus;
 
@@ -93,7 +109,7 @@ void Status::queryStatus()
         }
     }
 
-    if (count_subscribers(PTP_STATUS_TOPIC) > 0)
+    if (ptp_status_supported_ && count_subscribers(PTP_STATUS_TOPIC) > 0)
     {
         crl::multisense::system::PtpStatus ptpStatusMessage;
 
@@ -108,6 +124,10 @@ void Status::queryStatus()
             ptpStatus.steps_removed = ptpStatusMessage.steps_removed;
 
             ptp_status_pub_->publish(ptpStatus);
+        }
+        else
+        {
+            RCLCPP_WARN(get_logger(), "Status: failed to query ptp status");
         }
     }
 }

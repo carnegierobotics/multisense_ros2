@@ -79,6 +79,11 @@ private:
 
     void queryStatus();
 
+    //
+    // A flag which determines if we should query the PTP status info
+
+    bool ptp_status_supported_ = false;
+
 };
 
 }
