@@ -149,7 +149,7 @@ Config::Config(const std::string& node_name, crl::multisense::Channel* driver):
             ptp_time_sync_desc.set__name("ptp_time_sync")
                                   .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
                                   .set__description("run basic time sync between MultiSense and host");
-            declare_parameter("ptp_time_sync", true, ptp_time_sync_desc);
+            declare_parameter("ptp_time_sync", false, ptp_time_sync_desc);
         }
     }
 
