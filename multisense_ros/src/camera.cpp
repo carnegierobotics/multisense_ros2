@@ -1927,6 +1927,35 @@ void Camera::timerCallback()
     }
 }
 
+crl::multisense::Status Camera::verifyFpsChange(const crl::multisense::image::Config& config)
+{
+    int timeout = 50; //500ms
+    if (const auto status = driver_->setImageConfig(config) != Status_Ok)
+    {
+        RCLCPP_ERROR(get_logger(), "Error: Camera failed to set fps");
+        return status;
+    }
+
+    do {
+
+        image::Config i;
+        if (const auto status = driver_->getImageConfig(i); status != Status_Ok) {
+            RCLCPP_ERROR(get_logger(), "Camera: failed to query sensor configuration: %s",
+                         Channel::statusString(status));
+            return status;
+        }
+
+        if (std::abs(config.fps() - i.fps()) < 1.0f) {
+            return Status_Ok;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    } while((timeout-->0));
+
+    return Status_TimedOut;
+}
+
+
 void Camera::initalizeParameters(const image::Config& config)
 {
     //
@@ -2741,7 +2770,12 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             if (image_config.fps() != value)
             {
                 image_config.setFps(value);
-                update_image_config = true;
+                if (const auto status = verifyFpsChange(image_config); status != Status_Ok) {
+                  RCLCPP_ERROR(get_logger(), "Error: failed to update fps on the camera!");
+                  return result.set__successful(false).set__reason(Channel::statusString(status));
+                }
+
+                updateConfig(image_config);
             }
         }
         else if(name == "stereo_post_filtering")
