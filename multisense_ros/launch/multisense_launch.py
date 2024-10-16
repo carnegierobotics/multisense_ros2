@@ -20,7 +20,7 @@ def generate_launch_description():
                                       description='Namespace for this MultiSense instance')
 
     mtu = DeclareLaunchArgument(name='mtu',
-                                default_value='7200',
+                                default_value='1500',
                                 description='Sensor MTU')
 
     ip_address = DeclareLaunchArgument(name='ip_address',
