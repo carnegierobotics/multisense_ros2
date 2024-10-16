@@ -60,7 +60,7 @@ int main(int argc, char** argv)
                    .set__read_only(true)
                    .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
                    .set__description("multisense mtu");
-    initialize_node->declare_parameter("sensor_mtu", 7200, mtu_description);
+    initialize_node->declare_parameter("sensor_mtu", 1500, mtu_description);
 
     rcl_interfaces::msg::ParameterDescriptor tf_prefix_description;
     tf_prefix_description.set__name("tf_prefix")
