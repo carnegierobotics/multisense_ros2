@@ -2056,14 +2056,15 @@ void Camera::initalizeParameters(const image::Config& config)
 
         rcl_interfaces::msg::FloatingPointRange auto_exposure_max_time_range;
         auto_exposure_max_time_range.set__from_value(0.0)
-                                    .set__to_value(0.033);
+                                    .set__to_value(0.033)
+                                    .set__step(0.001);
 
         rcl_interfaces::msg::ParameterDescriptor auto_exposure_max_time_desc;
         auto_exposure_max_time_desc.set__name("auto_exposure_max_time")
                                    .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                                    .set__description("max exposure time using auto exposure")
                                    .set__floating_point_range({auto_exposure_max_time_range});
-        declare_parameter("auto_exposure_max_time", 0.033, auto_exposure_max_time_desc);
+        declare_parameter("auto_exposure_max_time", 0.01, auto_exposure_max_time_desc);
 
         //
         // Auto exposure decay
@@ -2092,7 +2093,7 @@ void Camera::initalizeParameters(const image::Config& config)
                                 .set__description("auto exposure threshold")
                                 .set__floating_point_range({auto_exposure_thresh_range});
 
-        declare_parameter("auto_exposure_thresh", (next_gen_camera_ ? 0.95 : 0.75), auto_exposure_thresh_desc);
+        declare_parameter("auto_exposure_thresh", (next_gen_camera_ ? 0.85 : 0.75), auto_exposure_thresh_desc);
 
         //
         // Auto exposure target intensity
@@ -2206,8 +2207,8 @@ void Camera::initalizeParameters(const image::Config& config)
             // Gamma
             //
             rcl_interfaces::msg::FloatingPointRange gamma_range;
-            gamma_range.set__from_value(1.7)
-                       .set__to_value(8.0)
+            gamma_range.set__from_value(1.0)
+                       .set__to_value(2.2)
                        .set__step(0.01);
 
             rcl_interfaces::msg::ParameterDescriptor gamma_desc;
@@ -2215,7 +2216,7 @@ void Camera::initalizeParameters(const image::Config& config)
                        .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                        .set__description("Gamma")
                        .set__floating_point_range({gamma_range});
-            declare_parameter("gamma", 1.7, gamma_desc);
+            declare_parameter("gamma", 2.2, gamma_desc);
         }
 
         //
@@ -2295,16 +2296,16 @@ void Camera::initalizeParameters(const image::Config& config)
         // Aux Gain
 
         rcl_interfaces::msg::FloatingPointRange aux_gain_range;
-        aux_gain_range.set__from_value(1.0)
-                      .set__to_value(8.0)
-                      .set__step(0.01);
+        aux_gain_range.set__from_value(1.68421)
+                      .set__to_value(16.0)
+                      .set__step(0.00001);
 
         rcl_interfaces::msg::ParameterDescriptor aux_gain_desc;
         aux_gain_desc.set__name("aux_gain")
                      .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                      .set__description("aux_imager gain")
                      .set__floating_point_range({aux_gain_range});
-        declare_parameter("aux_gain", 1.0, aux_gain_desc);
+        declare_parameter("aux_gain", 1.68421, aux_gain_desc);
 
         //
         // Aux Auto exposure enable
@@ -2320,15 +2321,15 @@ void Camera::initalizeParameters(const image::Config& config)
 
         rcl_interfaces::msg::FloatingPointRange aux_auto_exposure_max_time_range;
         aux_auto_exposure_max_time_range.set__from_value(0.0)
-                                        .set__to_value(0.5)
-                                        .set__step(0.01);
+                                        .set__to_value(0.033)
+                                        .set__step(0.001);
 
         rcl_interfaces::msg::ParameterDescriptor aux_auto_exposure_max_time_desc;
         aux_auto_exposure_max_time_desc.set__name("aux_auto_exposure_max_time")
                                        .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                                        .set__description("aux max exposure time using auto exposure")
                                        .set__floating_point_range({aux_auto_exposure_max_time_range});
-        declare_parameter("aux_auto_exposure_max_time", 0.5, aux_auto_exposure_max_time_desc);
+        declare_parameter("aux_auto_exposure_max_time", 0.01, aux_auto_exposure_max_time_desc);
 
         //
         // Aux Auto exposure decay
@@ -2357,7 +2358,7 @@ void Camera::initalizeParameters(const image::Config& config)
                                  .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                                  .set__description("aux auto exposure threshold")
                                  .set__floating_point_range({aux_auto_exposure_thresh_range});
-        declare_parameter("aux_auto_exposure_thresh", 0.75, aux_auto_exposure_thresh_desc);
+        declare_parameter("aux_auto_exposure_thresh", 0.85, aux_auto_exposure_thresh_desc);
 
         //
         // Aux Auto exposure target intensity
@@ -2387,7 +2388,7 @@ void Camera::initalizeParameters(const image::Config& config)
                               .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                               .set__description("aux imager exposure time in seconds")
                               .set__floating_point_range({aux_exposure_time_range});
-        declare_parameter("aux_exposure_time", 0.025, aux_exposure_time_desc);
+        declare_parameter("aux_exposure_time", 0.005, aux_exposure_time_desc);
 
         //
         // Aux Auto white balance enable
@@ -2470,8 +2471,8 @@ void Camera::initalizeParameters(const image::Config& config)
         // Aux gamma
         //
         rcl_interfaces::msg::FloatingPointRange aux_gamma_range;
-        aux_gamma_range.set__from_value(1.7)
-                       .set__to_value(8.0)
+        aux_gamma_range.set__from_value(1.0)
+                       .set__to_value(2.2)
                        .set__step(0.01);
 
         rcl_interfaces::msg::ParameterDescriptor aux_gamma_desc;
@@ -2479,7 +2480,7 @@ void Camera::initalizeParameters(const image::Config& config)
                       .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                       .set__description("aux gamma")
                       .set__floating_point_range({aux_gamma_range});
-        declare_parameter("aux_gamma", 1.7, aux_gamma_desc);
+        declare_parameter("aux_gamma", 2.2, aux_gamma_desc);
 
         //
         // Aux enable sharpening
