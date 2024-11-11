@@ -2231,7 +2231,7 @@ void Camera::initalizeParameters(const image::Config& config)
         //
         // Auto exposure ROI x
         //
-        rcl_interfaces::msg::FloatingPointRange auto_exposure_roi_x_range;
+        rcl_interfaces::msg::IntegerRange auto_exposure_roi_x_range;
         auto_exposure_roi_x_range.set__from_value(0)
                        .set__to_value(device_info_.imagerWidth)
                        .set__step(1);
@@ -2240,13 +2240,13 @@ void Camera::initalizeParameters(const image::Config& config)
         auto_exposure_roi_x_desc.set__name("auto_exposure_roi_x")
                                  .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
                                  .set__description("auto exposure ROI x value")
-                                 .set__floating_point_range({auto_exposure_roi_x_range});
-        declare_parameter("auto_exposure_roi_x", 0.0, auto_exposure_roi_x_desc);
+                                 .set__integer_range({auto_exposure_roi_x_range});
+        declare_parameter("auto_exposure_roi_x", 0, auto_exposure_roi_x_desc);
 
         //
         // Auto exposure ROI y
         //
-        rcl_interfaces::msg::FloatingPointRange auto_exposure_roi_y_range;
+        rcl_interfaces::msg::IntegerRange auto_exposure_roi_y_range;
         auto_exposure_roi_y_range.set__from_value(0)
                        .set__to_value(device_info_.imagerHeight)
                        .set__step(1);
@@ -2255,13 +2255,13 @@ void Camera::initalizeParameters(const image::Config& config)
         auto_exposure_roi_y_desc.set__name("auto_exposure_roi_y")
                                  .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
                                  .set__description("auto exposure ROI y value")
-                                 .set__floating_point_range({auto_exposure_roi_y_range});
-        declare_parameter("auto_exposure_roi_y", 0.0, auto_exposure_roi_y_desc);
+                                 .set__integer_range({auto_exposure_roi_y_range});
+        declare_parameter("auto_exposure_roi_y", 0, auto_exposure_roi_y_desc);
 
         //
         // Auto exposure ROI width
         //
-        rcl_interfaces::msg::FloatingPointRange auto_exposure_roi_width_range;
+        rcl_interfaces::msg::IntegerRange auto_exposure_roi_width_range;
         auto_exposure_roi_width_range.set__from_value(0)
                        .set__to_value(device_info_.imagerWidth)
                        .set__step(1);
@@ -2270,13 +2270,13 @@ void Camera::initalizeParameters(const image::Config& config)
         auto_exposure_roi_width_desc.set__name("auto_exposure_roi_width")
                                  .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
                                  .set__description("auto exposure ROI width value")
-                                 .set__floating_point_range({auto_exposure_roi_width_range});
+                                 .set__integer_range({auto_exposure_roi_width_range});
         declare_parameter("auto_exposure_roi_width", crl::multisense::Roi_Full_Image, auto_exposure_roi_width_desc);
 
         //
         // Auto exposure ROI height
         //
-        rcl_interfaces::msg::FloatingPointRange auto_exposure_roi_height_range;
+        rcl_interfaces::msg::IntegerRange auto_exposure_roi_height_range;
         auto_exposure_roi_height_range.set__from_value(0)
                        .set__to_value(device_info_.imagerHeight)
                        .set__step(1);
@@ -2285,7 +2285,7 @@ void Camera::initalizeParameters(const image::Config& config)
         auto_exposure_roi_height_desc.set__name("auto_exposure_roi_height")
                                  .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
                                  .set__description("auto exposure ROI height value")
-                                 .set__floating_point_range({auto_exposure_roi_height_range});
+                                 .set__integer_range({auto_exposure_roi_height_range});
         declare_parameter("auto_exposure_roi_height", crl::multisense::Roi_Full_Image, auto_exposure_roi_height_desc);
 
     }
@@ -2509,7 +2509,7 @@ void Camera::initalizeParameters(const image::Config& config)
         //
         // Aux sharpening limit
         //
-        rcl_interfaces::msg::FloatingPointRange aux_sharpening_limit_range;
+        rcl_interfaces::msg::IntegerRange aux_sharpening_limit_range;
         aux_sharpening_limit_range.set__from_value(0)
                                   .set__to_value(255)
                                   .set__step(1);
@@ -2518,8 +2518,8 @@ void Camera::initalizeParameters(const image::Config& config)
         aux_sharpening_limit_desc.set__name("aux_sharpening_limit")
                                  .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
                                  .set__description("aux sharpening limit")
-                                 .set__floating_point_range({aux_sharpening_limit_range});
-        declare_parameter("aux_sharpening_limit", 0.0, aux_sharpening_limit_desc);
+                                 .set__integer_range({aux_sharpening_limit_range});
+        declare_parameter("aux_sharpening_limit", 0, aux_sharpening_limit_desc);
 
         //
         // Aux enable ROI auto exposure
@@ -2533,7 +2533,7 @@ void Camera::initalizeParameters(const image::Config& config)
         //
         // Aux ROI auto exposure x
         //
-        rcl_interfaces::msg::FloatingPointRange aux_auto_exposure_roi_x_range;
+        rcl_interfaces::msg::IntegerRange aux_auto_exposure_roi_x_range;
         aux_auto_exposure_roi_x_range.set__from_value(0)
                        .set__to_value(device_info_.imagerWidth)
                        .set__step(1);
@@ -2542,13 +2542,13 @@ void Camera::initalizeParameters(const image::Config& config)
         aux_auto_exposure_roi_x_desc.set__name("aux_auto_exposure_roi_x")
                                  .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
                                  .set__description("aux auto exposure ROI x value")
-                                 .set__floating_point_range({aux_auto_exposure_roi_x_range});
-        declare_parameter("aux_auto_exposure_roi_x", 0.0, aux_auto_exposure_roi_x_desc);
+                                 .set__integer_range({aux_auto_exposure_roi_x_range});
+        declare_parameter("aux_auto_exposure_roi_x", 0, aux_auto_exposure_roi_x_desc);
 
         //
         // Aux ROI auto exposure y
         //
-        rcl_interfaces::msg::FloatingPointRange aux_auto_exposure_roi_y_range;
+        rcl_interfaces::msg::IntegerRange aux_auto_exposure_roi_y_range;
         aux_auto_exposure_roi_y_range.set__from_value(0)
                        .set__to_value(device_info_.imagerHeight)
                        .set__step(1);
@@ -2557,13 +2557,13 @@ void Camera::initalizeParameters(const image::Config& config)
         aux_auto_exposure_roi_y_desc.set__name("aux_auto_exposure_roi_y")
                                  .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
                                  .set__description("aux auto exposure ROI y value")
-                                 .set__floating_point_range({aux_auto_exposure_roi_y_range});
-        declare_parameter("aux_auto_exposure_roi_y", 0.0, aux_auto_exposure_roi_y_desc);
+                                 .set__integer_range({aux_auto_exposure_roi_y_range});
+        declare_parameter("aux_auto_exposure_roi_y", 0, aux_auto_exposure_roi_y_desc);
 
         //
         // Aux ROI auto exposure width
         //
-        rcl_interfaces::msg::FloatingPointRange aux_auto_exposure_roi_width_range;
+        rcl_interfaces::msg::IntegerRange aux_auto_exposure_roi_width_range;
         aux_auto_exposure_roi_width_range.set__from_value(0)
                        .set__to_value(device_info_.imagerWidth)
                        .set__step(1);
@@ -2572,13 +2572,13 @@ void Camera::initalizeParameters(const image::Config& config)
         aux_auto_exposure_roi_width_desc.set__name("aux_auto_exposure_roi_width")
                                         .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
                                         .set__description("aux auto exposure ROI width value")
-                                        .set__floating_point_range({aux_auto_exposure_roi_width_range});
+                                        .set__integer_range({aux_auto_exposure_roi_width_range});
         declare_parameter("aux_auto_exposure_roi_width", crl::multisense::Roi_Full_Image, aux_auto_exposure_roi_width_desc);
 
         //
         // Aux ROI auto exposure height
         //
-        rcl_interfaces::msg::FloatingPointRange aux_auto_exposure_roi_height_range;
+        rcl_interfaces::msg::IntegerRange aux_auto_exposure_roi_height_range;
         aux_auto_exposure_roi_height_range.set__from_value(0)
                        .set__to_value(device_info_.imagerHeight)
                        .set__step(1);
@@ -2587,7 +2587,7 @@ void Camera::initalizeParameters(const image::Config& config)
         aux_auto_exposure_roi_height_desc.set__name("aux_auto_exposure_roi_height")
                                  .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
                                  .set__description("aux auto exposure ROI height value")
-                                 .set__floating_point_range({aux_auto_exposure_roi_height_range});
+                                 .set__integer_range({aux_auto_exposure_roi_height_range});
         declare_parameter("aux_auto_exposure_roi_height", crl::multisense::Roi_Full_Image, aux_auto_exposure_roi_height_desc);
 
     }
@@ -2657,13 +2657,6 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
                         Channel::statusString(status));
 
             aux_image_config = std::nullopt;
-        }
-        else
-        {
-            aux_auto_exposure_roi_ = RegionOfIntrest{aux_image_config->autoExposureRoiX(),
-                                                     aux_image_config->autoExposureRoiY(),
-                                                     aux_image_config->autoExposureRoiWidth(),
-                                                     aux_image_config->autoExposureRoiHeight()};
         }
     }
     else
@@ -3391,6 +3384,10 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             return result.set__successful(false).set__reason(Channel::statusString(status));
         }
 
+        //
+        // TODO remove after firmware fixes
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
         if (const auto status = driver_->getImageConfig(image_config); status != Status_Ok)
         {
             RCLCPP_ERROR(get_logger(), "Camera: failed to query sensor configuration: %s",
@@ -3402,13 +3399,6 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         //
         // This is a no-op if the resolution of the camera did not change
         updateConfig(image_config);
-
-        //
-        // Update our internal ROI state so we can enable/disable out of band
-        auto_exposure_roi_ = RegionOfIntrest{image_config.autoExposureRoiX(),
-                                             image_config.autoExposureRoiY(),
-                                             image_config.autoExposureRoiWidth(),
-                                             image_config.autoExposureRoiHeight()};
     }
 
     //
@@ -3431,6 +3421,10 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
         {
             return result.set__successful(false).set__reason(Channel::statusString(status));
         }
+
+        //
+        // TODO remove after firmware fixes
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
     return result;
