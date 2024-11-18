@@ -2055,6 +2055,17 @@ void Camera::initalizeParameters(const image::Config& config)
                      .set__description("imager gain")
                      .set__floating_point_range({gain_range});
             declare_parameter("gain", 1.68421, gain_desc);
+
+            rcl_interfaces::msg::FloatingPointRange gain_max_range;
+            gain_max_range.set__from_value(1.68421)
+                      .set__to_value(16.0);
+
+            rcl_interfaces::msg::ParameterDescriptor gain_max_desc;
+            gain_max_desc.set__name("gain_max")
+                     .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                     .set__description("imager gain max")
+                     .set__floating_point_range({gain_max_range});
+            declare_parameter("gain_max", 1.68421, gain_max_desc);
         }
         else
         {
@@ -2325,7 +2336,7 @@ void Camera::initalizeParameters(const image::Config& config)
 
         rcl_interfaces::msg::FloatingPointRange aux_gain_range;
         aux_gain_range.set__from_value(1.0)
-                      .set__to_value(8.0)
+                      .set__to_value(1364.0)
                       .set__step(0.01);
 
         rcl_interfaces::msg::ParameterDescriptor aux_gain_desc;
@@ -2334,6 +2345,17 @@ void Camera::initalizeParameters(const image::Config& config)
                      .set__description("aux_imager gain")
                      .set__floating_point_range({aux_gain_range});
         declare_parameter("aux_gain", 1.0, aux_gain_desc);
+
+        rcl_interfaces::msg::FloatingPointRange aux_gain_max_range;
+        aux_gain_max_range.set__from_value(1.0)
+                  .set__to_value(1364.0);
+
+        rcl_interfaces::msg::ParameterDescriptor aux_gain_max_desc;
+        aux_gain_max_desc.set__name("aux_gain_max")
+                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+                 .set__description("aux imager gain max")
+                 .set__floating_point_range({aux_gain_max_range});
+        declare_parameter("aux_gain_max", 1.68421, aux_gain_max_desc);
 
         //
         // Aux Auto exposure enable
@@ -2431,7 +2453,7 @@ void Camera::initalizeParameters(const image::Config& config)
         // Aux Auto white balance decay
 
         rcl_interfaces::msg::IntegerRange aux_auto_white_balance_decay_range;
-        aux_auto_white_balance_decay_range.set__from_value(0)
+        aux_auto_exposure_max_time_white_balance_decay_range.set__from_value(0)
                                           .set__to_value(20);
 
         rcl_interfaces::msg::ParameterDescriptor aux_auto_white_balance_decay_desc;
@@ -2806,6 +2828,20 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
                 update_image_config = true;
             }
         }
+        else if(name == "gain_max")
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid gain max type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
+            if (image_config.gainMax() != value)
+            {
+                image_config.setGainMax(value);
+                update_image_config = true;
+            }
+        }
         else if(name == "auto_exposure")
         {
             if (type != rclcpp::ParameterType::PARAMETER_BOOL)
@@ -3069,6 +3105,20 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
             if (aux_image_config->gain() != value)
             {
                 aux_image_config->setGain(value);
+                update_aux_image_config = true;
+            }
+        }
+        else if(name == "aux_gain_max" && aux_image_config)
+        {
+            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            {
+                return result.set__successful(false).set__reason("invalid aux gain max type");
+            }
+
+            const auto value = get_as_number<double>(parameter);
+            if (aux_image_config->gainMax() != value)
+            {
+                aux_image_config->setGainMax(value);
                 update_aux_image_config = true;
             }
         }
