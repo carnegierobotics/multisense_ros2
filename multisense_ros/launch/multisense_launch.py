@@ -13,7 +13,7 @@ def generate_launch_description():
 
     sensor = DeclareLaunchArgument(name='sensor',
                                    default_value='S21',
-                                   description='Type of multisense: S21, SL, S7, S7S, S27, S30, KS21')
+                                   description='Type of multisense: S21, SL, S7, S7S, S27, S30, KS21, KS21i')
 
     namespace = DeclareLaunchArgument(name='namespace',
                                       default_value='multisense',
