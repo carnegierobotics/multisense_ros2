@@ -349,7 +349,7 @@ Camera::Camera(const std::string& node_name,
 
     has_aux_camera_ = system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision ||
-					  system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21i == device_info_.hardwareRevision;
+                      system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21i == device_info_.hardwareRevision;
 
     supports_color_ = has_aux_camera_ ||
                       (system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 != device_info_.hardwareRevision &&
