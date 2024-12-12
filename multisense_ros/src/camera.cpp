@@ -348,7 +348,8 @@ Camera::Camera(const std::string& node_name,
     // S27/S30 cameras have a 3rd aux color camera and no left color camera
 
     has_aux_camera_ = system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
-                      system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision;
+                      system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision ||
+                      system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21i == device_info_.hardwareRevision;
 
     supports_color_ = has_aux_camera_ ||
                       (system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 != device_info_.hardwareRevision &&
@@ -360,6 +361,7 @@ Camera::Camera(const std::string& node_name,
     next_gen_camera_ = system::DeviceInfo::HARDWARE_REV_MULTISENSE_C6S2_S27 == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_S30 == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 == device_info_.hardwareRevision ||
+                       system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21i == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_MONOCAM == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_STEREO == device_info_.hardwareRevision ||
                        system::DeviceInfo::HARDWARE_REV_MULTISENSE_REMOTE_HEAD_MONOCAM == device_info_.hardwareRevision;
