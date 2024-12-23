@@ -33,7 +33,7 @@ sudo apt install ros-<distro>-xacro ros-<distro>-tf2-geometry-msgs
 If your release does not have a pre-built xacro package, you can build it manually
 alongside the multisense_ros2 driver. 
 
-Execute the following commands to build xacro from source. This assmes the workspace setup and clone instructions above were followed.
+Execute the following commands to build xacro from source. This assumes the workspace setup and clone instructions above were followed.
 
 ```
 cd ros2_ws/src
