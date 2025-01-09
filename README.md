@@ -66,7 +66,7 @@ The following command launches the rqt_reconfigure GUI
 ros2 run rqt_reconfigure rqt_reconfigure
 ```
 
-![rqt_reconfigure_panel](./images/rtq_reconfigure.png)
+![rqt_reconfigure_panel](./images/rqt_reconfigure.png)
 
 NOTE: You may need to click "Refresh" on the bottom left of the rqt_reconfigure panel to see the MultiSense
 configuration settings
