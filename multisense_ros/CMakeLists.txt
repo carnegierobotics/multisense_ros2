@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.15)
 project(multisense_ros)
 
 # Default to C++17
@@ -34,15 +34,11 @@ find_package(tf2_geometry_msgs REQUIRED)
 
 include_directories(include)
 
-add_library(${PROJECT_NAME} src/camera.cpp
-                            src/camera_utilities.cpp
-                            src/config.cpp
-                            src/imu.cpp
-                            src/laser.cpp
-                            src/parameter_utilities.cpp
-                            src/point_cloud_utilities.cpp
-                            src/pps.cpp
-                            src/status.cpp)
+add_library(${PROJECT_NAME} src/camera.cpp)
+    #src/config.cpp
+    #                        src/imu.cpp
+    #                        src/parameter_utilities.cpp
+    #                        src/status.cpp)
 
 string(TOUPPER "ROS_$ENV{ROS_DISTRO}" ROS_DISTRO)
 target_compile_definitions(${PROJECT_NAME} PRIVATE ${ROS_DISTRO})
@@ -61,7 +57,6 @@ ament_target_dependencies(${PROJECT_NAME}
                          tf2
                          tf2_ros
                          tf2_geometry_msgs)
-
 
 add_executable(ros_driver src/ros_driver.cpp)
 target_link_libraries(ros_driver ${PROJECT_NAME})

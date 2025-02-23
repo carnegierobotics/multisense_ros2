@@ -34,13 +34,10 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <multisense_ros/camera.h>
-#include <multisense_ros/config.h>
-#include <multisense_ros/imu.h>
-#include <multisense_ros/laser.h>
-#include <multisense_ros/pps.h>
-#include <multisense_ros/status.h>
 
-using namespace crl::multisense;
+#include <MultiSense/MultiSenseChannel.hh>
+
+namespace lms = multisense;
 
 int main(int argc, char** argv)
 {
@@ -82,57 +79,21 @@ int main(int argc, char** argv)
     if(!initialize_node->get_parameter("tf_prefix", tf_prefix))
         RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: tf prefix not specified");
 
-    Channel *d = nullptr;
-
     try
     {
-        d = Channel::Create(sensor_ip.as_string());
-	    if (nullptr == d)
+        auto channel = lms::Channel::create(lms::Channel::Config{sensor_ip.as_string(), sensor_mtu.as_int()});
+	    if (nullptr == channel)
         {
             RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: failed to create communication channel to sensor @ \"%s\"",
                          sensor_ip.as_string().c_str());
             return EXIT_FAILURE;
         }
 
-        if (const auto status = d->setMtu(sensor_mtu.as_int()); status != Status_Ok)
-        {
-            RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: failed to set sensor MTU to %ld: %s",
-                         sensor_mtu.as_int(), Channel::statusString(status));
-            Channel::Destroy(d);
-            return EXIT_FAILURE;
-        }
-
-        //
-        // Anonymous namespace so objects can deconstruct before channel is destroyed
-
-        {
-            rclcpp::executors::MultiThreadedExecutor executor;
-
-            auto camera = std::make_shared<multisense_ros::Camera>("camera", rclcpp::NodeOptions{}, d, tf_prefix.as_string());
-            auto config = std::make_shared<multisense_ros::Config>("config", d);
-            auto laser = std::make_shared<multisense_ros::Laser>("laser", rclcpp::NodeOptions{}, d, tf_prefix.as_string());
-            auto imu = std::make_shared<multisense_ros::Imu>("imu", rclcpp::NodeOptions{}, d, tf_prefix.as_string());
-            auto pps = std::make_shared<multisense_ros::Pps>("pps", d);
-            auto status = std::make_shared<multisense_ros::Status>("status", d);
-
-            executor.add_node(camera);
-            executor.add_node(config);
-            executor.add_node(laser);
-            executor.add_node(imu);
-            executor.add_node(pps);
-            executor.add_node(status);
-            executor.add_node(initialize_node);
-
-            executor.spin();
-        }
-
-        Channel::Destroy(d);
-
+        rclcpp::spin(std::make_shared<multisense_ros::Camera>("camera", rclcpp::NodeOptions{}, std::move(channel), tf_prefix.as_string()));
     }
     catch (const std::exception& e)
     {
         RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: caught exception: %s", e.what());
-        Channel::Destroy(d);
         return EXIT_FAILURE;
     }
 

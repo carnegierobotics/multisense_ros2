@@ -24,16 +24,8 @@ find_package(rosidl_default_generators REQUIRED)
 
 set(msg_files
     "msg/DeviceInfo.msg"
-    "msg/RawCamConfig.msg"
-    "msg/RawImuData.msg"
-    "msg/RawLidarData.msg"
-    "msg/RawCamCal.msg"
-    "msg/RawCamData.msg"
-    "msg/RawLidarCal.msg"
-    "msg/Histogram.msg"
     "msg/DeviceStatus.msg"
-    "msg/PtpStatus.msg"
-    "msg/StampedPps.msg")
+    "msg/PtpStatus.msg")
 
 rosidl_generate_interfaces(${PROJECT_NAME}
                            ${msg_files}

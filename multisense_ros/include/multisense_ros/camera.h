@@ -34,35 +34,88 @@
 #ifndef MULTISENSE_ROS_CAMERA_H
 #define MULTISENSE_ROS_CAMERA_H
 
+#include <condition_variable>
 #include <mutex>
 
 #include <rclcpp/rclcpp.hpp>
 
 #include <sensor_msgs/distortion_models.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <stereo_msgs/msg/disparity_image.hpp>
 #include <tf2_ros/static_transform_broadcaster.h>
 
 #include <multisense_msgs/msg/device_info.hpp>
-#include <multisense_msgs/msg/histogram.hpp>
-#include <multisense_msgs/msg/raw_cam_cal.hpp>
-#include <multisense_msgs/msg/raw_cam_config.hpp>
-#include <multisense_msgs/msg/raw_cam_data.hpp>
 
 #include <MultiSense/MultiSenseChannel.hh>
 
-#include <multisense_ros/camera_utilities.h>
-
 namespace multisense_ros {
 
-enum class BorderClip {NONE, RECTANGULAR, CIRCULAR};
+using ImagePublisher = rclcpp::Publisher<sensor_msgs::msg::Image>;
 
-struct RegionOfIntrest
+template <typename T>
+class FrameNotifier
 {
-    int x = 0;
-    int y = 0;
-    int width = crl::multisense::Roi_Full_Image;
-    int height = crl::multisense::Roi_Full_Image;
+public:
+
+    FrameNotifier() = default;
+
+    ~FrameNotifier()
+    {
+        cv_.notify_all();
+    }
+
+    void notify_all()
+    {
+        cv_.notify_all();
+    };
+
+    ///
+    /// @brief Copy a frame into the local storage, and notify all waiters that the frame is valid
+    ///
+    void set_and_notify(const T &in_frame)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        frame_ = in_frame;
+        cv_.notify_all();
+    }
+
+    ///
+    /// @brief Wait for the notifier to be valid. If the timeout is invalid, will wait forever
+    ///
+    template <class Rep, class Period>
+    std::optional<T> wait(const std::optional<std::chrono::duration<Rep, Period>>& timeout)
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+
+        std::optional<T> output_frame = std::nullopt;
+        if (timeout)
+        {
+            if (std::cv_status::no_timeout == cv_.wait_for(lock, timeout.value()))
+            {
+                output_frame = frame_;
+            }
+        }
+        else
+        {
+            cv_.wait(lock);
+            output_frame = frame_;
+        }
+
+        return output_frame;
+    }
+
+    std::optional<T> wait()
+    {
+        const std::optional<std::chrono::milliseconds> timeout = std::nullopt;
+        return wait(timeout);
+    }
+
+private:
+
+    std::mutex mutex_;
+    std::condition_variable cv_;
+    std::optional<T> frame_;
 };
 
 class Camera : public rclcpp::Node
@@ -70,20 +123,10 @@ class Camera : public rclcpp::Node
 public:
     Camera(const std::string& node_name,
            const rclcpp::NodeOptions& options,
-           crl::multisense::Channel* driver,
+           std::unique_ptr<multisense::Channel> channel,
            const std::string& tf_prefix);
 
     ~Camera();
-
-    void monoCallback(const crl::multisense::image::Header& header);
-    void rectCallback(const crl::multisense::image::Header& header);
-    void depthCallback(const crl::multisense::image::Header& header);
-    void pointCloudCallback(const crl::multisense::image::Header& header);
-    void rawCamDataCallback(const crl::multisense::image::Header& header);
-    void colorImageCallback(const crl::multisense::image::Header& header);
-    void disparityImageCallback(const crl::multisense::image::Header& header);
-    void histogramCallback(const crl::multisense::image::Header& header);
-    void colorizeCallback(const crl::multisense::image::Header& header);
 
 private:
 
@@ -142,9 +185,36 @@ private:
     void stop();
 
     //
+    // Convenience function for creating a image publisher
+
+    ImagePublisher::SharedPtr add_image_publisher(rclcpp::Node::SharedPtr node,
+                                                  const std::string &topic_name,
+                                                  const rclcpp::QoS &qos,
+                                                  const multisense::DataSource &source);
+
+    //
+    // Convenience function for creating a point cloud publisher
+
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr
+        add_pointcloud_publisher(const std::string &topic_name,
+                                 const rclcpp::QoS &qos,
+                                 const std::vector<multisense::DataSource> &sources);
+
+    //
+    // Publish static transforms for convenience
+
+    void publish_static_tf(const multisense::StereoCalibration &stereo_calibration);
+
+    //
+    // Device info for convenience
+
+    void publish_device_info(const multisense::MultiSenseInfo::DeviceInfo &info,
+                             const multisense::MultiSenseInfo::SensorVersion &version);
+
+    //
     // Update the sensor calibration parameters
 
-    void updateConfig(const crl::multisense::image::Config& config);
+    //void updateConfig(const crl::multisense::image::Config& config);
 
     //
     // Republish camera info messages by publishing the current messages
@@ -160,10 +230,34 @@ private:
     void timerCallback();
 
     //
+    // Function which waits for image frames from the camera, and publishes images if there is
+    // an active subscription to the corresponding image topic
+
+    void image_publisher();
+
+    //
+    // Function which waits for image frames from the camera, and publishes depth images if there is
+    // an active subscription to the corresponding depth topic
+
+    void depth_publisher();
+
+    //
+    // Function which waits for image frames from the camera, and publishes point clouds if there is
+    // an active subscription to the corresponding point cloud topic
+
+    void point_cloud_publisher();
+
+    //
+    // Function which waits for image frames from the camera, and publishes color images if there is
+    // an active subscription to the corresponding color image topic
+
+    void color_publisher();
+
+    //
     // Helper function to setup the nodes configuration parameters. In ROS2 this takes the place of dynamic
     // reconfigure
 
-    void initalizeParameters(const crl::multisense::image::Config& config);
+    //void initalizeParameters(const crl::multisense::image::Config& config);
 
     //
     // Parameter management
@@ -172,10 +266,12 @@ private:
 
     rcl_interfaces::msg::SetParametersResult parameterCallback(const std::vector<rclcpp::Parameter>& parameters);
 
+    std::atomic_bool shutdown_ = false;
+
     //
     // CRL sensor API
 
-    crl::multisense::Channel* driver_;
+    std::unique_ptr<multisense::Channel> channel_ = nullptr;
 
     //
     // ROS2 timer for checking publisher status
@@ -185,26 +281,24 @@ private:
     //
     // Sub nodes
 
-    rclcpp::Node::SharedPtr left_node_;
-    rclcpp::Node::SharedPtr right_node_;
-    rclcpp::Node::SharedPtr aux_node_;
-    rclcpp::Node::SharedPtr calibration_node_;
+    rclcpp::Node::SharedPtr left_node_{};
+    rclcpp::Node::SharedPtr right_node_{};
+    rclcpp::Node::SharedPtr aux_node_{};
+    rclcpp::Node::SharedPtr calibration_node_{};
 
     //
     // Data publishers
 
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  left_mono_cam_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  right_mono_cam_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  left_rect_cam_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  right_rect_cam_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  depth_cam_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  ni_depth_cam_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  left_rgb_cam_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  left_rgb_rect_cam_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  aux_rgb_cam_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  aux_mono_cam_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  aux_rect_cam_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr  aux_rgb_rect_cam_pub_;
+    ImagePublisher::SharedPtr left_mono_cam_pub_;
+    ImagePublisher::SharedPtr right_mono_cam_pub_;
+    ImagePublisher::SharedPtr left_rect_cam_pub_;
+    ImagePublisher::SharedPtr right_rect_cam_pub_;
+    ImagePublisher::SharedPtr depth_cam_pub_;
+    ImagePublisher::SharedPtr ni_depth_cam_pub_;
+    ImagePublisher::SharedPtr aux_rgb_cam_pub_;
+    ImagePublisher::SharedPtr aux_mono_cam_pub_;
+    ImagePublisher::SharedPtr aux_rect_cam_pub_;
+    ImagePublisher::SharedPtr aux_rgb_rect_cam_pub_;
 
     rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr left_mono_cam_info_pub_;
     rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr right_mono_cam_info_pub_;
@@ -213,8 +307,6 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr left_disp_cam_info_pub_;
     rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr right_disp_cam_info_pub_;
     rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr left_cost_cam_info_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr left_rgb_cam_info_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr left_rgb_rect_cam_info_pub_;
     rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr depth_cam_info_pub_;
     rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr aux_mono_cam_info_pub_;
     rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr aux_rgb_cam_info_pub_;
@@ -224,24 +316,16 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr luma_point_cloud_pub_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr color_point_cloud_pub_;
 
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr luma_organized_point_cloud_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr color_organized_point_cloud_pub_;
 
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr left_disparity_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr right_disparity_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr left_disparity_cost_pub_;
+    ImagePublisher::SharedPtr left_disparity_pub_;
+    ImagePublisher::SharedPtr left_disparity_cost_pub_;
 
     rclcpp::Publisher<stereo_msgs::msg::DisparityImage>::SharedPtr left_stereo_disparity_pub_;
-    rclcpp::Publisher<stereo_msgs::msg::DisparityImage>::SharedPtr right_stereo_disparity_pub_;
 
     //
     // Raw data publishers
     //
-    rclcpp::Publisher<multisense_msgs::msg::RawCamData>::SharedPtr raw_cam_data_pub_;
-    rclcpp::Publisher<multisense_msgs::msg::RawCamConfig>::SharedPtr raw_cam_config_pub_;
-    rclcpp::Publisher<multisense_msgs::msg::RawCamCal>::SharedPtr raw_cam_cal_pub_;
     rclcpp::Publisher<multisense_msgs::msg::DeviceInfo>::SharedPtr device_info_pub_;
-    rclcpp::Publisher<multisense_msgs::msg::Histogram>::SharedPtr histogram_pub_;
 
     //
     // Store outgoing messages to avoid repeated allocations
@@ -258,9 +342,7 @@ private:
     sensor_msgs::msg::PointCloud2   color_organized_point_cloud_;
 
     sensor_msgs::msg::Image         aux_mono_image_;
-    sensor_msgs::msg::Image         left_rgb_image_;
     sensor_msgs::msg::Image         aux_rgb_image_;
-    sensor_msgs::msg::Image         left_rgb_rect_image_;
     sensor_msgs::msg::Image         aux_rect_image_;
     sensor_msgs::msg::Image         aux_rect_rgb_image_;
 
@@ -269,9 +351,6 @@ private:
     sensor_msgs::msg::Image         right_disparity_image_;
 
     stereo_msgs::msg::DisparityImage left_stereo_disparity_;
-    stereo_msgs::msg::DisparityImage right_stereo_disparity_;
-
-    multisense_msgs::msg::RawCamData raw_cam_data_;
 
     std::vector<uint8_t> pointcloud_color_buffer_;
     std::vector<uint8_t> pointcloud_rect_color_buffer_;
@@ -279,14 +358,7 @@ private:
     //
     // Calibration from sensor
 
-    crl::multisense::system::VersionInfo version_info_;
-    crl::multisense::system::DeviceInfo  device_info_;
-    std::vector<crl::multisense::system::DeviceMode> device_modes_;
-
-    //
-    // Calibration manager
-
-    StereoCalibrationManger::SharedPtr stereo_calibration_manager_;
+    multisense::MultiSenseInfo info_{};
 
     //
     // The frame IDs
@@ -301,56 +373,31 @@ private:
     std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
 
     //
+    // Used to signal threads waiting to process images
+
+    FrameNotifier<multisense::ImageFrame> image_frame_notifier_{};
+
+    //
+    // Processing threads which are used to convert MultiSense types to ROS messages and publish them
+
+    std::vector<std::thread> procesing_threads_{};
+
+    //
     // For pointcloud generation
 
     double pointcloud_max_range_;
 
     //
-    // Stream subscriptions
+    // Active streams
 
-    crl::multisense::DataSource active_streams_;
-
-    //
-    // Histogram tracking
-
-    int64_t last_frame_id_ = -1;
-
-    //
-    // The mask used to perform the border clipping of the disparity image
-
-    BorderClip border_clip_type_;
-    double border_clip_value_ = 0.0;
-
-    //
-    // Storage of images which we use for pointcloud colorizing
-
-    std::unordered_map<crl::multisense::DataSource, std::shared_ptr<BufferWrapper<crl::multisense::image::Header>>> image_buffers_;
+    std::mutex stream_mutex_{};
+    std::vector<multisense::DataSource> active_streams_{};
 
     //
     // Has a 3rd aux color camera
 
     bool has_aux_camera_ = false;
     bool aux_control_supported_ = false;
-
-    //
-    // Supports color images (either left color, right color, or aux color)
-
-    bool supports_color_ = false;
-
-    //
-    // Contains the next-gen stereo hardware (i.e S30/S27 etc)
-
-    bool next_gen_camera_ = false;
-
-    //
-    // ROI control
-
-    bool enable_roi_auto_exposure_control_ = false;
-    bool enable_aux_roi_auto_exposure_control_ = false;
-
-    RegionOfIntrest auto_exposure_roi_;
-    RegionOfIntrest aux_auto_exposure_roi_;
-
 };
 
 }// namespace
