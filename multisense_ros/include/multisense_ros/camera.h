@@ -39,6 +39,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 
+#include <image_transport/image_transport.hpp>
 #include <sensor_msgs/distortion_models.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
@@ -47,11 +48,11 @@
 
 #include <multisense_msgs/msg/device_info.hpp>
 
+#include "multisense_ros/publisher_utilities.h"
+
 #include <MultiSense/MultiSenseChannel.hh>
 
 namespace multisense_ros {
-
-using ImagePublisher = rclcpp::Publisher<sensor_msgs::msg::Image>;
 
 template <typename T>
 class FrameNotifier
@@ -187,10 +188,12 @@ private:
     //
     // Convenience function for creating a image publisher
 
-    ImagePublisher::SharedPtr add_image_publisher(rclcpp::Node::SharedPtr node,
-                                                  const std::string &topic_name,
-                                                  const rclcpp::QoS &qos,
-                                                  const multisense::DataSource &source);
+    std::shared_ptr<ImagePublisher> add_image_publisher(rclcpp::Node::SharedPtr node,
+                                                        const std::string &topic_name,
+                                                        const sensor_msgs::msg::CameraInfo &camera_info,
+                                                        const rclcpp::QoS &qos,
+                                                        const multisense::DataSource &source,
+                                                        bool use_image_transport);
 
     //
     // Convenience function for creating a point cloud publisher
@@ -215,19 +218,6 @@ private:
     // Update the sensor calibration parameters
 
     //void updateConfig(const crl::multisense::image::Config& config);
-
-    //
-    // Republish camera info messages by publishing the current messages
-    // Used whenever the resolution of the camera changes
-
-    void publishAllCameraInfo();
-
-    //
-    // Callback to check subscriptions to our publishers. This duplicates the behavior of the ROS1
-    // SubscriberStatusCallback in a much less elegant manner. Until that functionality is added to ROS2 we will
-    // poll to enable our lazy publishing scheme.
-
-    void timerCallback();
 
     //
     // Function which waits for image frames from the camera, and publishes images if there is
@@ -289,36 +279,22 @@ private:
     //
     // Data publishers
 
-    ImagePublisher::SharedPtr left_mono_cam_pub_;
-    ImagePublisher::SharedPtr right_mono_cam_pub_;
-    ImagePublisher::SharedPtr left_rect_cam_pub_;
-    ImagePublisher::SharedPtr right_rect_cam_pub_;
-    ImagePublisher::SharedPtr depth_cam_pub_;
-    ImagePublisher::SharedPtr ni_depth_cam_pub_;
-    ImagePublisher::SharedPtr aux_rgb_cam_pub_;
-    ImagePublisher::SharedPtr aux_mono_cam_pub_;
-    ImagePublisher::SharedPtr aux_rect_cam_pub_;
-    ImagePublisher::SharedPtr aux_rgb_rect_cam_pub_;
-
-    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr left_mono_cam_info_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr right_mono_cam_info_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr left_rect_cam_info_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr right_rect_cam_info_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr left_disp_cam_info_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr right_disp_cam_info_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr left_cost_cam_info_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr depth_cam_info_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr aux_mono_cam_info_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr aux_rgb_cam_info_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr aux_rect_cam_info_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr aux_rgb_rect_cam_info_pub_;
+    std::shared_ptr<ImagePublisher> left_mono_cam_pub_ = nullptr;
+    std::shared_ptr<ImagePublisher> right_mono_cam_pub_ = nullptr;
+    std::shared_ptr<ImagePublisher> left_rect_cam_pub_ = nullptr;
+    std::shared_ptr<ImagePublisher> right_rect_cam_pub_ = nullptr;
+    std::shared_ptr<ImagePublisher> depth_cam_pub_ = nullptr;
+    std::shared_ptr<ImagePublisher> ni_depth_cam_pub_ = nullptr;
+    std::shared_ptr<ImagePublisher> aux_rgb_cam_pub_ = nullptr;
+    std::shared_ptr<ImagePublisher> aux_mono_cam_pub_ = nullptr;
+    std::shared_ptr<ImagePublisher> aux_rect_cam_pub_ = nullptr;
+    std::shared_ptr<ImagePublisher> aux_rgb_rect_cam_pub_ = nullptr;
 
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr luma_point_cloud_pub_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr color_point_cloud_pub_;
 
-
-    ImagePublisher::SharedPtr left_disparity_pub_;
-    ImagePublisher::SharedPtr left_disparity_cost_pub_;
+    std::shared_ptr<ImagePublisher> left_disparity_pub_ = nullptr;
+    std::shared_ptr<ImagePublisher> left_disparity_cost_pub_ = nullptr;
 
     rclcpp::Publisher<stereo_msgs::msg::DisparityImage>::SharedPtr left_stereo_disparity_pub_;
 

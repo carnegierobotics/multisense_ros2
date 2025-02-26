@@ -21,6 +21,7 @@ find_package(eigen3_cmake_module REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(image_geometry REQUIRED)
+find_package(image_transport REQUIRED)
 find_package(multisense_lib REQUIRED)
 find_package(multisense_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
@@ -48,6 +49,7 @@ ament_target_dependencies(${PROJECT_NAME}
                          Eigen3
                          geometry_msgs
                          image_geometry
+                         image_transport
                          multisense_lib
                          multisense_msgs
                          OpenCV
