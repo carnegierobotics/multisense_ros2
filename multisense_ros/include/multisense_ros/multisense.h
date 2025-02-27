@@ -42,6 +42,7 @@
 #include <image_transport/image_transport.hpp>
 #include <sensor_msgs/distortion_models.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <stereo_msgs/msg/disparity_image.hpp>
 #include <tf2_ros/static_transform_broadcaster.h>
@@ -119,15 +120,15 @@ private:
     std::optional<T> frame_;
 };
 
-class Camera : public rclcpp::Node
+class MultiSense : public rclcpp::Node
 {
 public:
-    Camera(const std::string& node_name,
+    MultiSense(const std::string& node_name,
            const rclcpp::NodeOptions& options,
            std::unique_ptr<multisense::Channel> channel,
            const std::string& tf_prefix);
 
-    ~Camera();
+    ~MultiSense();
 
 private:
 
@@ -138,6 +139,7 @@ private:
     static constexpr char RIGHT[] = "right";
     static constexpr char AUX[] = "aux";
     static constexpr char CALIBRATION[] = "calibration";
+    static constexpr char IMU[] = "calibration";
 
     //
     // Frames
@@ -148,6 +150,7 @@ private:
     static constexpr char RIGHT_RECTIFIED_FRAME[] = "/right_camera_optical_frame";
     static constexpr char AUX_CAMERA_FRAME[] = "/aux_camera_frame";
     static constexpr char AUX_RECTIFIED_FRAME[] = "/aux_camera_optical_frame";
+    static constexpr char IMU_FRAME[] = "/imu_frame";
 
     //
     // Topic names
@@ -178,30 +181,19 @@ private:
     static constexpr char DISPARITY_CAMERA_INFO_TOPIC[] = "disparity/camera_info";
     static constexpr char COST_CAMERA_INFO_TOPIC[] = "cost/camera_info";
 
+    static constexpr char IMU_TOPIC[] = "imu_data";
+
     //
     // Device stream control
 
-    size_t numSubscribers(const rclcpp::Node::SharedPtr node, const std::string &topic);
-    size_t numSubscribers(const rclcpp::Node* node, const std::string &topic);
+    size_t num_subscribers(const rclcpp::Node::SharedPtr node, const std::string &topic);
+    size_t num_subscribers(const rclcpp::Node* node, const std::string &topic);
     void stop();
 
     //
-    // Convenience function for creating a image publisher
+    // Create publisher options which enable disable sources on active subscriptions
 
-    std::shared_ptr<ImagePublisher> add_image_publisher(rclcpp::Node::SharedPtr node,
-                                                        const std::string &topic_name,
-                                                        const sensor_msgs::msg::CameraInfo &camera_info,
-                                                        const rclcpp::QoS &qos,
-                                                        const multisense::DataSource &source,
-                                                        bool use_image_transport);
-
-    //
-    // Convenience function for creating a point cloud publisher
-
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr
-        add_pointcloud_publisher(const std::string &topic_name,
-                                 const rclcpp::QoS &qos,
-                                 const std::vector<multisense::DataSource> &sources);
+    rclcpp::PublisherOptions create_publisher_options(const std::vector<multisense::DataSource> &sources);
 
     //
     // Publish static transforms for convenience
@@ -244,6 +236,12 @@ private:
     void color_publisher();
 
     //
+    // Function which waits for imu frames from the camera, and publishes imu data  if there is
+    // an active subscription to the corresponding imu data topic
+
+    void imu_publisher();
+
+    //
     // Helper function to setup the nodes configuration parameters. In ROS2 this takes the place of dynamic
     // reconfigure
 
@@ -252,7 +250,7 @@ private:
     //
     // Parameter management
 
-    OnSetParametersCallbackHandle::SharedPtr paramter_handle_;
+    OnSetParametersCallbackHandle::SharedPtr paramter_handle_ = nullptr;
 
     rcl_interfaces::msg::SetParametersResult parameterCallback(const std::vector<rclcpp::Parameter>& parameters);
 
@@ -264,17 +262,13 @@ private:
     std::unique_ptr<multisense::Channel> channel_ = nullptr;
 
     //
-    // ROS2 timer for checking publisher status
-
-    rclcpp::TimerBase::SharedPtr timer_;
-
-    //
     // Sub nodes
 
-    rclcpp::Node::SharedPtr left_node_{};
-    rclcpp::Node::SharedPtr right_node_{};
-    rclcpp::Node::SharedPtr aux_node_{};
-    rclcpp::Node::SharedPtr calibration_node_{};
+    rclcpp::Node::SharedPtr left_node_ = nullptr;
+    rclcpp::Node::SharedPtr right_node_ = nullptr;
+    rclcpp::Node::SharedPtr aux_node_ = nullptr;
+    rclcpp::Node::SharedPtr calibration_node_ = nullptr;
+    rclcpp::Node::SharedPtr imu_node_ = nullptr;
 
     //
     // Data publishers
@@ -289,47 +283,42 @@ private:
     std::shared_ptr<ImagePublisher> aux_mono_cam_pub_ = nullptr;
     std::shared_ptr<ImagePublisher> aux_rect_cam_pub_ = nullptr;
     std::shared_ptr<ImagePublisher> aux_rgb_rect_cam_pub_ = nullptr;
-
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr luma_point_cloud_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr color_point_cloud_pub_;
-
     std::shared_ptr<ImagePublisher> left_disparity_pub_ = nullptr;
     std::shared_ptr<ImagePublisher> left_disparity_cost_pub_ = nullptr;
 
-    rclcpp::Publisher<stereo_msgs::msg::DisparityImage>::SharedPtr left_stereo_disparity_pub_;
+    rclcpp::Publisher<stereo_msgs::msg::DisparityImage>::SharedPtr left_stereo_disparity_pub_ = nullptr;
 
-    //
-    // Raw data publishers
-    //
-    rclcpp::Publisher<multisense_msgs::msg::DeviceInfo>::SharedPtr device_info_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr luma_point_cloud_pub_ = nullptr;
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr color_point_cloud_pub_ = nullptr;
+
+    rclcpp::Publisher<multisense_msgs::msg::DeviceInfo>::SharedPtr device_info_pub_ = nullptr;
+
+    rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_ = nullptr;
 
     //
     // Store outgoing messages to avoid repeated allocations
 
-    sensor_msgs::msg::Image         left_mono_image_;
-    sensor_msgs::msg::Image         right_mono_image_;
-    sensor_msgs::msg::Image         left_rect_image_;
-    sensor_msgs::msg::Image         right_rect_image_;
-    sensor_msgs::msg::Image         depth_image_;
-    sensor_msgs::msg::Image         ni_depth_image_;
-    sensor_msgs::msg::PointCloud2   luma_point_cloud_;
-    sensor_msgs::msg::PointCloud2   color_point_cloud_;
-    sensor_msgs::msg::PointCloud2   luma_organized_point_cloud_;
-    sensor_msgs::msg::PointCloud2   color_organized_point_cloud_;
+    sensor_msgs::msg::Image         left_mono_image_{};
+    sensor_msgs::msg::Image         right_mono_image_{};
+    sensor_msgs::msg::Image         left_rect_image_{};
+    sensor_msgs::msg::Image         right_rect_image_{};
+    sensor_msgs::msg::Image         depth_image_{};
+    sensor_msgs::msg::Image         ni_depth_image_{};
+    sensor_msgs::msg::PointCloud2   luma_point_cloud_{};
+    sensor_msgs::msg::PointCloud2   color_point_cloud_{};
+    sensor_msgs::msg::PointCloud2   luma_organized_point_cloud_{};
+    sensor_msgs::msg::PointCloud2   color_organized_point_cloud_{};
 
-    sensor_msgs::msg::Image         aux_mono_image_;
-    sensor_msgs::msg::Image         aux_rgb_image_;
-    sensor_msgs::msg::Image         aux_rect_image_;
-    sensor_msgs::msg::Image         aux_rect_rgb_image_;
+    sensor_msgs::msg::Image         aux_mono_image_{};
+    sensor_msgs::msg::Image         aux_rgb_image_{};
+    sensor_msgs::msg::Image         aux_rect_image_{};
+    sensor_msgs::msg::Image         aux_rect_rgb_image_{};
 
-    sensor_msgs::msg::Image         left_disparity_image_;
-    sensor_msgs::msg::Image         left_disparity_cost_image_;
-    sensor_msgs::msg::Image         right_disparity_image_;
+    sensor_msgs::msg::Image         left_disparity_image_{};
+    sensor_msgs::msg::Image         left_disparity_cost_image_{};
+    sensor_msgs::msg::Image         right_disparity_image_{};
 
-    stereo_msgs::msg::DisparityImage left_stereo_disparity_;
-
-    std::vector<uint8_t> pointcloud_color_buffer_;
-    std::vector<uint8_t> pointcloud_rect_color_buffer_;
+    stereo_msgs::msg::DisparityImage left_stereo_disparity_{};
 
     //
     // Calibration from sensor
@@ -339,12 +328,13 @@ private:
     //
     // The frame IDs
 
-    const std::string frame_id_left_;
-    const std::string frame_id_right_;
-    const std::string frame_id_aux_;
-    const std::string frame_id_rectified_left_;
-    const std::string frame_id_rectified_right_;
-    const std::string frame_id_rectified_aux_;
+    const std::string frame_id_left_{};
+    const std::string frame_id_right_{};
+    const std::string frame_id_aux_{};
+    const std::string frame_id_rectified_left_{};
+    const std::string frame_id_rectified_right_{};
+    const std::string frame_id_rectified_aux_{};
+    const std::string frame_id_imu_{};
 
     std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
 
@@ -354,6 +344,11 @@ private:
     FrameNotifier<multisense::ImageFrame> image_frame_notifier_{};
 
     //
+    // Used to signal threads waiting to process imu data
+
+    FrameNotifier<multisense::ImuFrame> imu_frame_notifier_{};
+
+    //
     // Processing threads which are used to convert MultiSense types to ROS messages and publish them
 
     std::vector<std::thread> procesing_threads_{};
@@ -361,7 +356,7 @@ private:
     //
     // For pointcloud generation
 
-    double pointcloud_max_range_;
+    double pointcloud_max_range_ = 50.0;
 
     //
     // Active streams

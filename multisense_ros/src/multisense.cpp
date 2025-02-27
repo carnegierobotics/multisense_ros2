@@ -42,7 +42,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <multisense_msgs/msg/device_info.hpp>
-#include <multisense_ros/camera.h>
+#include <multisense_ros/multisense.h>
 #include <multisense_ros/parameter_utilities.h>
 
 #include <MultiSense/MultiSenseUtilities.hh>
@@ -275,50 +275,81 @@ void publish_point_cloud(const lms::PointCloud<Color> &point_cloud,
     publisher->publish(std::make_unique<sensor_msgs::msg::PointCloud2>(ros_point_cloud));
 }
 
+void publish_imu_sample(const lms::ImuSample &sample,
+                        rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr publisher,
+                        const std::string &frame_id)
+{
+    constexpr double GRAVITY = 9.80665;
+
+    sensor_msgs::msg::Imu message{};
+
+    message.header.frame_id = frame_id;
+    message.header.stamp = rclcpp::Time(sample.sample_time.time_since_epoch().count());
+
+    if (sample.accelerometer)
+    {
+        message.linear_acceleration.x = sample.accelerometer->x * GRAVITY;
+        message.linear_acceleration.y = sample.accelerometer->y * GRAVITY;
+        message.linear_acceleration.z = sample.accelerometer->z * GRAVITY;
+    }
+
+    if (sample.gyroscope)
+    {
+        message.angular_velocity.x = sample.gyroscope->x * M_PI/180.0;
+        message.angular_velocity.y = sample.gyroscope->y * M_PI/180.0;
+        message.angular_velocity.z = sample.gyroscope->z * M_PI/180.0;
+    }
+
+    publisher->publish(message);
+}
+
 } // anonymous
 
 //
 // Provide compiler with definition of the static members
 
-constexpr char Camera::LEFT[];
-constexpr char Camera::RIGHT[];
-constexpr char Camera::AUX[];
-constexpr char Camera::CALIBRATION[];
+constexpr char MultiSense::LEFT[];
+constexpr char MultiSense::RIGHT[];
+constexpr char MultiSense::AUX[];
+constexpr char MultiSense::CALIBRATION[];
+constexpr char MultiSense::IMU[];
 
-constexpr char Camera::LEFT_CAMERA_FRAME[];
-constexpr char Camera::RIGHT_CAMERA_FRAME[];
-constexpr char Camera::LEFT_RECTIFIED_FRAME[];
-constexpr char Camera::RIGHT_RECTIFIED_FRAME[];
-constexpr char Camera::AUX_CAMERA_FRAME[];
-constexpr char Camera::AUX_RECTIFIED_FRAME[];
+constexpr char MultiSense::LEFT_CAMERA_FRAME[];
+constexpr char MultiSense::RIGHT_CAMERA_FRAME[];
+constexpr char MultiSense::LEFT_RECTIFIED_FRAME[];
+constexpr char MultiSense::RIGHT_RECTIFIED_FRAME[];
+constexpr char MultiSense::AUX_CAMERA_FRAME[];
+constexpr char MultiSense::AUX_RECTIFIED_FRAME[];
+constexpr char MultiSense::IMU_FRAME[];
 
-constexpr char Camera::DEVICE_INFO_TOPIC[];
-constexpr char Camera::RAW_CAM_CAL_TOPIC[];
-constexpr char Camera::RAW_CAM_CONFIG_TOPIC[];
-constexpr char Camera::RAW_CAM_DATA_TOPIC[];
-constexpr char Camera::HISTOGRAM_TOPIC[];
-constexpr char Camera::MONO_TOPIC[];
-constexpr char Camera::RECT_TOPIC[];
-constexpr char Camera::DISPARITY_TOPIC[];
-constexpr char Camera::DISPARITY_IMAGE_TOPIC[];
-constexpr char Camera::DEPTH_TOPIC[];
-constexpr char Camera::OPENNI_DEPTH_TOPIC[];
-constexpr char Camera::COST_TOPIC[];
-constexpr char Camera::COLOR_TOPIC[];
-constexpr char Camera::RECT_COLOR_TOPIC[];
-constexpr char Camera::POINTCLOUD_TOPIC[];
-constexpr char Camera::COLOR_POINTCLOUD_TOPIC[];
-constexpr char Camera::ORGANIZED_POINTCLOUD_TOPIC[];
-constexpr char Camera::COLOR_ORGANIZED_POINTCLOUD_TOPIC[];
-constexpr char Camera::MONO_CAMERA_INFO_TOPIC[];
-constexpr char Camera::RECT_CAMERA_INFO_TOPIC[];
-constexpr char Camera::COLOR_CAMERA_INFO_TOPIC[];
-constexpr char Camera::RECT_COLOR_CAMERA_INFO_TOPIC[];
-constexpr char Camera::DEPTH_CAMERA_INFO_TOPIC[];
-constexpr char Camera::DISPARITY_CAMERA_INFO_TOPIC[];
-constexpr char Camera::COST_CAMERA_INFO_TOPIC[];
+constexpr char MultiSense::DEVICE_INFO_TOPIC[];
+constexpr char MultiSense::RAW_CAM_CAL_TOPIC[];
+constexpr char MultiSense::RAW_CAM_CONFIG_TOPIC[];
+constexpr char MultiSense::RAW_CAM_DATA_TOPIC[];
+constexpr char MultiSense::HISTOGRAM_TOPIC[];
+constexpr char MultiSense::MONO_TOPIC[];
+constexpr char MultiSense::RECT_TOPIC[];
+constexpr char MultiSense::DISPARITY_TOPIC[];
+constexpr char MultiSense::DISPARITY_IMAGE_TOPIC[];
+constexpr char MultiSense::DEPTH_TOPIC[];
+constexpr char MultiSense::OPENNI_DEPTH_TOPIC[];
+constexpr char MultiSense::COST_TOPIC[];
+constexpr char MultiSense::COLOR_TOPIC[];
+constexpr char MultiSense::RECT_COLOR_TOPIC[];
+constexpr char MultiSense::POINTCLOUD_TOPIC[];
+constexpr char MultiSense::COLOR_POINTCLOUD_TOPIC[];
+constexpr char MultiSense::ORGANIZED_POINTCLOUD_TOPIC[];
+constexpr char MultiSense::COLOR_ORGANIZED_POINTCLOUD_TOPIC[];
+constexpr char MultiSense::MONO_CAMERA_INFO_TOPIC[];
+constexpr char MultiSense::RECT_CAMERA_INFO_TOPIC[];
+constexpr char MultiSense::COLOR_CAMERA_INFO_TOPIC[];
+constexpr char MultiSense::RECT_COLOR_CAMERA_INFO_TOPIC[];
+constexpr char MultiSense::DEPTH_CAMERA_INFO_TOPIC[];
+constexpr char MultiSense::DISPARITY_CAMERA_INFO_TOPIC[];
+constexpr char MultiSense::COST_CAMERA_INFO_TOPIC[];
+constexpr char MultiSense::IMU_TOPIC[];
 
-Camera::Camera(const std::string& node_name,
+MultiSense::MultiSense(const std::string& node_name,
                const rclcpp::NodeOptions& options,
                std::unique_ptr<multisense::Channel> channel,
                const std::string& tf_prefix):
@@ -328,12 +359,14 @@ Camera::Camera(const std::string& node_name,
     right_node_(create_sub_node(RIGHT)),
     aux_node_(create_sub_node(AUX)),
     calibration_node_(create_sub_node(CALIBRATION)),
+    imu_node_(create_sub_node(IMU)),
     frame_id_left_(tf_prefix + LEFT_CAMERA_FRAME),
     frame_id_right_(tf_prefix + RIGHT_CAMERA_FRAME),
     frame_id_aux_(tf_prefix + AUX_CAMERA_FRAME),
     frame_id_rectified_left_(tf_prefix + LEFT_RECTIFIED_FRAME),
     frame_id_rectified_right_(tf_prefix + RIGHT_RECTIFIED_FRAME),
     frame_id_rectified_aux_(tf_prefix + AUX_RECTIFIED_FRAME),
+    frame_id_imu_(tf_prefix + IMU_FRAME),
     static_tf_broadcaster_(std::make_shared<tf2_ros::StaticTransformBroadcaster>(*this)),
     pointcloud_max_range_(15.0)
 {
@@ -373,13 +406,54 @@ Camera::Camera(const std::string& node_name,
 
     using ds = lms::DataSource;
 
-    left_mono_cam_pub_ = add_image_publisher(left_node_, MONO_TOPIC, left_cal, qos, ds::LEFT_MONO_RAW, use_image_transport);
-    right_mono_cam_pub_ = add_image_publisher(right_node_, MONO_TOPIC, right_cal, qos, ds::RIGHT_MONO_RAW, use_image_transport);
-    left_rect_cam_pub_ = add_image_publisher(left_node_, RECT_TOPIC, left_rect_cal, qos, ds::LEFT_RECTIFIED_RAW, use_image_transport);
-    right_rect_cam_pub_ = add_image_publisher(right_node_, RECT_TOPIC, right_rect_cal, qos, ds::RIGHT_RECTIFIED_RAW, use_image_transport);
-    depth_cam_pub_ = add_image_publisher(left_node_, DEPTH_TOPIC, left_rect_cal, qos, ds::LEFT_DISPARITY_RAW, use_image_transport);
-    ni_depth_cam_pub_ = add_image_publisher(left_node_, OPENNI_DEPTH_TOPIC, left_rect_cal, qos, ds::LEFT_DISPARITY_RAW, use_image_transport);
-    left_disparity_cost_pub_ = add_image_publisher(left_node_, COST_TOPIC, left_rect_cal, qos, ds::COST_RAW, use_image_transport);
+    left_mono_cam_pub_ = std::make_shared<ImagePublisher>(left_node_,
+                                                          MONO_TOPIC,
+                                                          left_cal,
+                                                          qos,
+                                                          create_publisher_options({ds::LEFT_MONO_RAW}),
+                                                          use_image_transport);
+
+    right_mono_cam_pub_ = std::make_shared<ImagePublisher>(right_node_,
+                                                           MONO_TOPIC,
+                                                           right_cal,
+                                                           qos,
+                                                           create_publisher_options({ds::RIGHT_MONO_RAW}),
+                                                           use_image_transport);
+
+    left_rect_cam_pub_ = std::make_shared<ImagePublisher>(left_node_,
+                                                          RECT_TOPIC,
+                                                          left_rect_cal,
+                                                          qos,
+                                                          create_publisher_options({ds::LEFT_RECTIFIED_RAW}),
+                                                          use_image_transport);
+
+    right_rect_cam_pub_ = std::make_shared<ImagePublisher>(right_node_,
+                                                           RECT_TOPIC,
+                                                           right_rect_cal,
+                                                           qos,
+                                                           create_publisher_options({ds::RIGHT_RECTIFIED_RAW}),
+                                                           use_image_transport);
+
+    depth_cam_pub_ = std::make_shared<ImagePublisher>(left_node_,
+                                                      DEPTH_TOPIC,
+                                                      left_rect_cal,
+                                                      qos,
+                                                      create_publisher_options({ds::LEFT_DISPARITY_RAW}),
+                                                      use_image_transport);
+
+    ni_depth_cam_pub_ = std::make_shared<ImagePublisher>(left_node_,
+                                                         OPENNI_DEPTH_TOPIC,
+                                                         left_rect_cal,
+                                                         qos,
+                                                         create_publisher_options({ds::LEFT_DISPARITY_RAW}),
+                                                         use_image_transport);
+
+    left_disparity_cost_pub_ = std::make_shared<ImagePublisher>(left_node_,
+                                                                COST_TOPIC,
+                                                                left_rect_cal,
+                                                                qos,
+                                                                create_publisher_options({ds::COST_RAW}),
+                                                                use_image_transport);
 
     if (has_aux_camera_)
     {
@@ -394,19 +468,54 @@ Camera::Camera(const std::string& node_name,
         const auto aux_cal = create_camera_info(calibration.aux.value(), aux_header, configuration.width, configuration.height);
         const auto aux_rect_cal = create_camera_info(calibration.aux.value(), aux_rect_header, configuration.width, configuration.height);
 
-        aux_mono_cam_pub_ = add_image_publisher(aux_node_, MONO_TOPIC, aux_cal, qos, ds::AUX_LUMA_RAW, use_image_transport);
-        aux_rgb_cam_pub_ = add_image_publisher(aux_node_, COLOR_TOPIC, aux_cal, qos, ds::AUX_RAW, use_image_transport);
-        aux_rect_cam_pub_ = add_image_publisher(aux_node_, RECT_TOPIC, aux_rect_cal, qos, ds::AUX_LUMA_RECTIFIED_RAW, use_image_transport);
-        aux_rgb_rect_cam_pub_ = add_image_publisher(aux_node_, RECT_TOPIC, aux_rect_cal, qos, ds::AUX_RECTIFIED_RAW, use_image_transport);
+        aux_mono_cam_pub_ = std::make_shared<ImagePublisher>(aux_node_,
+                                                             MONO_TOPIC,
+                                                             aux_cal,
+                                                             qos,
+                                                             create_publisher_options({ds::AUX_LUMA_RAW}),
+                                                             use_image_transport);
 
-        color_point_cloud_pub_= add_pointcloud_publisher(COLOR_POINTCLOUD_TOPIC, qos,
-                                                        {ds::LEFT_DISPARITY_RAW, ds::AUX_RECTIFIED_RAW});
+        aux_rgb_cam_pub_ = std::make_shared<ImagePublisher>(aux_node_,
+                                                            COLOR_TOPIC,
+                                                            aux_cal,
+                                                            qos,
+                                                            create_publisher_options({ds::AUX_RAW}),
+                                                            use_image_transport);
+
+        aux_rect_cam_pub_ = std::make_shared<ImagePublisher>(aux_node_,
+                                                             RECT_TOPIC,
+                                                             aux_rect_cal,
+                                                             qos,
+                                                             create_publisher_options({ds::AUX_LUMA_RECTIFIED_RAW}),
+                                                             use_image_transport);
+
+        aux_rgb_rect_cam_pub_ = std::make_shared<ImagePublisher>(aux_node_,
+                                                                 RECT_TOPIC,
+                                                                 aux_rect_cal,
+                                                                 qos,
+                                                                 create_publisher_options({ds::AUX_RECTIFIED_RAW}),
+                                                                 use_image_transport);
+
+        color_point_cloud_pub_= create_publisher<sensor_msgs::msg::PointCloud2>(COLOR_POINTCLOUD_TOPIC,
+                                                                                qos,
+                                                                                create_publisher_options({ds::LEFT_DISPARITY_RAW,
+                                                                                                          ds::AUX_RECTIFIED_RAW}));
     }
 
-    luma_point_cloud_pub_= add_pointcloud_publisher(POINTCLOUD_TOPIC, qos,
-                                                    {ds::LEFT_DISPARITY_RAW, ds::LEFT_RECTIFIED_RAW});
+    luma_point_cloud_pub_= create_publisher<sensor_msgs::msg::PointCloud2>(POINTCLOUD_TOPIC,
+                                                                           qos,
+                                                                           create_publisher_options({ds::LEFT_DISPARITY_RAW,
+                                                                                                     ds::LEFT_RECTIFIED_RAW}));
 
-    left_stereo_disparity_pub_ = left_node_->create_publisher<stereo_msgs::msg::DisparityImage>(DISPARITY_IMAGE_TOPIC, qos);
+    left_stereo_disparity_pub_ =
+        left_node_->create_publisher<stereo_msgs::msg::DisparityImage>(DISPARITY_IMAGE_TOPIC,
+                                                                       qos,
+                                                                       create_publisher_options({ds::LEFT_DISPARITY_RAW}));
+
+    if (info_.imu)
+    {
+        imu_pub_ = imu_node_->create_publisher<sensor_msgs::msg::Imu>(IMU_TOPIC, qos, create_publisher_options({ds::IMU}));
+    }
 
     //
     // All image streams off
@@ -424,10 +533,11 @@ Camera::Camera(const std::string& node_name,
 
     publish_static_tf(channel_->get_calibration());
 
-    procesing_threads_.emplace_back(std::thread(&Camera::image_publisher, this));
-    procesing_threads_.emplace_back(std::thread(&Camera::depth_publisher, this));
-    procesing_threads_.emplace_back(std::thread(&Camera::point_cloud_publisher, this));
-    procesing_threads_.emplace_back(std::thread(&Camera::color_publisher, this));
+    procesing_threads_.emplace_back(std::thread(&MultiSense::image_publisher, this));
+    procesing_threads_.emplace_back(std::thread(&MultiSense::depth_publisher, this));
+    procesing_threads_.emplace_back(std::thread(&MultiSense::point_cloud_publisher, this));
+    procesing_threads_.emplace_back(std::thread(&MultiSense::color_publisher, this));
+    procesing_threads_.emplace_back(std::thread(&MultiSense::imu_publisher, this));
 
     //
     // Add our single image frame callback which will notify all the process threads which may be listening
@@ -436,12 +546,18 @@ Camera::Camera(const std::string& node_name,
     channel_->add_image_frame_callback([this](const auto &frame){image_frame_notifier_.set_and_notify(frame);});
 
     //
+    // Add our single imu frame callback which will notify all the process threads which may be listening
+    // to imu frames
+
+    channel_->add_imu_frame_callback([this](const auto &frame){imu_frame_notifier_.set_and_notify(frame);});
+
+    //
     // Setup parameters
     //paramter_handle_ = add_on_set_parameters_callback(std::bind(&Camera::parameterCallback, this, std::placeholders::_1));
     //initalizeParameters(image_config);
 }
 
-Camera::~Camera()
+MultiSense::~MultiSense()
 {
     stop();
 
@@ -457,7 +573,7 @@ Camera::~Camera()
     }
 }
 
-void Camera::image_publisher()
+void MultiSense::image_publisher()
 {
     const auto timeout = std::make_optional(std::chrono::milliseconds{500});
     while (!shutdown_)
@@ -470,13 +586,13 @@ void Camera::image_publisher()
                 {
                     case lms::DataSource::LEFT_MONO_RAW:
                     {
-                        if (numSubscribers(left_node_, MONO_TOPIC) == 0) continue;
+                        if (num_subscribers(left_node_, MONO_TOPIC) == 0) continue;
                         publish_image(image, left_mono_cam_pub_, left_mono_image_, frame_id_left_);
                         break;
                     }
                     case lms::DataSource::RIGHT_MONO_RAW:
                     {
-                        if (numSubscribers(right_node_, MONO_TOPIC) == 0) continue;
+                        if (num_subscribers(right_node_, MONO_TOPIC) == 0) continue;
                         publish_image(image, right_mono_cam_pub_, right_mono_image_, frame_id_right_);
                         break;
                     }
@@ -484,13 +600,13 @@ void Camera::image_publisher()
                     //case lms::DataSource::RIGHT_MONO_COMPRESSED:
                     case lms::DataSource::LEFT_RECTIFIED_RAW:
                     {
-                        if (numSubscribers(left_node_, RECT_TOPIC) == 0) continue;
+                        if (num_subscribers(left_node_, RECT_TOPIC) == 0) continue;
                         publish_image(image, left_rect_cam_pub_, left_rect_image_, frame_id_rectified_left_);
                         break;
                     }
                     case lms::DataSource::RIGHT_RECTIFIED_RAW:
                     {
-                        if (numSubscribers(right_node_, RECT_TOPIC) == 0) continue;
+                        if (num_subscribers(right_node_, RECT_TOPIC) == 0) continue;
                         publish_image(image, right_rect_cam_pub_, right_rect_image_, frame_id_rectified_right_);
                         break;
                     }
@@ -498,12 +614,12 @@ void Camera::image_publisher()
                     //case lms::DataSource::RIGHT_RECTIFIED_COMPRESSED:
                     case lms::DataSource::LEFT_DISPARITY_RAW:
                     {
-                        if (numSubscribers(left_node_, DISPARITY_TOPIC) > 0)
+                        if (num_subscribers(left_node_, DISPARITY_TOPIC) > 0)
                         {
                             publish_image(image, left_disparity_pub_, left_disparity_image_, frame_id_rectified_left_);
                         }
 
-                        if (numSubscribers(left_node_, DISPARITY_IMAGE_TOPIC) > 0)
+                        if (num_subscribers(left_node_, DISPARITY_IMAGE_TOPIC) > 0)
                         {
                             populate_image(image, left_stereo_disparity_.image, frame_id_rectified_left_);
                             left_stereo_disparity_.f = image.calibration.P[0][0];
@@ -521,13 +637,13 @@ void Camera::image_publisher()
                     //case lms::DataSource::AUX_RECTIFIED_COMPRESSED:
                     case lms::DataSource::AUX_LUMA_RAW:
                     {
-                        if (numSubscribers(aux_node_, MONO_TOPIC) == 0) continue;
+                        if (num_subscribers(aux_node_, MONO_TOPIC) == 0) continue;
                         publish_image(image, aux_mono_cam_pub_, aux_mono_image_, frame_id_aux_);
                         break;
                     }
                     case lms::DataSource::AUX_LUMA_RECTIFIED_RAW:
                     {
-                        if (numSubscribers(aux_node_, RECT_TOPIC) == 0) continue;
+                        if (num_subscribers(aux_node_, RECT_TOPIC) == 0) continue;
                         publish_image(image, aux_rect_cam_pub_, aux_rect_image_, frame_id_rectified_aux_);
                         break;
                     }
@@ -540,30 +656,30 @@ void Camera::image_publisher()
                     }
                     case lms::DataSource::AUX_RAW:
                     {
-                        if (numSubscribers(aux_node_, COLOR_TOPIC) == 0) continue;
+                        if (num_subscribers(aux_node_, COLOR_TOPIC) == 0) continue;
                         publish_image(image, aux_rgb_cam_pub_, aux_rgb_image_, frame_id_aux_);
                         break;
                     }
                     case lms::DataSource::AUX_RECTIFIED_RAW:
                     {
-                        if (numSubscribers(aux_node_, RECT_COLOR_TOPIC) == 0) continue;
+                        if (num_subscribers(aux_node_, RECT_COLOR_TOPIC) == 0) continue;
                         publish_image(image, aux_rgb_rect_cam_pub_, aux_rect_rgb_image_, frame_id_rectified_aux_);
                         break;
                     }
                     case lms::DataSource::COST_RAW:
                     {
-                        if (numSubscribers(left_node_, COST_TOPIC) == 0) continue;
+                        if (num_subscribers(left_node_, COST_TOPIC) == 0) continue;
                         publish_image(image, left_disparity_cost_pub_, left_disparity_cost_image_, frame_id_rectified_left_);
                         break;
                     }
-                    default: { RCLCPP_ERROR(get_logger(), "Camera: unknown image source"); continue;}
+                    default: { RCLCPP_ERROR(get_logger(), "MultiSense: unknown image source"); continue;}
                 }
             }
         }
     }
 }
 
-void Camera::depth_publisher()
+void MultiSense::depth_publisher()
 {
     constexpr auto disparity_source = lms::DataSource::LEFT_DISPARITY_RAW;
 
@@ -574,7 +690,7 @@ void Camera::depth_publisher()
         {
             if (image_frame->has_image(disparity_source))
             {
-                if (numSubscribers(left_node_, DEPTH_TOPIC) > 0)
+                if (num_subscribers(left_node_, DEPTH_TOPIC) > 0)
                 {
                     if (const auto depth_image = lms::create_depth_image(image_frame.value(),
                                                                          lms::Image::PixelFormat::FLOAT32,
@@ -586,7 +702,7 @@ void Camera::depth_publisher()
                     }
                 }
 
-                if (numSubscribers(left_node_, OPENNI_DEPTH_TOPIC) > 0)
+                if (num_subscribers(left_node_, OPENNI_DEPTH_TOPIC) > 0)
                 {
                     if (const auto depth_image = lms::create_depth_image(image_frame.value(),
                                                                          lms::Image::PixelFormat::MONO16,
@@ -602,7 +718,7 @@ void Camera::depth_publisher()
     }
 }
 
-void Camera::point_cloud_publisher()
+void MultiSense::point_cloud_publisher()
 {
     constexpr auto disparity_source = lms::DataSource::LEFT_DISPARITY_RAW;
 
@@ -613,7 +729,7 @@ void Camera::point_cloud_publisher()
         {
             if (image_frame->has_image(disparity_source))
             {
-                if (numSubscribers(this, POINTCLOUD_TOPIC) > 0 && image_frame->has_image(lms::DataSource::LEFT_RECTIFIED_RAW))
+                if (num_subscribers(this, POINTCLOUD_TOPIC) > 0 && image_frame->has_image(lms::DataSource::LEFT_RECTIFIED_RAW))
                 {
                     const auto color_format = image_frame->get_image(lms::DataSource::LEFT_RECTIFIED_RAW).format;
 
@@ -649,7 +765,7 @@ void Camera::point_cloud_publisher()
                     }
                 }
 
-                if (numSubscribers(this, COLOR_POINTCLOUD_TOPIC) > 0 &&
+                if (num_subscribers(this, COLOR_POINTCLOUD_TOPIC) > 0 &&
                     image_frame->has_image(lms::DataSource::AUX_LUMA_RECTIFIED_RAW) &&
                     image_frame->has_image(lms::DataSource::AUX_CHROMA_RECTIFIED_RAW))
                 {
@@ -678,14 +794,14 @@ void Camera::point_cloud_publisher()
     }
 }
 
-void Camera::color_publisher()
+void MultiSense::color_publisher()
 {
     const auto timeout = std::make_optional(std::chrono::milliseconds{500});
     while (!shutdown_)
     {
         if (const auto image_frame = image_frame_notifier_.wait(timeout) ; image_frame)
         {
-            if (numSubscribers(aux_node_, COLOR_TOPIC) > 0)
+            if (num_subscribers(aux_node_, COLOR_TOPIC) > 0)
             {
                 if (auto bgr_image = lms::create_bgr_image(image_frame->get_image(lms::DataSource::AUX_LUMA_RAW),
                                                              image_frame->get_image(lms::DataSource::AUX_CHROMA_RAW),
@@ -696,7 +812,7 @@ void Camera::color_publisher()
                 }
             }
 
-            if (numSubscribers(aux_node_, RECT_COLOR_TOPIC) > 0)
+            if (num_subscribers(aux_node_, RECT_COLOR_TOPIC) > 0)
             {
                 if (auto bgr_image = lms::create_bgr_image(image_frame->get_image(lms::DataSource::AUX_LUMA_RECTIFIED_RAW),
                                                            image_frame->get_image(lms::DataSource::AUX_CHROMA_RECTIFIED_RAW),
@@ -710,53 +826,33 @@ void Camera::color_publisher()
     }
 }
 
-void Camera::stop()
+void MultiSense::imu_publisher()
+{
+    const auto timeout = std::make_optional(std::chrono::milliseconds{500});
+    while (!shutdown_)
+    {
+        if (const auto imu_frame = imu_frame_notifier_.wait(timeout) ; imu_frame)
+        {
+            for (const auto &sample : imu_frame->samples)
+            {
+                publish_imu_sample(sample, imu_pub_, frame_id_imu_);
+            }
+        }
+    }
+}
+
+void MultiSense::stop()
 {
     if (const auto status = channel_->stop_streams({lms::DataSource::ALL}); status != lms::Status::OK)
     {
-        RCLCPP_ERROR(get_logger(), "Camera: failed to stop all streams: %s", lms::to_string(status).c_str());
+        RCLCPP_ERROR(get_logger(), "MultiSense: failed to stop all streams: %s", lms::to_string(status).c_str());
     }
 
     std::lock_guard<std::mutex> lock{stream_mutex_};
     active_streams_.clear();
 }
 
-std::shared_ptr<ImagePublisher> Camera::add_image_publisher(rclcpp::Node::SharedPtr node,
-                                                            const std::string &topic_name,
-                                                            const sensor_msgs::msg::CameraInfo &camera_info,
-                                                            const rclcpp::QoS &qos,
-                                                            const multisense::DataSource &source,
-                                                            bool use_image_transport)
-{
-    rclcpp::PublisherOptions options;
-    options.event_callbacks.matched_callback =
-        [this, source](const auto &info)
-        {
-            std::lock_guard<std::mutex> lock{this->stream_mutex_};
-
-            if (info.current_count == 1)
-            {
-                this->active_streams_.push_back(source);
-            }
-            else if (info.current_count <= 0)
-            {
-                this->active_streams_.erase(std::find(std::begin(this->active_streams_),
-                                                      std::end(this->active_streams_),
-                                                      source));
-            }
-
-            if (const auto status = this->channel_->start_streams(this->active_streams_) ; status != lms::Status::OK)
-            {
-                RCLCPP_ERROR(get_logger(), "Unable to modify active streams");
-            }
-        };
-
-    return std::make_shared<ImagePublisher>(node, topic_name, camera_info, qos, options, use_image_transport);
-}
-rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr Camera::add_pointcloud_publisher(
-        const std::string &topic_name,
-        const rclcpp::QoS &qos,
-        const std::vector<multisense::DataSource> &sources)
+rclcpp::PublisherOptions MultiSense::create_publisher_options(const std::vector<multisense::DataSource> &sources)
 {
     rclcpp::PublisherOptions options;
     options.event_callbacks.matched_callback =
@@ -784,11 +880,10 @@ rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr Camera::add_pointclo
             }
         };
 
-    return create_publisher<sensor_msgs::msg::PointCloud2>(topic_name, qos, options);
+    return options;
 }
 
-
-void Camera::publish_static_tf(const multisense::StereoCalibration &stereo_calibration)
+void MultiSense::publish_static_tf(const multisense::StereoCalibration &stereo_calibration)
 {
     std::vector<geometry_msgs::msg::TransformStamped> stamped_transforms(3 + (stereo_calibration.aux ? 2 : 0));
 
@@ -834,7 +929,7 @@ void Camera::publish_static_tf(const multisense::StereoCalibration &stereo_calib
     static_tf_broadcaster_->sendTransform(stamped_transforms);
 }
 
-void Camera::publish_device_info(const lms::MultiSenseInfo::DeviceInfo &info,
+void MultiSense::publish_device_info(const lms::MultiSenseInfo::DeviceInfo &info,
                                  const lms::MultiSenseInfo::SensorVersion &version)
 {
     multisense_msgs::msg::DeviceInfo device_info_msg;
@@ -864,20 +959,20 @@ void Camera::publish_device_info(const lms::MultiSenseInfo::DeviceInfo &info,
     device_info_msg.lighting_type = static_cast<int>(info.lighting_type);
 
     device_info_msg.firmware_build_date = version.firmware_build_date;
-    // TODO (malvarado): Fix this
-    //device_info_msg.firmware_version = infon.firmware_version;
+    device_info_msg.firmware_version = static_cast<uint16_t>(version.firmware_version.major << 8) |
+                                       static_cast<uint16_t>(version.firmware_version.minor);
     device_info_msg.bitstream_version = version.hardware_version;
 
     device_info_pub_->publish(device_info_msg);
 
 }
 
-size_t Camera::numSubscribers(const rclcpp::Node::SharedPtr node, const std::string &topic)
+size_t MultiSense::num_subscribers(const rclcpp::Node::SharedPtr node, const std::string &topic)
 {
-    return numSubscribers(node.get(), topic);
+    return num_subscribers(node.get(), topic);
 }
 
-size_t Camera::numSubscribers(const rclcpp::Node* node, const std::string &topic)
+size_t MultiSense::num_subscribers(const rclcpp::Node* node, const std::string &topic)
 {
     const std::string full_topic = node->get_sub_namespace().empty() ? topic : node->get_sub_namespace()  + "/" + topic;
 
@@ -889,7 +984,7 @@ size_t Camera::numSubscribers(const rclcpp::Node* node, const std::string &topic
     return node->count_subscribers(full_topic) ;
 }
 
-//void Camera::initalizeParameters(const image::Config& config)
+//void MultiSense::initalizeParameters(const image::Config& config)
 //{
 //    //
 //    // Sensor resolution
@@ -1601,7 +1696,7 @@ size_t Camera::numSubscribers(const rclcpp::Node* node, const std::string &topic
 //    declare_parameter("max_pointcloud_range", pointcloud_max_range_, max_pointcloud_range_desc);
 //}
 //
-//rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::vector<rclcpp::Parameter>& parameters)
+//rcl_interfaces::msg::SetParametersResult MultiSense::parameterCallback(const std::vector<rclcpp::Parameter>& parameters)
 //{
 //    rcl_interfaces::msg::SetParametersResult result;
 //    result.set__successful(true);
@@ -1615,7 +1710,7 @@ size_t Camera::numSubscribers(const rclcpp::Node* node, const std::string &topic
 //    {
 //        if (const auto status = channel_->getAuxImageConfig(aux_image_config.value()); status != Status_Ok)
 //        {
-//            RCLCPP_WARN(get_logger(), "Camera: failed to query aux sensor configuration: %s",
+//            RCLCPP_WARN(get_logger(), "MultiSense: failed to query aux sensor configuration: %s",
 //                        Channel::statusString(status));
 //
 //            aux_image_config = std::nullopt;
@@ -1648,7 +1743,7 @@ size_t Camera::numSubscribers(const rclcpp::Node* node, const std::string &topic
 //            if (value.size() != 3)
 //            {
 //                return result.set__successful(false)
-//                             .set__reason("Camera: Invalid sensor resolution. Must be [width, height, max disparity]");
+//                             .set__reason("MultiSense: Invalid sensor resolution. Must be [width, height, max disparity]");
 //            }
 //
 //            const auto width = value[0];
@@ -1669,7 +1764,7 @@ size_t Camera::numSubscribers(const rclcpp::Node* node, const std::string &topic
 //
 //            if (!supported)
 //            {
-//                return result.set__successful(false).set__reason("Camera: unsupported resolution");
+//                return result.set__successful(false).set__reason("MultiSense: unsupported resolution");
 //            }
 //
 //            if (image_config.width() != width ||

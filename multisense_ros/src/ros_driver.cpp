@@ -33,7 +33,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <multisense_ros/camera.h>
+#include <multisense_ros/multisense.h>
 
 #include <MultiSense/MultiSenseChannel.hh>
 
@@ -89,7 +89,7 @@ int main(int argc, char** argv)
             return EXIT_FAILURE;
         }
 
-        rclcpp::spin(std::make_shared<multisense_ros::Camera>("camera", rclcpp::NodeOptions{}, std::move(channel), tf_prefix.as_string()));
+        rclcpp::spin(std::make_shared<multisense_ros::MultiSense>("multisense", rclcpp::NodeOptions{}, std::move(channel), tf_prefix.as_string()));
     }
     catch (const std::exception& e)
     {

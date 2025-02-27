@@ -35,11 +35,7 @@ find_package(tf2_geometry_msgs REQUIRED)
 
 include_directories(include)
 
-add_library(${PROJECT_NAME} src/camera.cpp)
-    #src/config.cpp
-    #                        src/imu.cpp
-    #                        src/parameter_utilities.cpp
-    #                        src/status.cpp)
+add_library(${PROJECT_NAME} src/multisense.cpp)
 
 string(TOUPPER "ROS_$ENV{ROS_DISTRO}" ROS_DISTRO)
 target_compile_definitions(${PROJECT_NAME} PRIVATE ${ROS_DISTRO})
