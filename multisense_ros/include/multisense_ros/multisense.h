@@ -50,6 +50,7 @@
 #include <multisense_msgs/msg/device_info.hpp>
 
 #include "multisense_ros/publisher_utilities.h"
+#include <multisense_ros/multisense_parameters.hpp>
 
 #include <MultiSense/MultiSenseChannel.hh>
 
@@ -126,7 +127,9 @@ public:
     MultiSense(const std::string& node_name,
            const rclcpp::NodeOptions& options,
            std::unique_ptr<multisense::Channel> channel,
-           const std::string& tf_prefix);
+           const std::string& tf_prefix,
+           bool use_image_transport,
+           bool use_sensor_qos);
 
     ~MultiSense();
 
@@ -207,11 +210,6 @@ private:
                              const multisense::MultiSenseInfo::SensorVersion &version);
 
     //
-    // Update the sensor calibration parameters
-
-    //void updateConfig(const crl::multisense::image::Config& config);
-
-    //
     // Function which waits for image frames from the camera, and publishes images if there is
     // an active subscription to the corresponding image topic
 
@@ -242,17 +240,30 @@ private:
     void imu_publisher();
 
     //
-    // Helper function to setup the nodes configuration parameters. In ROS2 this takes the place of dynamic
-    // reconfigure
+    // Helper function to setup the nodes configuration parameters. This setups parameters which were were unable
+    // to configure statically via the generate__parameter_library
 
-    //void initalizeParameters(const crl::multisense::image::Config& config);
+    void initialize_parameters(const multisense::MultiSenseConfig &config, const multisense::MultiSenseInfo& info);
+
+    //
+    // Helper function to initialize IMU rate/range parameters
+
+    void create_imu_parameters(const multisense::MultiSenseInfo::ImuInfo::Source &imu_source,
+                               const multisense::MultiSenseConfig::ImuConfig::OperatingMode &operating_mode,
+                               const std::string &parameter_base);
+
+    //
+    // Helper function to udpate the config from parameters
+
+    multisense::MultiSenseConfig update_config(multisense::MultiSenseConfig config);
 
     //
     // Parameter management
 
     OnSetParametersCallbackHandle::SharedPtr paramter_handle_ = nullptr;
+    std::shared_ptr<multisense::ParamListener> param_listener_ = nullptr;
 
-    rcl_interfaces::msg::SetParametersResult parameterCallback(const std::vector<rclcpp::Parameter>& parameters);
+    rcl_interfaces::msg::SetParametersResult parameter_callback(const std::vector<rclcpp::Parameter>& parameters);
 
     std::atomic_bool shutdown_ = false;
 
@@ -362,7 +373,7 @@ private:
     // Active streams
 
     std::mutex stream_mutex_{};
-    std::vector<multisense::DataSource> active_streams_{};
+    std::map<multisense::DataSource, int> active_streams_{};
 
     //
     // Has a 3rd aux color camera

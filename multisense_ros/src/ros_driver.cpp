@@ -34,6 +34,7 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <multisense_ros/multisense.h>
+#include <multisense_ros/init_parameters.hpp>
 
 #include <MultiSense/MultiSenseChannel.hh>
 
@@ -45,51 +46,32 @@ int main(int argc, char** argv)
 
     auto initialize_node = std::make_shared<rclcpp::Node>("multisense_initialization");
 
-    rcl_interfaces::msg::ParameterDescriptor ip_description;
-    ip_description.set__name("sensor_ip")
-                  .set__read_only(true)
-                  .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_STRING)
-                  .set__description("multisense ip address");
-    initialize_node->declare_parameter("sensor_ip", "10.66.171.21", ip_description);
+    auto param_listener = std::make_shared<initialization::ParamListener>(initialize_node);
+    auto params = param_listener->get_params();
 
-    rcl_interfaces::msg::ParameterDescriptor mtu_description;
-    mtu_description.set__name("sensor_mtu")
-                   .set__read_only(true)
-                   .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                   .set__description("multisense mtu");
-    initialize_node->declare_parameter("sensor_mtu", 1500, mtu_description);
-
-    rcl_interfaces::msg::ParameterDescriptor tf_prefix_description;
-    tf_prefix_description.set__name("tf_prefix")
-                         .set__read_only(true)
-                         .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_STRING)
-                         .set__description("tf2 transform prefix");
-    initialize_node->declare_parameter("tf_prefix", "multisense", tf_prefix_description);
-
-    rclcpp::Parameter sensor_ip;
-    rclcpp::Parameter sensor_mtu;
-    rclcpp::Parameter tf_prefix;
-
-    if(!initialize_node->get_parameter("sensor_ip", sensor_ip))
-        RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: sensor ip address not specified");
-
-    if(!initialize_node->get_parameter("sensor_mtu", sensor_mtu))
-        RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: sensor mtu not specified");
-
-    if(!initialize_node->get_parameter("tf_prefix", tf_prefix))
-        RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: tf prefix not specified");
+    const std::string sensor_ip = params.sensor_ip;
 
     try
     {
-        auto channel = lms::Channel::create(lms::Channel::Config{sensor_ip.as_string(), sensor_mtu.as_int()});
+        auto channel = lms::Channel::create(lms::Channel::Config{sensor_ip, params.sensor_mtu});
 	    if (nullptr == channel)
         {
             RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: failed to create communication channel to sensor @ \"%s\"",
-                         sensor_ip.as_string().c_str());
+                         sensor_ip.c_str());
             return EXIT_FAILURE;
         }
 
-        rclcpp::spin(std::make_shared<multisense_ros::MultiSense>("multisense", rclcpp::NodeOptions{}, std::move(channel), tf_prefix.as_string()));
+        auto sensor = std::make_shared<multisense_ros::MultiSense>("sensor",
+                                                                   rclcpp::NodeOptions{},
+                                                                   std::move(channel),
+                                                                   params.tf_prefix,
+                                                                   params.use_image_transport,
+                                                                   params.use_sensor_qos);
+
+        rclcpp::executors::SingleThreadedExecutor executor;
+        executor.add_node(sensor);
+        executor.add_node(initialize_node);
+        executor.spin();
     }
     catch (const std::exception& e)
     {
