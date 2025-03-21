@@ -627,7 +627,7 @@ MultiSense::MultiSense(const std::string& node_name,
     }
 
     //
-    // All image streams off
+    // All streams off
 
     stop();
 
@@ -664,8 +664,8 @@ MultiSense::MultiSense(const std::string& node_name,
     // Setup parameters
     param_listener_ = std::make_shared<multisense::ParamListener>(get_node_parameters_interface());
     initialize_parameters(config, info_);
-    auto params = param_listener_->get_params();
     paramter_handle_ = add_on_set_parameters_callback(std::bind(&MultiSense::parameter_callback, this, std::placeholders::_1));
+    auto params = param_listener_->get_params();
 
     pointcloud_max_range_ = params.pointcloud_max_range;
 
@@ -1269,6 +1269,8 @@ rcl_interfaces::msg::SetParametersResult MultiSense::parameter_callback(const st
     rcl_interfaces::msg::SetParametersResult result;
     result.set__successful(true);
 
+    param_listener_->update(parameters);
+
     for (const auto &parameter : parameters)
     {
         const auto type = parameter.get_type();
@@ -1299,7 +1301,6 @@ rcl_interfaces::msg::SetParametersResult MultiSense::parameter_callback(const st
         }
     }
 
-    const auto startc = channel_->get_config();
     const auto config = update_config(channel_->get_config());
 
     if (const auto status = channel_->set_config(config); status != multisense::Status::OK)
@@ -1309,16 +1310,11 @@ rcl_interfaces::msg::SetParametersResult MultiSense::parameter_callback(const st
 
         if (status == multisense::Status::INCOMPLETE_APPLICATION)
         {
-            const nlohmann::json start = config;
             const nlohmann::json current = channel_->get_config();
 
             const auto patch = nlohmann::json::diff(start, current);
             std::stringstream ss;
             ss << std::setw(4) << nlohmann::json::diff(start, current);
-            ss << std::setw(4) << nlohmann::json::diff(current, start);
-
-            const nlohmann::json sc = startc;
-            ss << std::setw(4) << nlohmann::json::diff(sc, current);
 
             RCLCPP_WARN(get_logger(), "configs which did not apply: %s", ss.str().c_str());
         }
