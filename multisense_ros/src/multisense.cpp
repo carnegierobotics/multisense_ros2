@@ -1312,11 +1312,13 @@ rcl_interfaces::msg::SetParametersResult MultiSense::parameter_callback(const st
         {
             const nlohmann::json current = channel_->get_config();
 
-            const auto patch = nlohmann::json::diff(start, current);
             std::stringstream ss;
-            ss << std::setw(4) << nlohmann::json::diff(start, current);
+            ss << "configured:\n";
+            ss << std::setw(4) << nlohmann::json::diff(current, config);
+            ss << "current:\n";
+            ss << std::setw(4) << nlohmann::json::diff(config, current);
 
-            RCLCPP_WARN(get_logger(), "configs which did not apply: %s", ss.str().c_str());
+            RCLCPP_WARN(get_logger(), "configs which did not apply:\n %s", ss.str().c_str());
         }
 
         return result.set__successful(false).set__reason(multisense::to_string(status));
