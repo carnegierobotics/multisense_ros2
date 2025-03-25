@@ -338,7 +338,7 @@ multisense:
       flash:
           type: string_array
           default_value: ["none"]
-          description: "Flasingt mode fo rthe LED"
+          description: "Flasingt mode for the LED"
           validation:
               size_gt<>: [0]
               unique<>: null

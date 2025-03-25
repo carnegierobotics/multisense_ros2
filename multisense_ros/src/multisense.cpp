@@ -44,7 +44,6 @@
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
-#include <multisense_msgs/msg/device_info.hpp>
 #include <multisense_ros/multisense.h>
 
 #include <MultiSense/MultiSenseSerialization.hh>
@@ -422,7 +421,6 @@ multisense::MultiSenseConfig::MaxDisparities pixel_to_disparity(const uint32_t d
 constexpr char MultiSense::LEFT[];
 constexpr char MultiSense::RIGHT[];
 constexpr char MultiSense::AUX[];
-constexpr char MultiSense::CALIBRATION[];
 constexpr char MultiSense::IMU[];
 
 constexpr char MultiSense::LEFT_CAMERA_FRAME[];
@@ -433,11 +431,9 @@ constexpr char MultiSense::AUX_CAMERA_FRAME[];
 constexpr char MultiSense::AUX_RECTIFIED_FRAME[];
 constexpr char MultiSense::IMU_FRAME[];
 
-constexpr char MultiSense::DEVICE_INFO_TOPIC[];
-constexpr char MultiSense::RAW_CAM_CAL_TOPIC[];
-constexpr char MultiSense::RAW_CAM_CONFIG_TOPIC[];
-constexpr char MultiSense::RAW_CAM_DATA_TOPIC[];
-constexpr char MultiSense::HISTOGRAM_TOPIC[];
+constexpr char MultiSense::INFO_TOPIC[];
+constexpr char MultiSense::STATUS_TOPIC[];
+constexpr char MultiSense::RAW_CONFIG_TOPIC[];
 constexpr char MultiSense::MONO_TOPIC[];
 constexpr char MultiSense::RECT_TOPIC[];
 constexpr char MultiSense::DISPARITY_TOPIC[];
@@ -471,7 +467,6 @@ MultiSense::MultiSense(const std::string& node_name,
     left_node_(create_sub_node(LEFT)),
     right_node_(create_sub_node(RIGHT)),
     aux_node_(create_sub_node(AUX)),
-    calibration_node_(create_sub_node(CALIBRATION)),
     imu_node_(create_sub_node(IMU)),
     frame_id_left_(tf_prefix + LEFT_CAMERA_FRAME),
     frame_id_right_(tf_prefix + RIGHT_CAMERA_FRAME),
@@ -482,6 +477,8 @@ MultiSense::MultiSense(const std::string& node_name,
     frame_id_imu_(tf_prefix + IMU_FRAME),
     static_tf_broadcaster_(std::make_shared<tf2_ros::StaticTransformBroadcaster>(*this))
 {
+    using namespace std::chrono_literals;
+
     info_ = channel_->get_info();
 
     has_aux_camera_ = info_.device.has_aux_camera();
@@ -490,7 +487,11 @@ MultiSense::MultiSense(const std::string& node_name,
     // Topics published for all device types
 
     const auto latching_qos = rclcpp::QoS(1).transient_local();
-    device_info_pub_ = calibration_node_->create_publisher<multisense_msgs::msg::DeviceInfo>(DEVICE_INFO_TOPIC, latching_qos);
+    const auto default_qos = rclcpp::SystemDefaultsQoS();
+
+    info_pub_ = create_publisher<multisense_msgs::msg::Info>(INFO_TOPIC, latching_qos);
+    config_pub_ = create_publisher<std_msgs::msg::String>(RAW_CONFIG_TOPIC, latching_qos);
+    status_pub_ = create_publisher<multisense_msgs::msg::Status>(STATUS_TOPIC, default_qos);
 
     const auto now = rclcpp::Clock().now();
     const auto left_header = create_header(now, frame_id_left_);
@@ -509,9 +510,8 @@ MultiSense::MultiSense(const std::string& node_name,
     // Image publishers
 
 
-    const rclcpp::QoS system_default_qos = rclcpp::SystemDefaultsQoS();
     const rclcpp::QoS sensor_data_qos = rclcpp::SensorDataQoS();
-    const auto qos = use_sensor_qos ? sensor_data_qos : system_default_qos;
+    const auto qos = use_sensor_qos ? sensor_data_qos : default_qos;
 
     using ds = lms::DataSource;
 
@@ -634,7 +634,7 @@ MultiSense::MultiSense(const std::string& node_name,
     //
     // Publish device info
 
-    publish_device_info(info_.device, info_.version);
+    publish_info(info_);
 
     //
     // Publish the static transforms for our camera extrinsics for the left/right/aux frames. We will
@@ -673,6 +673,18 @@ MultiSense::MultiSense(const std::string& node_name,
     {
         RCLCPP_WARN(get_logger(), "Invalid config initialization %s", multisense::to_string(status).c_str());
     }
+
+    status_timer_ = create_wall_timer(1s,
+            [this]()
+            {
+                if (!shutdown_)
+                {
+                    if (const auto status = channel_->get_system_status(); status)
+                    {
+                        publish_status(status.value());
+                    }
+                }
+            });
 }
 
 MultiSense::~MultiSense()
@@ -1052,42 +1064,100 @@ void MultiSense::publish_static_tf(const multisense::StereoCalibration &stereo_c
     static_tf_broadcaster_->sendTransform(stamped_transforms);
 }
 
-void MultiSense::publish_device_info(const lms::MultiSenseInfo::DeviceInfo &info,
-                                 const lms::MultiSenseInfo::SensorVersion &version)
+void MultiSense::publish_info(const lms::MultiSenseInfo &info)
 {
-    multisense_msgs::msg::DeviceInfo device_info_msg;
+    multisense_msgs::msg::Info info_msg;
 
-    device_info_msg.device_name     = info.camera_name;
-    device_info_msg.build_date      = info.build_date;
-    device_info_msg.serial_number   = info.serial_number;
-    device_info_msg.device_revision = static_cast<int>(info.hardware_revision);
+    info_msg.device_name     = info.device.camera_name;
+    info_msg.build_date      = info.device.build_date;
+    info_msg.serial_number   = info.device.serial_number;
+    info_msg.device_revision = static_cast<int>(info.device.hardware_revision);
 
-    for (const auto &pcb: info.pcb_info)
+    for (const auto &pcb: info.device.pcb_info)
     {
-        device_info_msg.pcb_serial_numbers.push_back(pcb.revision);
-        device_info_msg.pcb_names.push_back(pcb.name);
+        info_msg.pcb_serial_numbers.push_back(pcb.revision);
+        info_msg.pcb_names.push_back(pcb.name);
     }
 
-    device_info_msg.imager_name = info.imager_name;
-    device_info_msg.imager_type = static_cast<int>(info.imager_type);
-    device_info_msg.imager_width = info.imager_width;
-    device_info_msg.imager_height = info.imager_height;
+    info_msg.imager_name = info.device.imager_name;
+    info_msg.imager_type = static_cast<int>(info.device.imager_type);
+    info_msg.imager_width = info.device.imager_width;
+    info_msg.imager_height = info.device.imager_height;
 
-    device_info_msg.lens_name = info.lens_name;
-    device_info_msg.lens_type = static_cast<int>(info.lens_type);
-    device_info_msg.nominal_baseline = info.nominal_stereo_baseline;
-    device_info_msg.nominal_focal_length = info.nominal_focal_length;
-    device_info_msg.nominal_relative_aperture = info.nominal_relative_aperture;
+    info_msg.lens_name = info.device.lens_name;
+    info_msg.lens_type = static_cast<int>(info.device.lens_type);
+    info_msg.nominal_baseline = info.device.nominal_stereo_baseline;
+    info_msg.nominal_focal_length = info.device.nominal_focal_length;
+    info_msg.nominal_relative_aperture = info.device.nominal_relative_aperture;
 
-    device_info_msg.lighting_type = static_cast<int>(info.lighting_type);
+    info_msg.lighting_type = static_cast<int>(info.device.lighting_type);
 
-    device_info_msg.firmware_build_date = version.firmware_build_date;
-    device_info_msg.firmware_version = static_cast<uint16_t>(version.firmware_version.major << 8) |
-                                       static_cast<uint16_t>(version.firmware_version.minor);
-    device_info_msg.bitstream_version = version.hardware_version;
+    info_msg.firmware_build_date = info.version.firmware_build_date;
+    info_msg.firmware_version = static_cast<uint16_t>(info.version.firmware_version.major << 8) |
+                                       static_cast<uint16_t>(info.version.firmware_version.minor);
+    info_msg.bitstream_version = info.version.hardware_version;
 
-    device_info_pub_->publish(device_info_msg);
+    info_msg.ip_address = info.network.ip_address;
+    info_msg.gateway = info.network.gateway;
+    info_msg.netmask = info.network.netmask;
 
+    info_pub_->publish(info_msg);
+}
+
+void MultiSense::publish_config(const multisense::MultiSenseConfig &config)
+{
+    std_msgs::msg::String output;
+
+    output.data = nlohmann::to_string(nlohmann::json{config});
+
+    config_pub_->publish(std::make_unique<std_msgs::msg::String>(std::move(output)));
+}
+
+void MultiSense::publish_status(const multisense::MultiSenseStatus &status)
+{
+    multisense_msgs::msg::Status output;
+
+    if (status.time)
+    {
+        output.host_time = rclcpp::Time(status.time->client_host_time.count());
+        output.camera_time = rclcpp::Time(status.time->camera_time.count());
+        output.network_delay = rclcpp::Time(status.time->network_delay.count());
+    }
+
+    output.system_ok = status.system_ok;
+    output.cameras_ok = status.camera.cameras_ok;
+    output.processing_pipeline_ok = status.camera.processing_pipeline_ok;
+
+    if (status.temperature)
+    {
+        output.power_supply_temp = status.temperature->power_supply_temperature;
+        output.fpga_temp = status.temperature->fpga_temperature;
+        output.left_imager_temp = status.temperature->left_imager_temperature;
+        output.right_imager_temp = status.temperature->right_imager_temperature;
+    }
+
+    if (status.power)
+    {
+        output.input_voltage = status.power->input_voltage;
+        output.input_current = status.power->input_current;
+        output.fpga_power = status.power->fpga_power;
+    }
+
+    output.ptp_valid = static_cast<bool>(status.ptp);
+    if (status.ptp)
+    {
+        output.ptp_grandmaster_present = status.ptp->grandmaster_present;
+        output.ptp_grandmaster_id = status.ptp->grandmaster_id;
+        output.ptp_grandmaster_offset = status.ptp->grandmaster_offset.count();
+        output.ptp_path_delay = status.ptp->path_delay.count();
+        output.ptp_steps_removed = status.ptp->steps_from_local_to_grandmaster;
+    }
+
+    output.received_messages = status.client_network.received_messages;
+    output.dropped_messages = status.client_network.dropped_messages;
+    output.invalid_packets = status.client_network.invalid_packets;
+
+    status_pub_->publish(std::make_unique<multisense_msgs::msg::Status>(std::move(output)));
 }
 
 size_t MultiSense::num_subscribers(const rclcpp::Node::SharedPtr node, const std::string &topic)
@@ -1153,6 +1223,24 @@ void MultiSense::initialize_parameters(const multisense::MultiSenseConfig &confi
                                   config.imu_config->magnetometer.value(),
                                   "imu.magnetometer");
         }
+    }
+
+    //
+    // If our main image pair does not support color, make sure we explicitly disable white balance. If
+    // we could undeclare the parameter
+
+    if (!info.device.has_main_stereo_color())
+    {
+        set_parameters(std::vector<rclcpp::Parameter>{rclcpp::Parameter{"image.auto_white_balance_enabled", false}});
+    }
+
+    //
+    // If we don't have a aux camera disable controls
+
+    if (!info.device.has_aux_camera())
+    {
+        set_parameters(std::vector<rclcpp::Parameter>{rclcpp::Parameter{"aux.image.auto_exposure_enabled", false},
+                                                      rclcpp::Parameter{"aux.image.auto_white_balance_enabled", false}});
     }
 }
 
@@ -1321,8 +1409,12 @@ rcl_interfaces::msg::SetParametersResult MultiSense::parameter_callback(const st
             RCLCPP_WARN(get_logger(), "configs which did not apply:\n %s", ss.str().c_str());
         }
 
+        publish_config(config);
+
         return result.set__successful(false).set__reason(multisense::to_string(status));
     }
+
+    publish_config(channel_->get_config());
 
     return result;
 }

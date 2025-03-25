@@ -44,10 +44,12 @@
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <std_msgs/msg/string.hpp>
 #include <stereo_msgs/msg/disparity_image.hpp>
 #include <tf2_ros/static_transform_broadcaster.h>
 
-#include <multisense_msgs/msg/device_info.hpp>
+#include <multisense_msgs/msg/info.hpp>
+#include <multisense_msgs/msg/status.hpp>
 
 #include "multisense_ros/publisher_utilities.h"
 #include <multisense_ros/multisense_parameters.hpp>
@@ -141,8 +143,7 @@ private:
     static constexpr char LEFT[] = "left";
     static constexpr char RIGHT[] = "right";
     static constexpr char AUX[] = "aux";
-    static constexpr char CALIBRATION[] = "calibration";
-    static constexpr char IMU[] = "calibration";
+    static constexpr char IMU[] = "imu";
 
     //
     // Frames
@@ -158,11 +159,9 @@ private:
     //
     // Topic names
 
-    static constexpr char DEVICE_INFO_TOPIC[] = "device_info";
-    static constexpr char RAW_CAM_CAL_TOPIC[] = "raw_cam_cal";
-    static constexpr char RAW_CAM_CONFIG_TOPIC[] = "raw_cam_config";
-    static constexpr char RAW_CAM_DATA_TOPIC[] = "raw_cam_data";
-    static constexpr char HISTOGRAM_TOPIC[] = "histogram";
+    static constexpr char INFO_TOPIC[] = "info";
+    static constexpr char STATUS_TOPIC[] = "status";
+    static constexpr char RAW_CONFIG_TOPIC[] = "raw_config";
     static constexpr char MONO_TOPIC[] = "image_mono";
     static constexpr char RECT_TOPIC[] = "image_rect";
     static constexpr char DISPARITY_TOPIC[] = "disparity";
@@ -204,10 +203,19 @@ private:
     void publish_static_tf(const multisense::StereoCalibration &stereo_calibration);
 
     //
-    // Device info for convenience
+    // Function to publish device info for convenience
 
-    void publish_device_info(const multisense::MultiSenseInfo::DeviceInfo &info,
-                             const multisense::MultiSenseInfo::SensorVersion &version);
+    void publish_info(const multisense::MultiSenseInfo &info);
+
+    //
+    // Function to publish config for convenience
+
+    void publish_config(const multisense::MultiSenseConfig &config);
+
+    //
+    // Function to publish status for convenience
+
+    void publish_status(const multisense::MultiSenseStatus &status);
 
     //
     // Function which waits for image frames from the camera, and publishes images if there is
@@ -278,8 +286,12 @@ private:
     rclcpp::Node::SharedPtr left_node_ = nullptr;
     rclcpp::Node::SharedPtr right_node_ = nullptr;
     rclcpp::Node::SharedPtr aux_node_ = nullptr;
-    rclcpp::Node::SharedPtr calibration_node_ = nullptr;
     rclcpp::Node::SharedPtr imu_node_ = nullptr;
+
+    //
+    // Timer callback object for publishing status
+
+    rclcpp::TimerBase::SharedPtr status_timer_ = nullptr;
 
     //
     // Data publishers
@@ -302,7 +314,9 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr luma_point_cloud_pub_ = nullptr;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr color_point_cloud_pub_ = nullptr;
 
-    rclcpp::Publisher<multisense_msgs::msg::DeviceInfo>::SharedPtr device_info_pub_ = nullptr;
+    rclcpp::Publisher<multisense_msgs::msg::Info>::SharedPtr info_pub_ = nullptr;
+    rclcpp::Publisher<multisense_msgs::msg::Status>::SharedPtr status_pub_ = nullptr;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr config_pub_ = nullptr;
 
     rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_ = nullptr;
 
