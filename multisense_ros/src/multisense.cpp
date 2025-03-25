@@ -599,7 +599,7 @@ MultiSense::MultiSense(const std::string& node_name,
                                                              use_image_transport);
 
         aux_rgb_rect_cam_pub_ = std::make_shared<ImagePublisher>(aux_node_,
-                                                                 RECT_TOPIC,
+                                                                 RECT_COLOR_TOPIC,
                                                                  aux_rect_cal,
                                                                  qos,
                                                                  create_publisher_options({ds::AUX_RECTIFIED_RAW}),
