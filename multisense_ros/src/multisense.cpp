@@ -557,6 +557,13 @@ MultiSense::MultiSense(const std::string& node_name,
                                                          create_publisher_options({ds::LEFT_DISPARITY_RAW}),
                                                          use_image_transport);
 
+    left_disparity_pub_ = std::make_shared<ImagePublisher>(left_node_,
+                                                           DISPARITY_TOPIC,
+                                                           left_rect_cal,
+                                                           qos,
+                                                           create_publisher_options({ds::LEFT_DISPARITY_RAW}),
+                                                           use_image_transport);
+
     left_disparity_cost_pub_ = std::make_shared<ImagePublisher>(left_node_,
                                                                 COST_TOPIC,
                                                                 left_rect_cal,
