@@ -26,19 +26,6 @@ multisense:
         type: bool
         default_value: true
         description: "Enable auto exposure"
-    manual_exposure:
-      gain:
-          type: double
-          default_value: 1.6842
-          description: "The value of the electrical and digital gain used to brighten the image"
-          validation:
-              bounds<>: [1.6842, 16.0]
-      exposure_time:
-          type: int
-          default_value: 10000
-          description: "The manual exposure time in microseconds"
-          validation:
-              bounds<>: [0, 33000]
     auto_exposure:
       max_exposure_time:
           type: int
@@ -74,7 +61,7 @@ multisense:
           default_value: 2.0
           description: "The max gain value the auto exposure algorithm can use to increase image brightness"
           validation:
-              bounds<>: [1.6842, 16.0]
+              bounds<>: [1.68421, 16.0]
       roi:
         top_left_x_position:
             type: int
@@ -142,19 +129,6 @@ multisense:
           type: bool
           default_value: true
           description: "Enable auto exposure"
-      manual_exposure:
-        gain:
-            type: double
-            default_value: 1.6842
-            description: "The value of the electrical and digital gain used to brighten the image"
-            validation:
-                bounds<>: [1.6842, 16.0]
-        exposure_time:
-            type: int
-            default_value: 10000
-            description: "The manual exposure time in microseconds"
-            validation:
-                bounds<>: [0, 33000]
       auto_exposure:
         max_exposure_time:
             type: int
@@ -281,7 +255,7 @@ multisense:
         default_value: 200
         description: "The number of imu samples to be include in an IMU frame"
         validation:
-            bounds<>: [1, 2000]
+            bounds<>: [2, 2000]
     accelerometer:
       enabled:
         type: bool
