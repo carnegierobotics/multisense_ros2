@@ -1210,7 +1210,7 @@ void MultiSense::initialize_parameters(const multisense::MultiSenseConfig &confi
 
         rcl_interfaces::msg::FloatingPointRange image_exposure_range;
         image_exposure_range.set__from_value(20.0)
-                            .set__to_value(3327 * 10.0125 + 20.0)
+                            .set__to_value(3320.0 * 10.0125 + 20.0)
                             .set__step(10.0125);
 
         rcl_interfaces::msg::ParameterDescriptor image_exposure_time_desc;
@@ -1255,7 +1255,7 @@ void MultiSense::initialize_parameters(const multisense::MultiSenseConfig &confi
 
         rcl_interfaces::msg::FloatingPointRange image_exposure_range;
         image_exposure_range.set__from_value(20.0)
-                            .set__to_value(3329.0 * 10.096875 + 20.0)
+                            .set__to_value(3320.0 * 10.096875 + 20.0)
                             .set__step(10.096875);
 
         rcl_interfaces::msg::ParameterDescriptor image_exposure_time_desc;
