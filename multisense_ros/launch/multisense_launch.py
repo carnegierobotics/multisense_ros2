@@ -26,7 +26,10 @@ def generate_launch_description():
     ip_address = DeclareLaunchArgument(name='ip_address',
                                        default_value='10.66.171.21',
                                        description='Sensor IP address')
-
+    
+    fps = DeclareLaunchArgument(name='fps',
+                                default_value="30.0",
+                                description='Sensor frame rate')
 
     launch_robot_state_publisher = DeclareLaunchArgument(name='launch_robot_state_publisher',
                                                          default_value='True',
@@ -37,7 +40,8 @@ def generate_launch_description():
                          executable='ros_driver',
                          parameters=[{'sensor_ip': LaunchConfiguration('ip_address'),
                                       'sensor_mtu': LaunchConfiguration('mtu'),
-                                      'tf_prefix': LaunchConfiguration('namespace')}])
+                                      'tf_prefix': LaunchConfiguration('namespace'),
+                                      'fps': LaunchConfiguration('fps')}])
 
     robot_state_publisher = Node(package='robot_state_publisher',
                                  executable='robot_state_publisher',
@@ -55,6 +59,7 @@ def generate_launch_description():
                               namespace,
                               mtu,
                               ip_address,
+                              fps,
                               launch_robot_state_publisher,
                               multisense_ros,
                               robot_state_publisher])
