@@ -69,9 +69,17 @@ int main(int argc, char** argv)
                          .set__description("tf2 transform prefix");
     initialize_node->declare_parameter("tf_prefix", "multisense", tf_prefix_description);
 
+    rcl_interfaces::msg::ParameterDescriptor fps_description;
+    fps_description.set__name("fps")
+                         .set__read_only(true)
+                         .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_STRING)
+                         .set__description("fps description");
+    initialize_node->declare_parameter("fps", 30.0, fps_description);
+
     rclcpp::Parameter sensor_ip;
     rclcpp::Parameter sensor_mtu;
     rclcpp::Parameter tf_prefix;
+    rclcpp::Parameter fps;
 
     if(!initialize_node->get_parameter("sensor_ip", sensor_ip))
         RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: sensor ip address not specified");
@@ -81,6 +89,9 @@ int main(int argc, char** argv)
 
     if(!initialize_node->get_parameter("tf_prefix", tf_prefix))
         RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: tf prefix not specified");
+
+    if(!initialize_node->get_parameter("fps", fps))
+        RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: fps not specified");
 
     Channel *d = nullptr;
 
