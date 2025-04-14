@@ -29,7 +29,7 @@ def generate_launch_description():
     
     fps = DeclareLaunchArgument(name='fps',
                                 default_value="30.0",
-                                description='Sensor frame rate')
+                                description='Sensor frame rate per seconds')
 
     launch_robot_state_publisher = DeclareLaunchArgument(name='launch_robot_state_publisher',
                                                          default_value='True',
