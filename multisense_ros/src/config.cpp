@@ -53,6 +53,8 @@ Config::Config(const std::string& node_name, crl::multisense::Channel* driver):
                           device_info_.hardwareRevision == system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 ||
                           device_info_.hardwareRevision == system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21i;
 
+    const bool default_lights_on = device_info_.hardwareRevision == system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21 ||
+                                  device_info_.hardwareRevision == system::DeviceInfo::HARDWARE_REV_MULTISENSE_KS21i;
     if (lighting_supported_)
     {
         if (const auto status = driver_->getLightingConfig(lighting_config_); status != crl::multisense::Status_Ok)
@@ -106,7 +108,7 @@ Config::Config(const std::string& node_name, crl::multisense::Channel* driver):
             lighting_desc.set__name("lighting")
                          .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
                          .set__description("enable external lights");
-            declare_parameter("lighting", false, lighting_desc);
+            declare_parameter("lighting", default_lights_on, lighting_desc);
 
             //
             // Flash
@@ -115,7 +117,7 @@ Config::Config(const std::string& node_name, crl::multisense::Channel* driver):
             flash_desc.set__name("flash")
                          .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
                          .set__description("strobe lights with each image exposure");
-            declare_parameter("flash", false, flash_desc);
+            declare_parameter("flash", default_lights_on, flash_desc);
 
             //
             // LED duty cycle
@@ -130,7 +132,7 @@ Config::Config(const std::string& node_name, crl::multisense::Channel* driver):
                                .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
                                .set__description("LED duty cycle when lights enabled")
                                .set__floating_point_range({led_duty_cycle_range});
-            declare_parameter("led_duty_cycle", 0.0, led_duty_cycle_desc);
+            declare_parameter("led_duty_cycle", (default_lights_on ? 1.0 : 0.0), led_duty_cycle_desc);
         }
 
         //
