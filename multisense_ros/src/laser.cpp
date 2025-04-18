@@ -99,7 +99,8 @@ void pCB(const lidar::Header&        header,
 Laser::Laser(const std::string& node_name,
              const rclcpp::NodeOptions& options,
              Channel* driver,
-             const std::string& tf_prefix):
+             const std::string& tf_prefix,
+             bool use_sensor_qos):
     Node(node_name, options),
     driver_(driver),
     static_tf_broadcaster_(std::make_shared<tf2_ros::StaticTransformBroadcaster>(*this)),
@@ -158,10 +159,14 @@ Laser::Laser(const std::string& node_name,
         laser_to_spindle_ = makeTransform(lidar_cal_.laserToSpindle);
     }
 
+    const auto default_qos = rclcpp::SystemDefaultsQoS();
+    const rclcpp::QoS sensor_data_qos = rclcpp::SensorDataQoS();
+    const auto qos = use_sensor_qos ? sensor_data_qos : default_qos;
+
     //
     // Create scan publisher
 
-    scan_pub_ = create_publisher<sensor_msgs::msg::LaserScan>(LASER_SCAN_TOPIC, rclcpp::SensorDataQoS());
+    scan_pub_ = create_publisher<sensor_msgs::msg::LaserScan>(LASER_SCAN_TOPIC, qos);
 
     //
     // Initialize point cloud structure
@@ -171,14 +176,14 @@ Laser::Laser(const std::string& node_name,
     //
     // Create point cloud publisher
 
-    point_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(LASER_POINTCLOUD_TOPIC, rclcpp::SensorDataQoS());
+    point_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(LASER_POINTCLOUD_TOPIC, qos);
 
     //
     // Create calibration publishers
 
-    raw_lidar_cal_pub_ = create_publisher<multisense_msgs::msg::RawLidarCal>(RAW_LASER_CAL_TOPIC, rclcpp::SensorDataQoS());
+    raw_lidar_cal_pub_ = create_publisher<multisense_msgs::msg::RawLidarCal>(RAW_LASER_CAL_TOPIC, qos);
 
-    raw_lidar_data_pub_ = create_publisher<multisense_msgs::msg::RawLidarData>(RAW_LASER_DATA_TOPIC, rclcpp::SensorDataQoS());
+    raw_lidar_data_pub_ = create_publisher<multisense_msgs::msg::RawLidarData>(RAW_LASER_DATA_TOPIC, qos);
 
     //
     // Publish calibration
@@ -215,7 +220,7 @@ Laser::Laser(const std::string& node_name,
     //
     // Create a joint state publisher
 
-    joint_states_pub_ = create_publisher<sensor_msgs::msg::JointState>(JOINT_STATE_TOPIC, rclcpp::SensorDataQoS());
+    joint_states_pub_ = create_publisher<sensor_msgs::msg::JointState>(JOINT_STATE_TOPIC, qos);
 
     //
     // Create a timer routine to publish the laser transform even when nothing
