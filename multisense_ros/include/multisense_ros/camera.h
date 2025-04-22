@@ -71,7 +71,8 @@ public:
     Camera(const std::string& node_name,
            const rclcpp::NodeOptions& options,
            crl::multisense::Channel* driver,
-           const std::string& tf_prefix);
+           const std::string& tf_prefix,
+           bool use_sensor_qos);
 
     ~Camera();
 

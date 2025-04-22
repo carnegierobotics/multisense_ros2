@@ -56,7 +56,8 @@ void imuCB(const imu::Header& header, void* userDataP)
 Imu::Imu(const std::string& node_name,
          const rclcpp::NodeOptions& options,
          Channel* driver,
-         const std::string& tf_prefix) :
+         const std::string& tf_prefix,
+         bool use_sensor_qos):
     Node(node_name, options),
     driver_(driver),
     accelerometer_pub_(nullptr),
@@ -140,6 +141,10 @@ Imu::Imu(const std::string& node_name,
         return;
     }
 
+    const auto default_qos = rclcpp::SystemDefaultsQoS();
+    const rclcpp::QoS sensor_data_qos = rclcpp::SensorDataQoS();
+    const auto qos = use_sensor_qos ? sensor_data_qos : default_qos;
+
     auto accel_config = std::find_if(std::begin(imu_configs), std::end(imu_configs),
                                      [](const imu::Config &c) { return c.name == "accelerometer"; });
     accelerometer_config_ = accel_config == std::end(imu_configs) ? std::nullopt : std::make_optional(*accel_config);
@@ -150,13 +155,13 @@ Imu::Imu(const std::string& node_name,
 
     driver_->stopStreams(Source_Imu);
 
-    accelerometer_pub_ = create_publisher<multisense_msgs::msg::RawImuData>(RAW_ACCEL_TOPIC, rclcpp::SensorDataQoS());
-    gyroscope_pub_ = create_publisher<multisense_msgs::msg::RawImuData>(RAW_GYRO_TOPIC, rclcpp::SensorDataQoS());
+    accelerometer_pub_ = create_publisher<multisense_msgs::msg::RawImuData>(RAW_ACCEL_TOPIC, qos);
+    gyroscope_pub_ = create_publisher<multisense_msgs::msg::RawImuData>(RAW_GYRO_TOPIC, qos);
 
-    imu_pub_ = create_publisher<sensor_msgs::msg::Imu>(IMU_TOPIC, rclcpp::SensorDataQoS());
+    imu_pub_ = create_publisher<sensor_msgs::msg::Imu>(IMU_TOPIC, qos);
 
-    accelerometer_vector_pub_ = create_publisher<geometry_msgs::msg::Vector3Stamped>(ACCEL_VECTOR_TOPIC, rclcpp::SensorDataQoS());
-    gyroscope_vector_pub_ = create_publisher<geometry_msgs::msg::Vector3Stamped>(GYRO_VECTOR_TOPIC, rclcpp::SensorDataQoS());
+    accelerometer_vector_pub_ = create_publisher<geometry_msgs::msg::Vector3Stamped>(ACCEL_VECTOR_TOPIC, qos);
+    gyroscope_vector_pub_ = create_publisher<geometry_msgs::msg::Vector3Stamped>(GYRO_VECTOR_TOPIC, qos);
 
     if (!next_gen_camera_)
     {
@@ -164,9 +169,9 @@ Imu::Imu(const std::string& node_name,
                                        [](const imu::Config &c) { return c.name == "magnetometer"; });
         magnetometer_config_ = mag_config == std::end(imu_configs) ? std::nullopt : std::make_optional(*mag_config);
 
-        magnetometer_pub_ = create_publisher<multisense_msgs::msg::RawImuData>(RAW_MAG_TOPIC, rclcpp::SensorDataQoS());
+        magnetometer_pub_ = create_publisher<multisense_msgs::msg::RawImuData>(RAW_MAG_TOPIC, qos);
 
-        magnetometer_vector_pub_ = create_publisher<geometry_msgs::msg::Vector3Stamped>(MAG_VECTOR_TOPIC, rclcpp::SensorDataQoS());
+        magnetometer_vector_pub_ = create_publisher<geometry_msgs::msg::Vector3Stamped>(MAG_VECTOR_TOPIC, qos);
     }
 
     driver_->addIsolatedCallback(imuCB, this);

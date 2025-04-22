@@ -47,7 +47,7 @@ class Pps : public rclcpp::Node
 {
 public:
 
-    Pps(const std::string& node_name, crl::multisense::Channel* driver);
+    Pps(const std::string& node_name, crl::multisense::Channel* driver, bool use_sensor_qos);
     ~Pps();
 
     void ppsCallback(const crl::multisense::pps::Header& header);

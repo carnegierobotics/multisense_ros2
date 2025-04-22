@@ -31,6 +31,10 @@ def generate_launch_description():
                                 default_value="30.0",
                                 description='Sensor frame rate per seconds')
 
+    use_sensor_qos = DeclareLaunchArgument(name='use_sensor_qos',
+                                           default_value='False',
+                                           description='Use the sensor data QoS for publishing')
+
     launch_robot_state_publisher = DeclareLaunchArgument(name='launch_robot_state_publisher',
                                                          default_value='True',
                                                          description='Launch the robot_state_publisher')
@@ -42,6 +46,7 @@ def generate_launch_description():
                                       'sensor_mtu': LaunchConfiguration('mtu'),
                                       'tf_prefix': LaunchConfiguration('namespace'),
                                       'fps': LaunchConfiguration('fps')}])
+                                      'use_sensor_qos': LaunchConfiguration('use_sensor_qos')}])
 
     robot_state_publisher = Node(package='robot_state_publisher',
                                  executable='robot_state_publisher',
@@ -60,6 +65,7 @@ def generate_launch_description():
                               mtu,
                               ip_address,
                               fps,
+                              use_sensor_qos,
                               launch_robot_state_publisher,
                               multisense_ros,
                               robot_state_publisher])

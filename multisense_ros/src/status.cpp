@@ -39,7 +39,7 @@ using namespace std::chrono_literals;
 
 namespace multisense_ros {
 
-Status::Status(const std::string& node_name, crl::multisense::Channel* driver):
+Status::Status(const std::string& node_name, crl::multisense::Channel* driver, bool use_sensor_qos):
     Node(node_name),
     driver_(driver)
 {
@@ -55,12 +55,16 @@ Status::Status(const std::string& node_name, crl::multisense::Channel* driver):
         return;
     }
 
-    status_pub_ = create_publisher<multisense_msgs::msg::DeviceStatus>(STATUS_TOPIC, rclcpp::SensorDataQoS());
+    const auto default_qos = rclcpp::SystemDefaultsQoS();
+    const rclcpp::QoS sensor_data_qos = rclcpp::SensorDataQoS();
+    const auto qos = use_sensor_qos ? sensor_data_qos : default_qos;
+
+    status_pub_ = create_publisher<multisense_msgs::msg::DeviceStatus>(STATUS_TOPIC, qos);
 
     if (version_info.sensorFirmwareVersion >= 0x060A)
     {
         ptp_status_supported_ = true;
-        ptp_status_pub_ = create_publisher<multisense_msgs::msg::PtpStatus>(PTP_STATUS_TOPIC, rclcpp::SensorDataQoS());
+        ptp_status_pub_ = create_publisher<multisense_msgs::msg::PtpStatus>(PTP_STATUS_TOPIC, qos);
     }
 
     timer_ = create_wall_timer(500ms, std::bind(&Status::queryStatus, this));

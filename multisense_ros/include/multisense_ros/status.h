@@ -47,7 +47,7 @@ class Status : public rclcpp::Node
 {
 public:
 
-    Status(const std::string& node_name, crl::multisense::Channel* driver);
+    Status(const std::string& node_name, crl::multisense::Channel* driver, bool use_sensor_qos);
     ~Status();
 
 private:

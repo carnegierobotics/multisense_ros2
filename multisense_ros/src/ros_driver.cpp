@@ -75,11 +75,19 @@ int main(int argc, char** argv)
                          .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_STRING)
                          .set__description("fps description");
     initialize_node->declare_parameter("fps", 30.0, fps_description);
+  
+    rcl_interfaces::msg::ParameterDescriptor qos_description;
+    tf_prefix_description.set__name("use_sensor_qos")
+                         .set__read_only(true)
+                         .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL)
+                         .set__description("Use the sensor data qos");
+    initialize_node->declare_parameter("use_sensor_qos", false, tf_prefix_description);
 
     rclcpp::Parameter sensor_ip;
     rclcpp::Parameter sensor_mtu;
     rclcpp::Parameter tf_prefix;
     rclcpp::Parameter fps;
+    rclcpp::Parameter use_sensor_qos;
 
     if(!initialize_node->get_parameter("sensor_ip", sensor_ip))
         RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: sensor ip address not specified");
@@ -92,6 +100,9 @@ int main(int argc, char** argv)
 
     if(!initialize_node->get_parameter("fps", fps))
         RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: fps not specified");
+  
+    if(!initialize_node->get_parameter("use_sensor_qos", use_sensor_qos))
+        RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: use sensor qos");
 
     Channel *d = nullptr;
 
@@ -119,12 +130,13 @@ int main(int argc, char** argv)
         {
             rclcpp::executors::MultiThreadedExecutor executor;
 
-            auto camera = std::make_shared<multisense_ros::Camera>("camera", rclcpp::NodeOptions{}, d, tf_prefix.as_string());
+
+            auto camera = std::make_shared<multisense_ros::Camera>("camera", rclcpp::NodeOptions{}, d, tf_prefix.as_string(), use_sensor_qos.as_bool());
             auto config = std::make_shared<multisense_ros::Config>("config", d);
-            auto laser = std::make_shared<multisense_ros::Laser>("laser", rclcpp::NodeOptions{}, d, tf_prefix.as_string());
-            auto imu = std::make_shared<multisense_ros::Imu>("imu", rclcpp::NodeOptions{}, d, tf_prefix.as_string());
-            auto pps = std::make_shared<multisense_ros::Pps>("pps", d);
-            auto status = std::make_shared<multisense_ros::Status>("status", d);
+            auto laser = std::make_shared<multisense_ros::Laser>("laser", rclcpp::NodeOptions{}, d, tf_prefix.as_string(), use_sensor_qos.as_bool());
+            auto imu = std::make_shared<multisense_ros::Imu>("imu", rclcpp::NodeOptions{}, d, tf_prefix.as_string(), use_sensor_qos.as_bool());
+            auto pps = std::make_shared<multisense_ros::Pps>("pps", d, use_sensor_qos.as_bool());
+            auto status = std::make_shared<multisense_ros::Status>("status", d, use_sensor_qos.as_bool());
 
             executor.add_node(camera);
             executor.add_node(config);

@@ -49,12 +49,16 @@ void ppsCB(const pps::Header& header, void* userDataP)
 
 } // anonymous
 
-Pps::Pps(const std::string& node_name, Channel* driver) :
+Pps::Pps(const std::string& node_name, Channel* driver, bool use_sensor_qos):
     Node(node_name),
     driver_(driver)
 {
-    pps_pub_ = create_publisher<builtin_interfaces::msg::Time>(PPS_TOPIC, rclcpp::SensorDataQoS());
-    stamped_pps_pub_ = create_publisher<multisense_msgs::msg::StampedPps>(STAMPED_PPS_TOPIC, rclcpp::SensorDataQoS());
+    const auto default_qos = rclcpp::SystemDefaultsQoS();
+    const rclcpp::QoS sensor_data_qos = rclcpp::SensorDataQoS();
+    const auto qos = use_sensor_qos ? sensor_data_qos : default_qos;
+
+    pps_pub_ = create_publisher<builtin_interfaces::msg::Time>(PPS_TOPIC, qos);
+    stamped_pps_pub_ = create_publisher<multisense_msgs::msg::StampedPps>(STAMPED_PPS_TOPIC, qos);
 
     driver_->addIsolatedCallback(ppsCB, this);
 }
