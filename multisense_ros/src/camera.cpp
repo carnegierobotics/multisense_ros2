@@ -2236,65 +2236,15 @@ void Camera::initalizeParameters(const image::Config& config)
         declare_parameter("auto_exposure_roi_enable", false, auto_exposure_roi_enable_desc);
 
         //
-        // Auto exposure ROI x
+        // Auto exposure ROI
         //
-        rcl_interfaces::msg::IntegerRange auto_exposure_roi_x_range;
-        auto_exposure_roi_x_range.set__from_value(0)
-                       .set__to_value(device_info_.imagerWidth)
-                       .set__step(1);
-
-        rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_x_desc;
-        auto_exposure_roi_x_desc.set__name("auto_exposure_roi_x")
-                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                                 .set__description("auto exposure ROI x value")
-                                 .set__integer_range({auto_exposure_roi_x_range});
-        declare_parameter("auto_exposure_roi_x", 0, auto_exposure_roi_x_desc);
-
-        //
-        // Auto exposure ROI y
-        //
-        rcl_interfaces::msg::IntegerRange auto_exposure_roi_y_range;
-        auto_exposure_roi_y_range.set__from_value(0)
-                       .set__to_value(device_info_.imagerHeight)
-                       .set__step(1);
-
-        rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_y_desc;
-        auto_exposure_roi_y_desc.set__name("auto_exposure_roi_y")
-                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                                 .set__description("auto exposure ROI y value")
-                                 .set__integer_range({auto_exposure_roi_y_range});
-        declare_parameter("auto_exposure_roi_y", 0, auto_exposure_roi_y_desc);
-
-        //
-        // Auto exposure ROI width
-        //
-        rcl_interfaces::msg::IntegerRange auto_exposure_roi_width_range;
-        auto_exposure_roi_width_range.set__from_value(0)
-                       .set__to_value(device_info_.imagerWidth)
-                       .set__step(1);
-
-        rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_width_desc;
-        auto_exposure_roi_width_desc.set__name("auto_exposure_roi_width")
-                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                                 .set__description("auto exposure ROI width value")
-                                 .set__integer_range({auto_exposure_roi_width_range});
-        declare_parameter("auto_exposure_roi_width", crl::multisense::Roi_Full_Image, auto_exposure_roi_width_desc);
-
-        //
-        // Auto exposure ROI height
-        //
-        rcl_interfaces::msg::IntegerRange auto_exposure_roi_height_range;
-        auto_exposure_roi_height_range.set__from_value(0)
-                       .set__to_value(device_info_.imagerHeight)
-                       .set__step(1);
-
-        rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_height_desc;
-        auto_exposure_roi_height_desc.set__name("auto_exposure_roi_height")
-                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                                 .set__description("auto exposure ROI height value")
-                                 .set__integer_range({auto_exposure_roi_height_range});
-        declare_parameter("auto_exposure_roi_height", crl::multisense::Roi_Full_Image, auto_exposure_roi_height_desc);
-
+        rcl_interfaces::msg::ParameterDescriptor auto_exposure_roi_desc;
+        auto_exposure_roi_desc.set__name("auto_exposure_roi")
+                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER_ARRAY)
+                                 .set__description("auto exposure ROI [start_x, start_y, width, height]");
+        declare_parameter("auto_exposure_roi",
+                          std::vector<int64_t>{0, 0, crl::multisense::Roi_Full_Image, crl::multisense::Roi_Full_Image},
+                          auto_exposure_roi_desc);
     }
 
     if (has_aux_camera_ && aux_control_supported_)
@@ -2538,65 +2488,15 @@ void Camera::initalizeParameters(const image::Config& config)
         declare_parameter("aux_auto_exposure_roi_enable", false, aux_auto_exposure_roi_enable_desc);
 
         //
-        // Aux ROI auto exposure x
+        // Aux ROI auto exposure
         //
-        rcl_interfaces::msg::IntegerRange aux_auto_exposure_roi_x_range;
-        aux_auto_exposure_roi_x_range.set__from_value(0)
-                       .set__to_value(device_info_.imagerWidth)
-                       .set__step(1);
-
-        rcl_interfaces::msg::ParameterDescriptor aux_auto_exposure_roi_x_desc;
-        aux_auto_exposure_roi_x_desc.set__name("aux_auto_exposure_roi_x")
-                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                                 .set__description("aux auto exposure ROI x value")
-                                 .set__integer_range({aux_auto_exposure_roi_x_range});
-        declare_parameter("aux_auto_exposure_roi_x", 0, aux_auto_exposure_roi_x_desc);
-
-        //
-        // Aux ROI auto exposure y
-        //
-        rcl_interfaces::msg::IntegerRange aux_auto_exposure_roi_y_range;
-        aux_auto_exposure_roi_y_range.set__from_value(0)
-                       .set__to_value(device_info_.imagerHeight)
-                       .set__step(1);
-
-        rcl_interfaces::msg::ParameterDescriptor aux_auto_exposure_roi_y_desc;
-        aux_auto_exposure_roi_y_desc.set__name("aux_auto_exposure_roi_y")
-                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                                 .set__description("aux auto exposure ROI y value")
-                                 .set__integer_range({aux_auto_exposure_roi_y_range});
-        declare_parameter("aux_auto_exposure_roi_y", 0, aux_auto_exposure_roi_y_desc);
-
-        //
-        // Aux ROI auto exposure width
-        //
-        rcl_interfaces::msg::IntegerRange aux_auto_exposure_roi_width_range;
-        aux_auto_exposure_roi_width_range.set__from_value(0)
-                       .set__to_value(device_info_.imagerWidth)
-                       .set__step(1);
-
-        rcl_interfaces::msg::ParameterDescriptor aux_auto_exposure_roi_width_desc;
-        aux_auto_exposure_roi_width_desc.set__name("aux_auto_exposure_roi_width")
-                                        .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                                        .set__description("aux auto exposure ROI width value")
-                                        .set__integer_range({aux_auto_exposure_roi_width_range});
-        declare_parameter("aux_auto_exposure_roi_width", crl::multisense::Roi_Full_Image, aux_auto_exposure_roi_width_desc);
-
-        //
-        // Aux ROI auto exposure height
-        //
-        rcl_interfaces::msg::IntegerRange aux_auto_exposure_roi_height_range;
-        aux_auto_exposure_roi_height_range.set__from_value(0)
-                       .set__to_value(device_info_.imagerHeight)
-                       .set__step(1);
-
-        rcl_interfaces::msg::ParameterDescriptor aux_auto_exposure_roi_height_desc;
-        aux_auto_exposure_roi_height_desc.set__name("aux_auto_exposure_roi_height")
-                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-                                 .set__description("aux auto exposure ROI height value")
-                                 .set__integer_range({aux_auto_exposure_roi_height_range});
-        declare_parameter("aux_auto_exposure_roi_height", crl::multisense::Roi_Full_Image, aux_auto_exposure_roi_height_desc);
-
+        rcl_interfaces::msg::ParameterDescriptor aux_auto_exposure_roi_desc;
+        aux_auto_exposure_roi_desc.set__name("aux_auto_exposure_roi")
+                                 .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER_ARRAY)
+                                 .set__description("aux auto exposure ROI [start_x, start_y, width, height]");
+        declare_parameter("aux_auto_exposure_roi",
+                          std::vector<int64_t>{0, 0, crl::multisense::Roi_Full_Image, crl::multisense::Roi_Full_Image},
+                          aux_auto_exposure_roi_desc);
     }
 
 
@@ -2670,6 +2570,7 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
     {
         aux_image_config = std::nullopt;
     }
+
 
     for (const auto &parameter : parameters)
     {
@@ -2969,59 +2870,29 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
                 update_image_config = true;
             }
         }
-        else if(name == "auto_exposure_roi_x")
+        else if(name == "auto_exposure_roi")
         {
-            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            if (type != rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY)
             {
-                return result.set__successful(false).set__reason("invalid auto exposure ROI x");
+                return result.set__successful(false).set__reason("invalid auto exposure ROI");
             }
 
-            const auto value = get_as_number<int>(parameter);
-            if (auto_exposure_roi_.x != value)
-            {
-                auto_exposure_roi_.x = value;
-                update_image_config = true;
-            }
-        }
-        else if(name == "auto_exposure_roi_y")
-        {
-            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
-            {
-                return result.set__successful(false).set__reason("invalid auto exposure ROI y");
-            }
+            const auto value = parameter.as_integer_array();
 
-            const auto value = get_as_number<int>(parameter);
-            if (auto_exposure_roi_.y != value)
+            if (value.size() != 4)
             {
-                auto_exposure_roi_.y = value;
-                update_image_config = true;
+                return result.set__successful(false)
+                             .set__reason("Camera: Invalid auto exposure ROI. Must be [start_x, start_y, width, height]");
             }
-        }
-        else if(name == "auto_exposure_roi_width")
-        {
-            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            if (auto_exposure_roi_.x != value[0] ||
+                auto_exposure_roi_.y != value[1] ||
+                auto_exposure_roi_.width != value[2] ||
+                auto_exposure_roi_.height != value[3])
             {
-                return result.set__successful(false).set__reason("invalid auto exposure ROI width");
-            }
-
-            const auto value = get_as_number<int>(parameter);
-            if (auto_exposure_roi_.width != value)
-            {
-                auto_exposure_roi_.width = value;
-                update_image_config = true;
-            }
-        }
-        else if(name == "auto_exposure_roi_height")
-        {
-            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
-            {
-                return result.set__successful(false).set__reason("invalid auto exposure ROI height");
-            }
-
-            const auto value = get_as_number<int>(parameter);
-            if (auto_exposure_roi_.height != value)
-            {
-                auto_exposure_roi_.height = value;
+                auto_exposure_roi_.x = value[0];
+                auto_exposure_roi_.y = value[1];
+                auto_exposure_roi_.width = value[2];
+                auto_exposure_roi_.height = value[3];
                 update_image_config = true;
             }
         }
@@ -3277,59 +3148,29 @@ rcl_interfaces::msg::SetParametersResult Camera::parameterCallback(const std::ve
                 update_aux_image_config = true;
             }
         }
-        else if(name == "aux_auto_exposure_roi_x" && aux_image_config)
+        else if(name == "aux_auto_exposure_roi" && aux_image_config)
         {
-            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            if (type != rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY)
             {
-                return result.set__successful(false).set__reason("invalid aux auto exposure ROI x");
+                return result.set__successful(false).set__reason("invalid aux auto exposure ROI");
             }
 
-            const auto value = get_as_number<int>(parameter);
-            if (aux_auto_exposure_roi_.x != value)
-            {
-                aux_auto_exposure_roi_.x = value;
-                update_aux_image_config = true;
-            }
-        }
-        else if(name == "aux_auto_exposure_roi_y" && aux_image_config)
-        {
-            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
-            {
-                return result.set__successful(false).set__reason("invalid aux auto exposure ROI y");
-            }
+            const auto value = parameter.as_integer_array();
 
-            const auto value = get_as_number<int>(parameter);
-            if (aux_auto_exposure_roi_.y != value)
+            if (value.size() != 4)
             {
-                aux_auto_exposure_roi_.y = value;
-                update_aux_image_config = true;
+                return result.set__successful(false)
+                             .set__reason("Camera: Invalid aux auto exposure ROI. Must be [start_x, start_y, width, height]");
             }
-        }
-        else if(name == "aux_auto_exposure_roi_width" && aux_image_config)
-        {
-            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
+            if (aux_auto_exposure_roi_.x != value[0] ||
+                aux_auto_exposure_roi_.y != value[1] ||
+                aux_auto_exposure_roi_.width != value[2] ||
+                aux_auto_exposure_roi_.height != value[3])
             {
-                return result.set__successful(false).set__reason("invalid aux auto exposure ROI width");
-            }
-
-            const auto value = get_as_number<int>(parameter);
-            if (aux_auto_exposure_roi_.width != value)
-            {
-                aux_auto_exposure_roi_.width = value;
-                update_aux_image_config = true;
-            }
-        }
-        else if(name == "aux_auto_exposure_roi_height" && aux_image_config)
-        {
-            if (type != rclcpp::ParameterType::PARAMETER_DOUBLE && type != rclcpp::ParameterType::PARAMETER_INTEGER)
-            {
-                return result.set__successful(false).set__reason("invalid aux auto exposure ROI height");
-            }
-
-            const auto value = get_as_number<int>(parameter);
-            if (aux_auto_exposure_roi_.height != value)
-            {
-                aux_auto_exposure_roi_.height = value;
+                aux_auto_exposure_roi_.x = value[0];
+                aux_auto_exposure_roi_.y = value[1];
+                aux_auto_exposure_roi_.width = value[2];
+                aux_auto_exposure_roi_.height = value[3];
                 update_aux_image_config = true;
             }
         }
