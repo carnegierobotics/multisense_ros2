@@ -28,7 +28,7 @@ def generate_launch_description():
                                        description='Sensor IP address')
     
     fps = DeclareLaunchArgument(name='fps',
-                                default_value="30.0",
+                                default_value="10.0",
                                 description='Sensor frame rate per seconds')
 
     use_sensor_qos = DeclareLaunchArgument(name='use_sensor_qos',
