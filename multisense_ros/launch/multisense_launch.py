@@ -2,12 +2,42 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, TextSubstitution, Command, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackagePrefix
 
+def multisense_setup(context, *args, **kwargs):
+
+    # Resolve all LaunchConfiguration values
+    ip = LaunchConfiguration('ip_address').perform(context)
+    mtu = LaunchConfiguration('mtu').perform(context)
+    namespace = LaunchConfiguration('namespace').perform(context)
+    params_file = LaunchConfiguration('params_file').perform(context)
+
+    node_args = {
+        'package': 'multisense_ros',
+        'executable': 'ros_driver',
+        'output': 'screen',
+        'namespace': namespace
+    }
+
+
+    # Inline parameters
+    params = {
+        'sensor_ip': ip,
+        'sensor_mtu': int(mtu),
+        'tf_prefix': namespace
+    }
+
+    # Conditionally include param file if it exists
+    if params_file and os.path.isfile(params_file):
+        node_args['parameters'] = [params_file, params]
+    else:
+        node_args['parameters'] = [params]
+
+    return [Node(**node_args)]
 
 def generate_launch_description():
 
@@ -32,12 +62,9 @@ def generate_launch_description():
                                                          default_value='True',
                                                          description='Launch the robot_state_publisher')
 
-    multisense_ros = Node(package='multisense_ros',
-                         namespace=[LaunchConfiguration('namespace')],
-                         executable='ros_driver',
-                         parameters=[{'sensor_ip': LaunchConfiguration('ip_address'),
-                                      'sensor_mtu': LaunchConfiguration('mtu'),
-                                      'tf_prefix': LaunchConfiguration('namespace')}])
+    params_file = DeclareLaunchArgument('params_file',
+                                        default_value='',
+                                        description='Path to YAML parameter config file')
 
     robot_state_publisher = Node(package='robot_state_publisher',
                                  executable='robot_state_publisher',
@@ -51,10 +78,18 @@ def generate_launch_description():
                                                                    'standalone.urdf.xacro']),
                                              " name:=", LaunchConfiguration('namespace')])}])
 
-    return LaunchDescription([sensor,
+    return LaunchDescription([
+                              DeclareLaunchArgument(
+                                  'params_file',
+                                  default_value='',
+                                  description='Optional path to a YAML parameter file'
+                              ),
+                              sensor,
                               namespace,
                               mtu,
                               ip_address,
                               launch_robot_state_publisher,
-                              multisense_ros,
-                              robot_state_publisher])
+                              robot_state_publisher,
+                              params_file,
+                              OpaqueFunction(function=multisense_setup)
+                              ])

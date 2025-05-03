@@ -26,4 +26,3 @@ initialization:
       default_value: false
       read_only: true
       description: "Use the SensorDataQoS which publishes image over UDP instead of the system default QOS"
-
