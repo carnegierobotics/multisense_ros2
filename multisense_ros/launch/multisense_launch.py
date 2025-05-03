@@ -26,7 +26,7 @@ def generate_launch_description():
     ip_address = DeclareLaunchArgument(name='ip_address',
                                        default_value='10.66.171.21',
                                        description='Sensor IP address')
-    
+
     fps = DeclareLaunchArgument(name='fps',
                                 default_value="10.0",
                                 description='Sensor frame rate per seconds')
@@ -45,7 +45,7 @@ def generate_launch_description():
                          parameters=[{'sensor_ip': LaunchConfiguration('ip_address'),
                                       'sensor_mtu': LaunchConfiguration('mtu'),
                                       'tf_prefix': LaunchConfiguration('namespace'),
-                                      'fps': LaunchConfiguration('fps')}])
+                                      'fps': LaunchConfiguration('fps'),
                                       'use_sensor_qos': LaunchConfiguration('use_sensor_qos')}])
 
     robot_state_publisher = Node(package='robot_state_publisher',
