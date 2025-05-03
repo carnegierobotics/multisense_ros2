@@ -63,30 +63,11 @@ multisense:
           validation:
               bounds<>: [1.68421, 16.0]
       roi:
-        top_left_x_position:
-            type: int
-            default_value: 0
-            description: "The x value of the top left corner of the ROI in the full resolution image. Note (0,0) is the top left corner in the image coordinate frame."
-            validation:
-                bounds<>: [0, 1920]
-        top_left_y_position:
-            type: int
-            default_value: 0
-            description: "The y value of the top left corner of the ROI in the full resolution image. Note (0,0) is the top left corner in the image coordinate frame."
-            validation:
-                bounds<>: [0, 1200]
-        width:
-            type: int
-            default_value: 0
-            description: "The width of the ROI in the full resolution image. A value of 0 disables the ROI"
-            validation:
-                bounds<>: [0, 1920]
-        height:
-            type: int
-            default_value: 0
-            description: "The height of the ROI in the full resolution image. A value of 0 disables the ROI"
-            validation:
-                bounds<>: [0, 1200]
+        type: int_array
+        default_value: [0, 0, 1920, 1200]
+        description: "Controls for the region of interest auto exposure. Controlls are in the full resolution image.
+                       The settings order is [top_left_x, top_left_y, width, height]. A value of all zeros disables
+                       the ROI"
     auto_white_balance_enabled:
         type: bool
         default_value: true
@@ -166,30 +147,11 @@ multisense:
             validation:
                 bounds<>: [1.6842, 16.0]
         roi:
-          top_left_x_position:
-              type: int
-              default_value: 0
-              description: "The x value of the top left corner of the ROI in the full resolution image. Note (0,0) is the top left corner in the image coordinate frame."
-              validation:
-                  bounds<>: [0, 1920]
-          top_left_y_position:
-              type: int
-              default_value: 0
-              description: "The y value of the top left corner of the ROI in the full resolution image. Note (0,0) is the top left corner in the image coordinate frame."
-              validation:
-                  bounds<>: [0, 1200]
-          width:
-              type: int
-              default_value: 0
-              description: "The width of the ROI in the full resolution image. A value of 0 disables the ROI"
-              validation:
-                  bounds<>: [0, 1920]
-          height:
-              type: int
-              default_value: 0
-              description: "The height of the ROI in the full resolution image. A value of 0 disables the ROI"
-              validation:
-                  bounds<>: [0, 1200]
+          type: int_array
+          default_value: [0, 0, 1920, 1200]
+          description: "Controls for the region of interest auto exposure. Controlls are in the full resolution image.
+                         The settings order is [top_left_x, top_left_y, width, height]. A value of all zeros disables
+                         the ROI"
       auto_white_balance_enabled:
           type: bool
           default_value: true

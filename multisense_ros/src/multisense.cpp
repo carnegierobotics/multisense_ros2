@@ -314,10 +314,10 @@ multisense::MultiSenseConfig::ImageConfig update_param_config(multisense::MultiS
         config.auto_exposure->target_threshold = params.auto_exposure.target_threshold;
         config.auto_exposure->max_gain = params.auto_exposure.max_gain;
 
-        config.auto_exposure->roi.top_left_x_position = params.auto_exposure.roi.top_left_x_position;
-        config.auto_exposure->roi.top_left_y_position = params.auto_exposure.roi.top_left_y_position;
-        config.auto_exposure->roi.width = params.auto_exposure.roi.width;
-        config.auto_exposure->roi.height = params.auto_exposure.roi.height;
+        config.auto_exposure->roi.top_left_x_position = params.auto_exposure.roi[0];
+        config.auto_exposure->roi.top_left_y_position = params.auto_exposure.roi[1];
+        config.auto_exposure->roi.width = params.auto_exposure.roi[2];
+        config.auto_exposure->roi.height = params.auto_exposure.roi[3];
     }
 
     config.auto_white_balance_enabled = params.auto_white_balance_enabled;

@@ -23,6 +23,7 @@ find_package(builtin_interfaces REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 set(msg_files
+    "msg/Histogram.msg"
     "msg/Info.msg"
     "msg/Status.msg")
 
