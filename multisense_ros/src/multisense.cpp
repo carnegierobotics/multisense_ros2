@@ -427,6 +427,7 @@ constexpr char MultiSense::IMU_FRAME[];
 
 constexpr char MultiSense::INFO_TOPIC[];
 constexpr char MultiSense::STATUS_TOPIC[];
+constexpr char MultiSense::HISTOGRAM_TOPIC[];
 constexpr char MultiSense::RAW_CONFIG_TOPIC[];
 constexpr char MultiSense::MONO_TOPIC[];
 constexpr char MultiSense::RECT_TOPIC[];
@@ -483,6 +484,7 @@ MultiSense::MultiSense(const std::string& node_name,
     const auto latching_qos = rclcpp::QoS(1).transient_local();
     const auto default_qos = rclcpp::SystemDefaultsQoS();
 
+    histogram_pub_ = create_publisher<multisense_msgs::msg::Histogram>(HISTOGRAM_TOPIC, default_qos);
     info_pub_ = create_publisher<multisense_msgs::msg::Info>(INFO_TOPIC, latching_qos);
     config_pub_ = create_publisher<std_msgs::msg::String>(RAW_CONFIG_TOPIC, latching_qos);
     status_pub_ = create_publisher<multisense_msgs::msg::Status>(STATUS_TOPIC, default_qos);
@@ -712,6 +714,26 @@ void MultiSense::image_publisher()
     {
         if (const auto image_frame = image_frame_notifier_.wait(timeout) ; image_frame)
         {
+            if (image_frame->stereo_histogram)
+            {
+                multisense_msgs::msg::Histogram histogram;
+
+                histogram.frame_count = image_frame->frame_id;
+                histogram.time_stamp = rclcpp::Time(image_frame->frame_time.time_since_epoch().count());
+
+                histogram.width = current_config_.width;
+                histogram.height = current_config_.height;
+                histogram.fps = current_config_.frames_per_second;
+                histogram.exposure_time = image_frame->capture_exposure_time.count();
+                histogram.gain = image_frame->capture_gain;
+
+                histogram.channels = image_frame->stereo_histogram->channels;
+                histogram.bins = image_frame->stereo_histogram->bins;
+                histogram.data = image_frame->stereo_histogram->data;
+
+                histogram_pub_->publish(std::make_unique<multisense_msgs::msg::Histogram>(std::move(histogram)));
+            }
+
             for (const auto &[source, image] : image_frame->images)
             {
                 switch (source)
@@ -1516,11 +1538,14 @@ rcl_interfaces::msg::SetParametersResult MultiSense::parameter_callback(const st
         }
 
         publish_config(config);
+        current_config_ = config;
 
         return result.set__successful(false).set__reason(multisense::to_string(status));
     }
 
-    publish_config(channel_->get_config());
+    const auto current_config = channel_->get_config();
+    publish_config(current_config);
+    current_config_ = current_config;
 
     return result;
 }

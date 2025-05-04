@@ -48,6 +48,7 @@
 #include <stereo_msgs/msg/disparity_image.hpp>
 #include <tf2_ros/static_transform_broadcaster.h>
 
+#include <multisense_msgs/msg/histogram.hpp>
 #include <multisense_msgs/msg/info.hpp>
 #include <multisense_msgs/msg/status.hpp>
 
@@ -161,6 +162,7 @@ private:
 
     static constexpr char INFO_TOPIC[] = "info";
     static constexpr char STATUS_TOPIC[] = "status";
+    static constexpr char HISTOGRAM_TOPIC[] = "histogram";
     static constexpr char RAW_CONFIG_TOPIC[] = "raw_config";
     static constexpr char MONO_TOPIC[] = "image_mono";
     static constexpr char RECT_TOPIC[] = "image_rect";
@@ -314,6 +316,7 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr luma_point_cloud_pub_ = nullptr;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr color_point_cloud_pub_ = nullptr;
 
+    rclcpp::Publisher<multisense_msgs::msg::Histogram>::SharedPtr histogram_pub_ = nullptr;
     rclcpp::Publisher<multisense_msgs::msg::Info>::SharedPtr info_pub_ = nullptr;
     rclcpp::Publisher<multisense_msgs::msg::Status>::SharedPtr status_pub_ = nullptr;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr config_pub_ = nullptr;
@@ -345,10 +348,8 @@ private:
 
     stereo_msgs::msg::DisparityImage left_stereo_disparity_{};
 
-    //
-    // Calibration from sensor
-
     multisense::MultiSenseInfo info_{};
+    multisense::MultiSenseConfig current_config_{};
 
     //
     // The frame IDs
