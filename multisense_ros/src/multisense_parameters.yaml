@@ -38,7 +38,7 @@ multisense:
           default_value: 3
           description: "The auto exposure decay rate. Larger values increase the number of frames for the desired exposure to apply"
           validation:
-              bounds<>: [0, 33000]
+              bounds<>: [0, 20]
       target_intensity:
           type: double
           default_value: 0.5
@@ -122,7 +122,7 @@ multisense:
             default_value: 3
             description: "The auto exposure decay rate. Larger values increase the number of frames for the desired exposure to apply"
             validation:
-                bounds<>: [0, 33000]
+                bounds<>: [0, 20]
         target_intensity:
             type: double
             default_value: 0.5
