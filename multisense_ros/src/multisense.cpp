@@ -678,6 +678,8 @@ MultiSense::MultiSense(const std::string& node_name,
         RCLCPP_WARN(get_logger(), "Invalid config initialization %s", multisense::to_string(status).c_str());
     }
 
+    current_config_ = channel_->get_config();
+
     status_timer_ = create_wall_timer(1s,
             [this]()
             {

@@ -64,7 +64,7 @@ multisense:
               bounds<>: [1.68421, 16.0]
       roi:
         type: int_array
-        default_value: [0, 0, 1920, 1200]
+        default_value: [0, 0, 0, 0]
         description: "Controls for the region of interest auto exposure. Controlls are in the full resolution image.
                        The settings order is [top_left_x, top_left_y, width, height]. A value of all zeros disables
                        the ROI"
@@ -148,7 +148,7 @@ multisense:
                 bounds<>: [1.6842, 16.0]
         roi:
           type: int_array
-          default_value: [0, 0, 1920, 1200]
+          default_value: [0, 0, 0, 0]
           description: "Controls for the region of interest auto exposure. Controlls are in the full resolution image.
                          The settings order is [top_left_x, top_left_y, width, height]. A value of all zeros disables
                          the ROI"
