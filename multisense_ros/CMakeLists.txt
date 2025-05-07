@@ -37,11 +37,11 @@ find_package(tf2_geometry_msgs REQUIRED)
 include_directories(include)
 
 generate_parameter_library(multisense_parameters src/multisense_parameters.yaml)
-generate_parameter_library(init_parameters src/init_parameters.yaml)
+generate_parameter_library(multisense_init_parameters src/init_parameters.yaml)
 
 add_library(${PROJECT_NAME} src/multisense.cpp)
 
-target_link_libraries(${PROJECT_NAME} init_parameters multisense_parameters)
+target_link_libraries(${PROJECT_NAME} multisense_init_parameters multisense_parameters)
 
 ament_target_dependencies(${PROJECT_NAME}
                          angles
@@ -65,7 +65,8 @@ target_link_libraries(ros_driver ${PROJECT_NAME})
 ament_target_dependencies(ros_driver
                           rclcpp)
 
-ament_export_targets(${PROJECT_NAME} multisense_parameters init_parameters)
+ament_export_libraries(${PROJECT_NAME} multisense_parameters multisense_init_parameters)
+ament_export_targets(${PROJECT_NAME} multisense_parameters multisense_init_parameters)
 
 ament_export_dependencies(
     angles
@@ -96,8 +97,8 @@ install(TARGETS multisense_parameters
         INCLUDES DESTINATION include
 )
 
-install(TARGETS init_parameters
-        EXPORT init_parameters
+install(TARGETS multisense_init_parameters
+        EXPORT multisense_init_parameters
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
         INCLUDES DESTINATION include
