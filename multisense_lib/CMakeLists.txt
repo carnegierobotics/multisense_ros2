@@ -29,7 +29,14 @@ set(BUILD_OPENCV ON CACHE BOOL "Build with OpenCV" FORCE)
 set(BUILD_JSON_SERIALIZATION ON CACHE BOOL "Build with JSON" FORCE)
 add_subdirectory(LibMultiSense)
 
-ament_export_include_directories(${CMAKE_CURRENT_SOURCE_DIR}/LibMultiSense/source/LibMultiSense/include)
-ament_export_libraries(MultiSense)
+
+install(
+    EXPORT MultiSenseTargets
+  NAMESPACE multisense_lib::
+  DESTINATION share/${PROJECT_NAME}/cmake
+)
+
+ament_export_libraries(MultiSense MultiSenseWire)
+ament_export_dependencies(nlohmann_json)
 
 ament_package()

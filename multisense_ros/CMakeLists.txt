@@ -24,6 +24,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(image_geometry REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(multisense_lib REQUIRED)
+find_package(MultiSense REQUIRED)
 find_package(multisense_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -41,7 +42,7 @@ generate_parameter_library(multisense_init_parameters src/init_parameters.yaml)
 
 add_library(${PROJECT_NAME} src/multisense.cpp)
 
-target_link_libraries(${PROJECT_NAME} multisense_init_parameters multisense_parameters)
+target_link_libraries(${PROJECT_NAME} multisense_init_parameters multisense_parameters MultiSense)
 
 ament_target_dependencies(${PROJECT_NAME}
                          angles
