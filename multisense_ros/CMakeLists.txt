@@ -63,12 +63,51 @@ add_executable(ros_driver src/ros_driver.cpp)
 target_link_libraries(ros_driver ${PROJECT_NAME})
 
 ament_target_dependencies(ros_driver
-                         rclcpp)
+                          rclcpp)
+
+ament_export_targets(${PROJECT_NAME} multisense_parameters init_parameters)
+
+ament_export_dependencies(
+    angles
+    Eigen3
+    geometry_msgs
+    image_geometry
+    multisense_lib
+    multisense_msgs
+    OpenCV
+    rclcpp
+    sensor_msgs
+    stereo_msgs
+    tf2
+    tf2_ros
+    tf2_geometry_msgs
+)
 
 install(TARGETS ros_driver
         DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY launch materials meshes urdf
         DESTINATION share/${PROJECT_NAME})
+
+install(TARGETS multisense_parameters
+        EXPORT multisense_parameters
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        INCLUDES DESTINATION include
+)
+
+install(TARGETS init_parameters
+        EXPORT init_parameters
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        INCLUDES DESTINATION include
+)
+
+install(TARGETS ${PROJECT_NAME}
+        EXPORT ${PROJECT_NAME}
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        INCLUDES DESTINATION include
+)
 
 ament_package()
