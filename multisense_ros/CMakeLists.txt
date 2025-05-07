@@ -84,6 +84,11 @@ install(
 )
 
 install(
+  DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include
+  DESTINATION include/${PROJECT_NAME}
+)
+
+install(
   DIRECTORY launch materials meshes urdf
   DESTINATION share/${PROJECT_NAME}
 )
