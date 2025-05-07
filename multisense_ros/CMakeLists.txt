@@ -81,11 +81,12 @@ install(
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
+  INCLUDES DESTINATION include
 )
 
 install(
-  DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include
-  DESTINATION include/${PROJECT_NAME}
+  DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
+  DESTINATION include
 )
 
 install(
@@ -98,7 +99,9 @@ install(
   NAMESPACE multisense_ros::
   DESTINATION share/${PROJECT_NAME}/cmake
 )
+
 ament_export_targets(multisense_ros-targets HAS_LIBRARY_TARGET)
+ament_export_include_directories(include)
 
 ament_export_dependencies(
   angles
