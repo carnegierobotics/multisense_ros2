@@ -44,6 +44,10 @@ add_library(${PROJECT_NAME} src/multisense.cpp)
 
 target_link_libraries(${PROJECT_NAME} multisense_init_parameters multisense_parameters MultiSense)
 
+target_include_directories(${PROJECT_NAME}
+        PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        PUBLIC $<INSTALL_INTERFACE:include>)
+
 ament_target_dependencies(${PROJECT_NAME}
                          angles
                          Eigen3
