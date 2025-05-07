@@ -26,6 +26,19 @@ multisense:
         type: bool
         default_value: true
         description: "Enable auto exposure"
+    manual_exposure:
+      exposure_time:
+          type: int
+          default_value: 10000
+          description: "The sensor exposure time in microseconds"
+          validation:
+              bounds<>: [0, 33000]
+      gain:
+          type: double
+          default_value: 1.68421
+          description: "The analog and digital sensor gain"
+          validation:
+              bounds<>: [1.68421, 16.0]
     auto_exposure:
       max_exposure_time:
           type: int
@@ -110,6 +123,19 @@ multisense:
           type: bool
           default_value: true
           description: "Enable auto exposure"
+      manual_exposure:
+        exposure_time:
+            type: int
+            default_value: 10000
+            description: "The sensor exposure time in microseconds"
+            validation:
+                bounds<>: [0, 33000]
+        gain:
+            type: double
+            default_value: 1.0
+            description: "The analog and digital sensor gain"
+            validation:
+                bounds<>: [0.0, 85.0]
       auto_exposure:
         max_exposure_time:
             type: int

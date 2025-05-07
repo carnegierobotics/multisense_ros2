@@ -57,6 +57,79 @@ namespace multisense_ros {
 
 namespace { // anonymous
 
+struct ParameterStep
+{
+    double offset = 0.0;
+    double delta = 0.0;
+};
+
+bool is_modern_camera(const lms::MultiSenseInfo::DeviceInfo::HardwareRevision &camera_type)
+{
+    return (camera_type == lms::MultiSenseInfo::DeviceInfo::HardwareRevision::S27 ||
+            camera_type == lms::MultiSenseInfo::DeviceInfo::HardwareRevision::S30 ||
+            camera_type == lms::MultiSenseInfo::DeviceInfo::HardwareRevision::KS21 ||
+            camera_type == lms::MultiSenseInfo::DeviceInfo::HardwareRevision::KS21_SILVER ||
+            camera_type == lms::MultiSenseInfo::DeviceInfo::HardwareRevision::KS21i);
+}
+
+std::chrono::microseconds get_closest_exposure(uint32_t exposure_us, uint32_t min, double step)
+{
+    return std::chrono::microseconds{static_cast<uint32_t>(std::floor((std::floor(static_cast<double>(exposure_us - min) / step) * step) + min))};
+}
+
+float get_closet_aux_gain(float gain)
+{
+
+    constexpr std::array<float, 86> gains = {1.00 ,1.03 ,1.07 ,1.10 ,1.14 ,1.19 ,1.23 ,1.28 ,1.33 ,1.39 ,1.45 ,1.52,
+                                             1.60 ,1.68 ,1.78 ,1.88 ,2.00 ,2.13 ,2.29 ,2.46 ,2.67 ,2.91 ,3.00 ,3.10,
+                                             3.20 ,3.31 ,3.43 ,3.56 ,3.69 ,3.84 ,4.00 ,4.17 ,4.36 ,4.57 ,4.80 ,5.05,
+                                             5.33 ,5.65 ,6.00 ,6.40 ,6.86 ,7.38 ,8.00 ,8.73 ,9.60 ,10.67,12.00,12.39,
+                                             12.80,13.24,13.71,14.22,14.77,15.36,16.00,16.70,17.45,18.29,19.20,20.21,
+                                             21.33,22.59,24.00,24.77,25.60,26.48,27.43,28.44,29.54,30.72,32.00,33.39,
+                                             34.91,36.57,38.40,40.42,42.67,45.18,48.00,51.20,54.86,59.08,64.00,69.82,
+                                             76.80,85.33};
+
+    const auto val = std::lower_bound(std::begin(gains), std::end(gains), gain);
+
+    if (val == std::begin(gains))
+    {
+        return *val;
+    }
+
+    if (val == std::end(gains))
+    {
+        return gains.back();
+    }
+
+    const auto before = std::prev(val);
+    return (std::abs(*val - gain) < std::abs(*before - gain)) ? *val : *before;
+}
+
+float get_closest_stereo_gain(float gain)
+{
+    constexpr std::array<float, 36> gains{1.68421,  1.77778,  1.88235, 2.00000,  2.13333,  2.28572,  2.46154,
+                                          2.66667,  2.90909,  3.20000,  3.55556, 4.00000,  4.12903,  4.26667,
+                                          4.41379,  4.57144,  4.74074,  4.92308,  5.12000, 5.33333,  5.56522,
+                                          5.81818,  6.09524,  6.40000,  6.73684,  7.11111,  7.52941, 8.00000,
+                                          8.53333,  9.14286,  9.84616, 10.66667, 11.63636, 12.90000, 14.22222,
+                                          16.00000};
+
+    const auto val = std::lower_bound(std::begin(gains), std::end(gains), gain);
+
+    if (val == std::begin(gains))
+    {
+        return *val;
+    }
+
+    if (val == std::end(gains))
+    {
+        return gains.back();
+    }
+
+    const auto before = std::prev(val);
+    return (std::abs(*val - gain) < std::abs(*before - gain)) ? *val : *before;
+}
+
 tf2::Matrix3x3 to_rotation(const std::array<std::array<float, 3>, 3> & R)
 {
     return tf2::Matrix3x3{R[0][0], R[0][1], R[0][2],
@@ -301,7 +374,9 @@ void publish_imu_sample(const lms::ImuSample &sample,
 
 template <typename ImageParamsT>
 multisense::MultiSenseConfig::ImageConfig update_param_config(multisense::MultiSenseConfig::ImageConfig config,
-                                                              const ImageParamsT &params)
+                                                              const ImageParamsT &params,
+                                                              const std::optional<ParameterStep> &exposure_step,
+                                                              bool aux_camera)
 {
     config.gamma = params.gamma;
     config.auto_exposure_enabled = params.auto_exposure_enabled;
@@ -318,6 +393,18 @@ multisense::MultiSenseConfig::ImageConfig update_param_config(multisense::MultiS
         config.auto_exposure->roi.top_left_y_position = params.auto_exposure.roi[1];
         config.auto_exposure->roi.width = params.auto_exposure.roi[2];
         config.auto_exposure->roi.height = params.auto_exposure.roi[3];
+    }
+    else if (config.manual_exposure)
+    {
+        config.manual_exposure->exposure_time = exposure_step ?
+                                                get_closest_exposure(params.manual_exposure.exposure_time,
+                                                                     exposure_step->offset,
+                                                                     exposure_step->delta) :
+                                                std::chrono::microseconds{params.manual_exposure.exposure_time};
+
+        config.manual_exposure->gain = aux_camera ?
+                                       get_closet_aux_gain(params.manual_exposure.gain) :
+                                       get_closest_stereo_gain(params.manual_exposure.gain);
     }
 
     config.auto_white_balance_enabled = params.auto_white_balance_enabled;
@@ -337,17 +424,28 @@ multisense::MultiSenseConfig::ImageConfig update_param_config(multisense::MultiS
     return config;
 }
 
-multisense::MultiSenseConfig update_param_config(multisense::MultiSenseConfig config, const multisense::Params &params)
+multisense::MultiSenseConfig update_param_config(multisense::MultiSenseConfig config,
+                                                 const multisense::Params &params,
+                                                 const lms::MultiSenseInfo::DeviceInfo::HardwareRevision &camera_type)
 {
     config.frames_per_second = params.fps;
 
     config.stereo_config.postfilter_strength = params.stereo.postfilter_strength;
 
-    config.image_config = update_param_config(std::move(config.image_config), params.image);
+    config.image_config = update_param_config(std::move(config.image_config),
+                                              params.image,
+                                              is_modern_camera(camera_type) ?
+                                                std::make_optional(ParameterStep{20.0, 10.0125}) : std::nullopt,
+                                              false);
 
     if (config.aux_config)
     {
-        config.aux_config->image_config = update_param_config(std::move(config.aux_config->image_config), params.aux.image);
+        config.aux_config->image_config = update_param_config(std::move(config.aux_config->image_config),
+                                                              params.aux.image,
+                                                              is_modern_camera(camera_type) ?
+                                                                std::make_optional(ParameterStep{20.0, 10.096875}) :
+                                                                std::nullopt,
+                                                              true);
     }
 
     if (config.time_config)
@@ -662,6 +760,7 @@ MultiSense::MultiSense(const std::string& node_name,
     // to imu frames
 
     channel_->add_imu_frame_callback([this](const auto &frame){imu_frame_notifier_.set_and_notify(frame);});
+
 
     //
     // Setup parameters
@@ -1227,90 +1326,6 @@ void MultiSense::initialize_parameters(const multisense::MultiSenseConfig &confi
                       std::vector<int64_t>{config.width, config.height, disparity_pixels(config.disparities)},
                       sensor_resolution_desc);
 
-    if (config.image_config.manual_exposure)
-    {
-        //
-        // Stereo Exposure
-
-        rcl_interfaces::msg::FloatingPointRange image_exposure_range;
-        image_exposure_range.set__from_value(20.0)
-                            .set__to_value(3320.0 * 10.0125 + 20.0)
-                            .set__step(10.0125);
-
-        rcl_interfaces::msg::ParameterDescriptor image_exposure_time_desc;
-        image_exposure_time_desc.set__name("image.manual_exposure.exposure_time")
-                                .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
-                                .set__description("Exposure times in microseconds")
-                                .set__floating_point_range({image_exposure_range});
-
-        declare_parameter("image.manual_exposure.exposure_time",
-                          image_exposure_range.from_value + (996 * image_exposure_range.step),
-                          image_exposure_time_desc);
-
-        //
-        // Stereo Gain
-
-        rcl_interfaces::msg::FloatingPointRange image_gain_range;
-        image_gain_range.set__from_value(1.6842)
-                        .set__to_value(16.0);
-
-        rcl_interfaces::msg::ParameterDescriptor image_gain_desc;
-        image_gain_desc.set__name("image.manual_exposure.gain")
-                                .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
-                                .set__description("The value of the electrical and digitial gain used to brighten the image "
-                                                  "supported gains values are :"
-                                                  "1.68421,  1.77778,  1.88235, 2.00000,  2.13333,  2.28572,  2.46154, "
-                                                  "2.66667,  2.90909,  3.20000,  3.55556, 4.00000,  4.12903,  4.26667, "
-                                                  "4.41379,  4.57144,  4.74074,  4.92308,  5.12000, 5.33333,  5.56522, "
-                                                  "5.81818,  6.09524,  6.40000,  6.73684,  7.11111,  7.52941, 8.00000, "
-                                                  "8.53333,  9.14286,  9.84616, 10.66667, 11.63636, 12.90000, 14.22222, "
-                                                  "16.00000")
-                                .set__floating_point_range({image_gain_range});
-
-        declare_parameter("image.manual_exposure.gain",
-                          1.68421,
-                          image_gain_desc);
-    }
-
-    if (config.aux_config && config.aux_config->image_config.manual_exposure)
-    {
-        //
-        // Aux Exposure
-
-        rcl_interfaces::msg::FloatingPointRange image_exposure_range;
-        image_exposure_range.set__from_value(20.0)
-                            .set__to_value(3320.0 * 10.096875 + 20.0)
-                            .set__step(10.096875);
-
-        rcl_interfaces::msg::ParameterDescriptor image_exposure_time_desc;
-        image_exposure_time_desc.set__name("aux.image.manual_exposure.exposure_time")
-                                .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
-                                .set__description("Exposure times in microseconds")
-                                .set__floating_point_range({image_exposure_range});
-
-        declare_parameter("aux.image.manual_exposure.exposure_time",
-                          image_exposure_range.from_value + (998 * image_exposure_range.step),
-                          image_exposure_time_desc);
-
-        //
-        // Aux Gain
-
-        rcl_interfaces::msg::FloatingPointRange image_gain_range;
-        image_gain_range.set__from_value(0.0)
-                        .set__to_value(128.0)
-                        .set__step(1.0/128.0);
-
-        rcl_interfaces::msg::ParameterDescriptor image_gain_desc;
-        image_gain_desc.set__name("aux.image.manual_exposure.gain")
-                                .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
-                                .set__description("The value of the electrical and digitial gain used to brighten the image")
-                                .set__floating_point_range({image_gain_range});
-
-        declare_parameter("aux.image.manual_exposure.gain",
-                          1.0,
-                          image_gain_desc);
-    }
-
     //
     // Imu rates and ranges
 
@@ -1432,30 +1447,12 @@ void MultiSense::create_imu_parameters(const multisense::MultiSenseInfo::ImuInfo
 
 multisense::MultiSenseConfig MultiSense::update_config(multisense::MultiSenseConfig config)
 {
-    config = update_param_config(std::move(config), param_listener_->get_params());
+    config = update_param_config(std::move(config), param_listener_->get_params(), info_.device.hardware_revision);
 
     const auto res = get_parameter("sensor_resolution").as_integer_array();
     config.width = res[0];
     config.height = res[1];
     config.disparities = pixel_to_disparity(res[2]);
-
-    if (config.image_config.manual_exposure && !config.image_config.auto_exposure_enabled)
-    {
-        const auto exposure_time = get_parameter("image.manual_exposure.exposure_time").as_double();
-        config.image_config.manual_exposure->exposure_time =
-            std::chrono::microseconds{static_cast<int32_t>(std::floor(exposure_time))};
-
-        config.image_config.manual_exposure->gain = get_parameter("image.manual_exposure.gain").as_double();
-    }
-
-    if (config.aux_config && config.aux_config->image_config.manual_exposure && !config.aux_config->image_config.auto_exposure_enabled)
-    {
-        const auto exposure_time = get_parameter("aux.image.manual_exposure.exposure_time").as_double();
-        config.aux_config->image_config.manual_exposure->exposure_time =
-            std::chrono::microseconds{static_cast<int32_t>(std::floor(exposure_time))};
-
-        config.aux_config->image_config.manual_exposure->gain = get_parameter("aux.image.manual_exposure.gain").as_double();
-    }
 
     if (config.imu_config)
     {
@@ -1490,6 +1487,7 @@ rcl_interfaces::msg::SetParametersResult MultiSense::parameter_callback(const st
 
     for (const auto &parameter : parameters)
     {
+        RCLCPP_WARN(get_logger(), "%s", parameter.get_name().c_str());
         const auto type = parameter.get_type();
         if (type == rclcpp::ParameterType::PARAMETER_NOT_SET)
         {
@@ -1524,7 +1522,7 @@ rcl_interfaces::msg::SetParametersResult MultiSense::parameter_callback(const st
     {
         //
         // Use nlohmann json to figure out which configs did not apply
-        RCLCPP_WARN(get_logger(), "%s", lms::to_string(status).c_str());
+        RCLCPP_WARN(get_logger(), "set configuration not successful: %s", lms::to_string(status).c_str());
 
         if (status == multisense::Status::INCOMPLETE_APPLICATION)
         {
