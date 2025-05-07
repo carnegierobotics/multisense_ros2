@@ -34,7 +34,7 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <multisense_ros/multisense.h>
-#include <multisense_ros/init_parameters.hpp>
+#include <multisense_ros/multisense_init_parameters.hpp>
 
 #include <MultiSense/MultiSenseChannel.hh>
 
