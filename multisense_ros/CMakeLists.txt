@@ -79,11 +79,6 @@ install(
 )
 
 install(
-  DIRECTORY include/
-  DESTINATION include
-)
-
-install(
   DIRECTORY launch materials meshes urdf
   DESTINATION share/${PROJECT_NAME}
 )
@@ -112,6 +107,5 @@ ament_export_dependencies(
   tf2_ros
   tf2_geometry_msgs
 )
-ament_export_include_directories(include)
 
 ament_package()
