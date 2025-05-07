@@ -47,6 +47,7 @@ ament_target_dependencies(${PROJECT_NAME}
                          angles
                          Eigen3
                          geometry_msgs
+                         generate_parameter_library
                          image_geometry
                          image_transport
                          multisense_lib
@@ -65,50 +66,52 @@ target_link_libraries(ros_driver ${PROJECT_NAME})
 ament_target_dependencies(ros_driver
                           rclcpp)
 
-ament_export_libraries(${PROJECT_NAME} multisense_parameters multisense_init_parameters)
-ament_export_targets(${PROJECT_NAME} multisense_parameters multisense_init_parameters)
+install(
+  TARGETS
+    ${PROJECT_NAME}
+    multisense_init_parameters
+    multisense_parameters
+    ros_driver
+  EXPORT multisense_ros-targets
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
+
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
+
+install(
+  DIRECTORY launch materials meshes urdf
+  DESTINATION share/${PROJECT_NAME}
+)
+
+install(
+  EXPORT multisense_ros-targets
+  NAMESPACE multisense_ros::
+  DESTINATION share/${PROJECT_NAME}/cmake
+)
+ament_export_targets(multisense_ros-targets HAS_LIBRARY_TARGET)
 
 ament_export_dependencies(
-    angles
-    Eigen3
-    geometry_msgs
-    image_geometry
-    multisense_lib
-    multisense_msgs
-    OpenCV
-    rclcpp
-    sensor_msgs
-    stereo_msgs
-    tf2
-    tf2_ros
-    tf2_geometry_msgs
+  angles
+  Eigen3
+  geometry_msgs
+  generate_parameter_library
+  image_geometry
+  image_transport
+  multisense_lib
+  multisense_msgs
+  OpenCV
+  rclcpp
+  sensor_msgs
+  stereo_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
 )
-
-install(TARGETS ros_driver
-        DESTINATION lib/${PROJECT_NAME})
-
-install(DIRECTORY launch materials meshes urdf
-        DESTINATION share/${PROJECT_NAME})
-
-install(TARGETS multisense_parameters
-        EXPORT multisense_parameters
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-        INCLUDES DESTINATION include
-)
-
-install(TARGETS multisense_init_parameters
-        EXPORT multisense_init_parameters
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-        INCLUDES DESTINATION include
-)
-
-install(TARGETS ${PROJECT_NAME}
-        EXPORT ${PROJECT_NAME}
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-        INCLUDES DESTINATION include
-)
+ament_export_include_directories(include)
 
 ament_package()
