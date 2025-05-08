@@ -85,6 +85,9 @@ install(
   INCLUDES DESTINATION include
 )
 
+install(TARGETS ros_driver
+        DESTINATION lib/${PROJECT_NAME})
+
 install(
   DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
   DESTINATION include
