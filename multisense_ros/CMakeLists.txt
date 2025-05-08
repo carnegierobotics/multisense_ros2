@@ -42,19 +42,20 @@ generate_parameter_library(multisense_init_parameters src/init_parameters.yaml)
 
 add_library(${PROJECT_NAME} src/multisense.cpp)
 
-target_link_libraries(${PROJECT_NAME} multisense_init_parameters multisense_parameters MultiSense)
+target_link_libraries(${PROJECT_NAME} PUBLIC multisense_init_parameters multisense_parameters MultiSense)
 
 target_include_directories(${PROJECT_NAME}
         PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         PUBLIC $<INSTALL_INTERFACE:include>)
 
-ament_target_dependencies(${PROJECT_NAME}
+ament_target_dependencies(${PROJECT_NAME} PUBLIC
                          angles
                          Eigen3
                          geometry_msgs
                          generate_parameter_library
                          image_geometry
                          image_transport
+                         MultiSense
                          multisense_lib
                          multisense_msgs
                          OpenCV
@@ -66,9 +67,9 @@ ament_target_dependencies(${PROJECT_NAME}
                          tf2_geometry_msgs)
 
 add_executable(ros_driver src/ros_driver.cpp)
-target_link_libraries(ros_driver ${PROJECT_NAME})
+target_link_libraries(ros_driver PUBLIC ${PROJECT_NAME})
 
-ament_target_dependencies(ros_driver
+ament_target_dependencies(ros_driver PUBLIC
                           rclcpp)
 
 install(
@@ -110,6 +111,7 @@ ament_export_dependencies(
   generate_parameter_library
   image_geometry
   image_transport
+  MultiSense
   multisense_lib
   multisense_msgs
   OpenCV
