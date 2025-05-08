@@ -202,13 +202,16 @@ sensor_msgs::msg::CameraInfo create_camera_info(const lms::CameraCalibration &ca
 
 void populate_image(const lms::Image &image,
                     sensor_msgs::msg::Image &ros_image,
-                    const std::string &frame_id)
+                    const std::string &frame_id,
+                    bool use_ptp_time)
 {
     ros_image.data.resize(image.image_data_length);
     memcpy(&ros_image.data[0], image.raw_data->data() + image.image_data_offset, image.image_data_length);
 
     ros_image.header.frame_id = frame_id;
-    ros_image.header.stamp = rclcpp::Time(image.camera_timestamp.time_since_epoch().count());
+    ros_image.header.stamp = use_ptp_time ?
+        rclcpp::Time(image.ptp_timestamp.time_since_epoch().count()) :
+        rclcpp::Time(image.camera_timestamp.time_since_epoch().count());
     ros_image.height = image.height;
     ros_image.width = image.width;
 
@@ -247,9 +250,10 @@ void populate_image(const lms::Image &image,
 void publish_image(const lms::Image &image,
                    std::shared_ptr<ImagePublisher> publisher,
                    sensor_msgs::msg::Image &ros_image,
-                   const std::string &frame_id)
+                   const std::string &frame_id,
+                   bool use_ptp_time)
 {
-    populate_image(image, ros_image, frame_id);
+    populate_image(image, ros_image, frame_id, use_ptp_time);
 
     auto camera_info = create_camera_info(image.calibration, ros_image.header, image.width, image.height);
     publisher->publish(std::make_unique<sensor_msgs::msg::Image>(ros_image),
@@ -346,14 +350,17 @@ void publish_point_cloud(const lms::PointCloud<Color> &point_cloud,
 
 void publish_imu_sample(const lms::ImuSample &sample,
                         rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr publisher,
-                        const std::string &frame_id)
+                        const std::string &frame_id,
+                        bool use_ptp_time)
 {
     constexpr double GRAVITY = 9.80665;
 
     sensor_msgs::msg::Imu message{};
 
     message.header.frame_id = frame_id;
-    message.header.stamp = rclcpp::Time(sample.sample_time.time_since_epoch().count());
+    message.header.stamp = use_ptp_time ?
+        rclcpp::Time(sample.ptp_sample_time.time_since_epoch().count()) :
+        rclcpp::Time(sample.sample_time.time_since_epoch().count());
 
     if (sample.accelerometer)
     {
@@ -820,7 +827,9 @@ void MultiSense::image_publisher()
                 multisense_msgs::msg::Histogram histogram;
 
                 histogram.frame_count = image_frame->frame_id;
-                histogram.time_stamp = rclcpp::Time(image_frame->frame_time.time_since_epoch().count());
+                histogram.time_stamp = use_ptp_time_ ?
+                    rclcpp::Time(image_frame->ptp_frame_time.time_since_epoch().count()) :
+                    rclcpp::Time(image_frame->frame_time.time_since_epoch().count());
 
                 histogram.width = current_config_.width;
                 histogram.height = current_config_.height;
@@ -842,37 +851,37 @@ void MultiSense::image_publisher()
                     case lms::DataSource::LEFT_MONO_RAW:
                     {
                         if (num_subscribers(left_node_, MONO_TOPIC) == 0) continue;
-                        publish_image(image, left_mono_cam_pub_, left_mono_image_, frame_id_left_);
+                        publish_image(image, left_mono_cam_pub_, left_mono_image_, frame_id_left_, use_ptp_time_);
                         break;
                     }
                     case lms::DataSource::RIGHT_MONO_RAW:
                     {
                         if (num_subscribers(right_node_, MONO_TOPIC) == 0) continue;
-                        publish_image(image, right_mono_cam_pub_, right_mono_image_, frame_id_right_);
+                        publish_image(image, right_mono_cam_pub_, right_mono_image_, frame_id_right_, use_ptp_time_);
                         break;
                     }
                     case lms::DataSource::LEFT_RECTIFIED_RAW:
                     {
                         if (num_subscribers(left_node_, RECT_TOPIC) == 0) continue;
-                        publish_image(image, left_rect_cam_pub_, left_rect_image_, frame_id_rectified_left_);
+                        publish_image(image, left_rect_cam_pub_, left_rect_image_, frame_id_rectified_left_, use_ptp_time_);
                         break;
                     }
                     case lms::DataSource::RIGHT_RECTIFIED_RAW:
                     {
                         if (num_subscribers(right_node_, RECT_TOPIC) == 0) continue;
-                        publish_image(image, right_rect_cam_pub_, right_rect_image_, frame_id_rectified_right_);
+                        publish_image(image, right_rect_cam_pub_, right_rect_image_, frame_id_rectified_right_, use_ptp_time_);
                         break;
                     }
                     case lms::DataSource::LEFT_DISPARITY_RAW:
                     {
                         if (num_subscribers(left_node_, DISPARITY_TOPIC) > 0)
                         {
-                            publish_image(image, left_disparity_pub_, left_disparity_image_, frame_id_rectified_left_);
+                            publish_image(image, left_disparity_pub_, left_disparity_image_, frame_id_rectified_left_, use_ptp_time_);
                         }
 
                         if (num_subscribers(left_node_, DISPARITY_IMAGE_TOPIC) > 0)
                         {
-                            populate_image(image, left_stereo_disparity_.image, frame_id_rectified_left_);
+                            populate_image(image, left_stereo_disparity_.image, frame_id_rectified_left_, use_ptp_time_);
                             left_stereo_disparity_.f = image.calibration.P[0][0];
                             left_stereo_disparity_.t = -image_frame->calibration.right.rectified_translation()[0];
                             left_stereo_disparity_.min_disparity = 0.0f;
@@ -886,13 +895,13 @@ void MultiSense::image_publisher()
                     case lms::DataSource::AUX_LUMA_RAW:
                     {
                         if (num_subscribers(aux_node_, MONO_TOPIC) == 0) continue;
-                        publish_image(image, aux_mono_cam_pub_, aux_mono_image_, frame_id_aux_);
+                        publish_image(image, aux_mono_cam_pub_, aux_mono_image_, frame_id_aux_, use_ptp_time_);
                         break;
                     }
                     case lms::DataSource::AUX_LUMA_RECTIFIED_RAW:
                     {
                         if (num_subscribers(aux_node_, RECT_TOPIC) == 0) continue;
-                        publish_image(image, aux_rect_cam_pub_, aux_rect_image_, frame_id_rectified_aux_);
+                        publish_image(image, aux_rect_cam_pub_, aux_rect_image_, frame_id_rectified_aux_, use_ptp_time_);
                         break;
                     }
                     case lms::DataSource::AUX_CHROMA_RAW:
@@ -905,19 +914,19 @@ void MultiSense::image_publisher()
                     case lms::DataSource::AUX_RAW:
                     {
                         if (num_subscribers(aux_node_, COLOR_TOPIC) == 0) continue;
-                        publish_image(image, aux_rgb_cam_pub_, aux_rgb_image_, frame_id_aux_);
+                        publish_image(image, aux_rgb_cam_pub_, aux_rgb_image_, frame_id_aux_, use_ptp_time_);
                         break;
                     }
                     case lms::DataSource::AUX_RECTIFIED_RAW:
                     {
                         if (num_subscribers(aux_node_, RECT_COLOR_TOPIC) == 0) continue;
-                        publish_image(image, aux_rgb_rect_cam_pub_, aux_rect_rgb_image_, frame_id_rectified_aux_);
+                        publish_image(image, aux_rgb_rect_cam_pub_, aux_rect_rgb_image_, frame_id_rectified_aux_, use_ptp_time_);
                         break;
                     }
                     case lms::DataSource::COST_RAW:
                     {
                         if (num_subscribers(left_node_, COST_TOPIC) == 0) continue;
-                        publish_image(image, left_disparity_cost_pub_, left_disparity_cost_image_, frame_id_rectified_left_);
+                        publish_image(image, left_disparity_cost_pub_, left_disparity_cost_image_, frame_id_rectified_left_, use_ptp_time_);
                         break;
                     }
                     default: { RCLCPP_ERROR(get_logger(), "MultiSense: unknown image source"); continue;}
@@ -946,7 +955,7 @@ void MultiSense::depth_publisher()
                                                                          std::numeric_limits<float>::quiet_NaN());
                                                                          depth_image)
                     {
-                        publish_image(depth_image.value(), depth_cam_pub_, depth_image_, frame_id_rectified_left_);
+                        publish_image(depth_image.value(), depth_cam_pub_, depth_image_, frame_id_rectified_left_, use_ptp_time_);
                     }
                 }
 
@@ -958,7 +967,7 @@ void MultiSense::depth_publisher()
                                                                          0);
                                                                          depth_image)
                     {
-                        publish_image(depth_image.value(), ni_depth_cam_pub_, ni_depth_image_, frame_id_rectified_left_);
+                        publish_image(depth_image.value(), ni_depth_cam_pub_, ni_depth_image_, frame_id_rectified_left_, use_ptp_time_);
                     }
                 }
             }
@@ -990,7 +999,7 @@ void MultiSense::point_cloud_publisher()
                                                                                            point_cloud)
                         {
                             publish_point_cloud(point_cloud.value(),
-                                                image_frame->frame_time,
+                                                use_ptp_time_ ? image_frame->ptp_frame_time : image_frame->frame_time,
                                                 luma_point_cloud_pub_,
                                                 luma_point_cloud_,
                                                 frame_id_rectified_left_);
@@ -1005,7 +1014,7 @@ void MultiSense::point_cloud_publisher()
                                                                                             point_cloud)
                         {
                             publish_point_cloud(point_cloud.value(),
-                                                image_frame->frame_time,
+                                                use_ptp_time_ ? image_frame->ptp_frame_time : image_frame->frame_time,
                                                 luma_point_cloud_pub_,
                                                 luma_point_cloud_,
                                                 frame_id_rectified_left_);
@@ -1027,7 +1036,7 @@ void MultiSense::point_cloud_publisher()
                                                                                                           point_cloud)
                         {
                             publish_point_cloud(point_cloud.value(),
-                                                image_frame->frame_time,
+                                                use_ptp_time_ ? image_frame->ptp_frame_time : image_frame->frame_time,
                                                 color_point_cloud_pub_,
                                                 color_point_cloud_,
                                                 frame_id_rectified_left_);
@@ -1050,7 +1059,7 @@ void MultiSense::color_publisher()
             {
                 if (auto bgr_image = lms::create_bgr_image(image_frame.value(), lms::DataSource::AUX_RAW); bgr_image)
                 {
-                    publish_image(bgr_image.value(), aux_rgb_cam_pub_, aux_rgb_image_, frame_id_aux_);
+                    publish_image(bgr_image.value(), aux_rgb_cam_pub_, aux_rgb_image_, frame_id_aux_, use_ptp_time_);
                 }
             }
 
@@ -1058,7 +1067,7 @@ void MultiSense::color_publisher()
             {
                 if (auto bgr_image = lms::create_bgr_image(image_frame.value(), lms::DataSource::AUX_RECTIFIED_RAW); bgr_image)
                 {
-                    publish_image(bgr_image.value(), aux_rgb_rect_cam_pub_, aux_rect_rgb_image_, frame_id_rectified_aux_);
+                    publish_image(bgr_image.value(), aux_rgb_rect_cam_pub_, aux_rect_rgb_image_, frame_id_rectified_aux_, use_ptp_time_);
                 }
             }
         }
@@ -1075,7 +1084,7 @@ void MultiSense::imu_publisher()
             RCLCPP_WARN(get_logger(), "%lu", imu_frame->samples.size());
             for (const auto &sample : imu_frame->samples)
             {
-                publish_imu_sample(sample, imu_pub_, frame_id_imu_);
+                publish_imu_sample(sample, imu_pub_, frame_id_imu_, use_ptp_time_);
             }
         }
     }
@@ -1448,6 +1457,8 @@ void MultiSense::create_imu_parameters(const multisense::MultiSenseInfo::ImuInfo
 multisense::MultiSenseConfig MultiSense::update_config(multisense::MultiSenseConfig config)
 {
     config = update_param_config(std::move(config), param_listener_->get_params(), info_.device.hardware_revision);
+
+    use_ptp_time_ = config.time_config ? config.time_config->ptp_enabled: false;
 
     const auto res = get_parameter("sensor_resolution").as_integer_array();
     config.width = res[0];

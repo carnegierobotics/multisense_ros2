@@ -395,6 +395,11 @@ private:
 
     bool has_aux_camera_ = false;
     bool aux_control_supported_ = false;
+
+    //
+    // Stamp data with PTP timestamps
+
+    std::atomic_bool use_ptp_time_ = false;
 };
 
 }// namespace
