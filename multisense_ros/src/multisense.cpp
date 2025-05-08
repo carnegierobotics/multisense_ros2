@@ -1487,7 +1487,6 @@ rcl_interfaces::msg::SetParametersResult MultiSense::parameter_callback(const st
 
     for (const auto &parameter : parameters)
     {
-        RCLCPP_WARN(get_logger(), "%s", parameter.get_name().c_str());
         const auto type = parameter.get_type();
         if (type == rclcpp::ParameterType::PARAMETER_NOT_SET)
         {
