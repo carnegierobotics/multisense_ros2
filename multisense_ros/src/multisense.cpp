@@ -608,6 +608,11 @@ MultiSense::MultiSense(const std::string& node_name,
 {
     using namespace std::chrono_literals;
 
+    //
+    // All streams off
+
+    stop();
+
     info_ = channel_->get_info();
 
     has_aux_camera_ = info_.device.has_aux_camera();
@@ -764,11 +769,6 @@ MultiSense::MultiSense(const std::string& node_name,
         imu_pub_ = imu_node_->create_publisher<sensor_msgs::msg::Imu>(IMU_TOPIC, qos, create_publisher_options({ds::IMU}));
     }
 
-
-    //
-    // All streams off
-
-    stop();
 
     //
     // Publish device info
@@ -1112,7 +1112,6 @@ void MultiSense::imu_publisher()
     {
         if (const auto imu_frame = imu_frame_notifier_.wait(timeout) ; imu_frame)
         {
-            RCLCPP_WARN(get_logger(), "%lu", imu_frame->samples.size());
             for (const auto &sample : imu_frame->samples)
             {
                 publish_imu_sample(sample, imu_pub_, frame_id_imu_, use_ptp_time_);
@@ -1140,7 +1139,11 @@ rclcpp::PublisherOptions MultiSense::create_publisher_options(const std::vector<
         {
             std::lock_guard<std::mutex> lock{this->stream_mutex_};
 
-            if (info.current_count == 1)
+            // TODO: We get a current_count which is >1 sometimes. We need to handle this. I imagine
+            // we do something like std::map<topic, std::tuple<std::vector<Sources>, subs>> and then
+            // iterate through that struck to get the full set of sources which need to be activated
+
+            if (info.current_count >= 1)
             {
                 for (const auto &source : sources)
                 {
