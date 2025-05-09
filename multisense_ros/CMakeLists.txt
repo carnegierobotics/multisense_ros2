@@ -40,7 +40,7 @@ include_directories(include)
 generate_parameter_library(multisense_parameters src/multisense_parameters.yaml)
 generate_parameter_library(multisense_init_parameters src/init_parameters.yaml)
 
-add_library(${PROJECT_NAME} src/multisense.cpp)
+add_library(${PROJECT_NAME} src/multisense.cpp src/publisher_utilities.cpp)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC multisense_init_parameters multisense_parameters MultiSense)
 

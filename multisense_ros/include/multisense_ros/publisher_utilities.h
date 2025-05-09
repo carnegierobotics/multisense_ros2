@@ -31,8 +31,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#ifndef MULTISENSE_ROS_PUBLISHER_UTILITY_H
-#define MULTISENSE_ROS_PUBLISHER_UTILITY_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -44,6 +43,8 @@
 #include <sensor_msgs/msg/image.hpp>
 
 namespace multisense_ros {
+
+std::string get_full_topic_name(const rclcpp::Node::SharedPtr node, const std::string &topic_name);
 
 ///
 /// @brief A custom Image publisher which can optionally publish via image transport or standard rclcpp
@@ -63,7 +64,7 @@ public:
         {
             image_transport_pub_ =
                 std::make_unique<image_transport::Publisher>(image_transport::create_publisher(node.get(),
-                                                             node->get_effective_namespace() + "/" + topic_name,
+                                                             get_full_topic_name(node, topic_name),
                                                              qos.get_rmw_qos_profile(),
                                                              options));
         }
@@ -104,5 +105,3 @@ private:
 };
 
 }
-
-#endif

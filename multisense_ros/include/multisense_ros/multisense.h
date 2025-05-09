@@ -31,8 +31,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#ifndef MULTISENSE_ROS_CAMERA_H
-#define MULTISENSE_ROS_CAMERA_H
+#pragma once
 
 #include <condition_variable>
 #include <mutex>
@@ -197,7 +196,8 @@ private:
     //
     // Create publisher options which enable disable sources on active subscriptions
 
-    rclcpp::PublisherOptions create_publisher_options(const std::vector<multisense::DataSource> &sources);
+    rclcpp::PublisherOptions create_publisher_options(const std::vector<multisense::DataSource> &sources,
+                                                      const std::string &topic);
 
     //
     // Publish static transforms for convenience
@@ -389,6 +389,7 @@ private:
 
     std::mutex stream_mutex_{};
     std::map<multisense::DataSource, int> active_streams_{};
+    std::unordered_map<std::string, int> active_topics_{};
 
     //
     // Has a 3rd aux color camera
@@ -403,5 +404,3 @@ private:
 };
 
 }// namespace
-
-#endif

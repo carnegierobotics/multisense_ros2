@@ -655,56 +655,64 @@ MultiSense::MultiSense(const std::string& node_name,
                                                           MONO_TOPIC,
                                                           left_cal,
                                                           qos,
-                                                          create_publisher_options({ds::LEFT_MONO_RAW}),
+                                                          create_publisher_options({ds::LEFT_MONO_RAW},
+                                                                                   get_full_topic_name(left_node_, MONO_TOPIC)),
                                                           use_image_transport);
 
     right_mono_cam_pub_ = std::make_shared<ImagePublisher>(right_node_,
                                                            MONO_TOPIC,
                                                            right_cal,
                                                            qos,
-                                                           create_publisher_options({ds::RIGHT_MONO_RAW}),
+                                                           create_publisher_options({ds::RIGHT_MONO_RAW},
+                                                                                   get_full_topic_name(right_node_, MONO_TOPIC)),
                                                            use_image_transport);
 
     left_rect_cam_pub_ = std::make_shared<ImagePublisher>(left_node_,
                                                           RECT_TOPIC,
                                                           left_rect_cal,
                                                           qos,
-                                                          create_publisher_options({ds::LEFT_RECTIFIED_RAW}),
+                                                          create_publisher_options({ds::LEFT_RECTIFIED_RAW},
+                                                                                   get_full_topic_name(left_node_, RECT_TOPIC)),
                                                           use_image_transport);
 
     right_rect_cam_pub_ = std::make_shared<ImagePublisher>(right_node_,
                                                            RECT_TOPIC,
                                                            right_rect_cal,
                                                            qos,
-                                                           create_publisher_options({ds::RIGHT_RECTIFIED_RAW}),
+                                                           create_publisher_options({ds::RIGHT_RECTIFIED_RAW},
+                                                                                   get_full_topic_name(right_node_, RECT_TOPIC)),
                                                            use_image_transport);
 
     depth_cam_pub_ = std::make_shared<ImagePublisher>(left_node_,
                                                       DEPTH_TOPIC,
                                                       left_rect_cal,
                                                       qos,
-                                                      create_publisher_options({ds::LEFT_DISPARITY_RAW}),
+                                                      create_publisher_options({ds::LEFT_DISPARITY_RAW},
+                                                                               get_full_topic_name(left_node_, DEPTH_TOPIC)),
                                                       use_image_transport);
 
     ni_depth_cam_pub_ = std::make_shared<ImagePublisher>(left_node_,
                                                          OPENNI_DEPTH_TOPIC,
                                                          left_rect_cal,
                                                          qos,
-                                                         create_publisher_options({ds::LEFT_DISPARITY_RAW}),
+                                                         create_publisher_options({ds::LEFT_DISPARITY_RAW},
+                                                                                  get_full_topic_name(left_node_, OPENNI_DEPTH_TOPIC)),
                                                          use_image_transport);
 
     left_disparity_pub_ = std::make_shared<ImagePublisher>(left_node_,
                                                            DISPARITY_TOPIC,
                                                            left_rect_cal,
                                                            qos,
-                                                           create_publisher_options({ds::LEFT_DISPARITY_RAW}),
+                                                           create_publisher_options({ds::LEFT_DISPARITY_RAW},
+                                                                                    get_full_topic_name(left_node_, DISPARITY_TOPIC)),
                                                            use_image_transport);
 
     left_disparity_cost_pub_ = std::make_shared<ImagePublisher>(left_node_,
                                                                 COST_TOPIC,
                                                                 left_rect_cal,
                                                                 qos,
-                                                                create_publisher_options({ds::COST_RAW}),
+                                                                create_publisher_options({ds::COST_RAW},
+                                                                                         get_full_topic_name(left_node_, COST_TOPIC)),
                                                                 use_image_transport);
 
     if (has_aux_camera_)
@@ -724,49 +732,59 @@ MultiSense::MultiSense(const std::string& node_name,
                                                              MONO_TOPIC,
                                                              aux_cal,
                                                              qos,
-                                                             create_publisher_options({ds::AUX_LUMA_RAW}),
+                                                             create_publisher_options({ds::AUX_LUMA_RAW},
+                                                                                      get_full_topic_name(aux_node_, MONO_TOPIC)),
                                                              use_image_transport);
 
         aux_rgb_cam_pub_ = std::make_shared<ImagePublisher>(aux_node_,
                                                             COLOR_TOPIC,
                                                             aux_cal,
                                                             qos,
-                                                            create_publisher_options({ds::AUX_RAW}),
+                                                            create_publisher_options({ds::AUX_RAW},
+                                                                                     get_full_topic_name(aux_node_, COST_TOPIC)),
                                                             use_image_transport);
 
         aux_rect_cam_pub_ = std::make_shared<ImagePublisher>(aux_node_,
                                                              RECT_TOPIC,
                                                              aux_rect_cal,
                                                              qos,
-                                                             create_publisher_options({ds::AUX_LUMA_RECTIFIED_RAW}),
+                                                             create_publisher_options({ds::AUX_LUMA_RECTIFIED_RAW},
+                                                                                      get_full_topic_name(aux_node_, RECT_TOPIC)),
                                                              use_image_transport);
 
         aux_rgb_rect_cam_pub_ = std::make_shared<ImagePublisher>(aux_node_,
                                                                  RECT_COLOR_TOPIC,
                                                                  aux_rect_cal,
                                                                  qos,
-                                                                 create_publisher_options({ds::AUX_RECTIFIED_RAW}),
+                                                                 create_publisher_options({ds::AUX_RECTIFIED_RAW},
+                                                                                          get_full_topic_name(aux_node_, RECT_COLOR_TOPIC)),
                                                                  use_image_transport);
 
         color_point_cloud_pub_= create_publisher<sensor_msgs::msg::PointCloud2>(COLOR_POINTCLOUD_TOPIC,
                                                                                 qos,
                                                                                 create_publisher_options({ds::LEFT_DISPARITY_RAW,
-                                                                                                          ds::AUX_RECTIFIED_RAW}));
+                                                                                                          ds::AUX_RECTIFIED_RAW},
+                                                                                          get_full_topic_name(aux_node_, COLOR_POINTCLOUD_TOPIC)));
     }
 
     luma_point_cloud_pub_= create_publisher<sensor_msgs::msg::PointCloud2>(POINTCLOUD_TOPIC,
                                                                            qos,
                                                                            create_publisher_options({ds::LEFT_DISPARITY_RAW,
-                                                                                                     ds::LEFT_RECTIFIED_RAW}));
+                                                                                                     ds::LEFT_RECTIFIED_RAW},
+                                                                                          get_full_topic_name(aux_node_, POINTCLOUD_TOPIC)));
 
     left_stereo_disparity_pub_ =
         left_node_->create_publisher<stereo_msgs::msg::DisparityImage>(DISPARITY_IMAGE_TOPIC,
                                                                        qos,
-                                                                       create_publisher_options({ds::LEFT_DISPARITY_RAW}));
+                                                                       create_publisher_options({ds::LEFT_DISPARITY_RAW},
+                                                                                                get_full_topic_name(aux_node_, DISPARITY_IMAGE_TOPIC)));
 
     if (info_.imu)
     {
-        imu_pub_ = imu_node_->create_publisher<sensor_msgs::msg::Imu>(IMU_TOPIC, qos, create_publisher_options({ds::IMU}));
+        imu_pub_ = imu_node_->create_publisher<sensor_msgs::msg::Imu>(IMU_TOPIC,
+                                                                      qos,
+                                                                      create_publisher_options({ds::IMU},
+                                                                                               get_full_topic_name(aux_node_, IMU_TOPIC)));
     }
 
 
@@ -1129,21 +1147,19 @@ void MultiSense::stop()
 
     std::lock_guard<std::mutex> lock{stream_mutex_};
     active_streams_.clear();
+    active_topics_.clear();
 }
 
-rclcpp::PublisherOptions MultiSense::create_publisher_options(const std::vector<multisense::DataSource> &sources)
+rclcpp::PublisherOptions MultiSense::create_publisher_options(const std::vector<multisense::DataSource> &sources,
+                                                              const std::string &topic)
 {
     rclcpp::PublisherOptions options;
     options.event_callbacks.matched_callback =
-        [this, sources](const auto &info)
+        [this, sources, &topic](const auto &info)
         {
             std::lock_guard<std::mutex> lock{this->stream_mutex_};
 
-            // TODO: We get a current_count which is >1 sometimes. We need to handle this. I imagine
-            // we do something like std::map<topic, std::tuple<std::vector<Sources>, subs>> and then
-            // iterate through that struck to get the full set of sources which need to be activated
-
-            if (info.current_count >= 1)
+            if (info.current_count >= 1 && (active_topics_.count(topic) == 0 || active_topics_.at(topic) == 0))
             {
                 for (const auto &source : sources)
                 {
@@ -1157,6 +1173,8 @@ rclcpp::PublisherOptions MultiSense::create_publisher_options(const std::vector<
                     this->active_streams_[source]--;
                 }
             }
+
+            active_topics_[topic] = info.current_count;
 
             std::vector<multisense::DataSource> streams_to_stop{};
             std::vector<multisense::DataSource> start_streams{};
