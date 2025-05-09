@@ -616,7 +616,7 @@ MultiSense::MultiSense(const std::string& node_name,
     // Topics published for all device types
 
     const auto latching_qos = rclcpp::QoS(1).transient_local();
-    const auto default_qos = rclcpp::QoS(1);
+    const auto default_qos = rclcpp::SystemDefaultsQoS();
 
     histogram_pub_ = create_publisher<multisense_msgs::msg::Histogram>(HISTOGRAM_TOPIC, default_qos);
     info_pub_ = create_publisher<multisense_msgs::msg::Info>(INFO_TOPIC, latching_qos);
