@@ -167,6 +167,13 @@ private:
     void initalizeParameters(const crl::multisense::image::Config& config);
 
     //
+    // Helper function to verify that an fps change has been accepted by the camera.
+    // FPS Changes can take time on certain versions of camera firmware.
+    // To verify changes have been accepted by the camera we will poll the value
+    // up to 0.5s.
+    crl::multisense::Status verifyFpsChange(const crl::multisense::image::Config& config);
+
+    //
     // Parameter management
 
     OnSetParametersCallbackHandle::SharedPtr paramter_handle_;
