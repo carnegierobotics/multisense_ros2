@@ -137,6 +137,35 @@ tf2::Matrix3x3 to_rotation(const std::array<std::array<float, 3>, 3> & R)
                           R[2][0], R[2][1], R[2][2]};
 }
 
+lms::CameraCalibration scale_calibration(lms::CameraCalibration calibration, double x_scale, double y_scale)
+{
+    calibration.K[0][0] *= x_scale;
+    calibration.K[0][2] *= x_scale;
+    calibration.K[1][1] *= y_scale;
+    calibration.K[1][2] *= y_scale;
+
+    calibration.P[0][0] *= x_scale;
+    calibration.P[0][2] *= x_scale;
+    calibration.P[0][3] *= x_scale;
+    calibration.P[1][1] *= y_scale;
+    calibration.P[1][2] *= y_scale;
+    calibration.P[1][3] *= y_scale;
+
+    return calibration;
+}
+
+lms::StereoCalibration scale_calibration(lms::StereoCalibration calibration, double x_scale, double y_scale)
+{
+    calibration.left = scale_calibration(std::move(calibration.left), x_scale, y_scale);
+    calibration.right = scale_calibration(std::move(calibration.right), x_scale, y_scale);
+
+    if (calibration.aux)
+    {
+        calibration.aux = scale_calibration(std::move(calibration.aux.value()), x_scale, y_scale);
+    }
+    return calibration;
+}
+
 std_msgs::msg::Header create_header(const rclcpp::Time &stamp, const std::string &frame_id)
 {
     std_msgs::msg::Header header;
@@ -587,7 +616,7 @@ MultiSense::MultiSense(const std::string& node_name,
     // Topics published for all device types
 
     const auto latching_qos = rclcpp::QoS(1).transient_local();
-    const auto default_qos = rclcpp::SystemDefaultsQoS();
+    const auto default_qos = rclcpp::QoS(1);
 
     histogram_pub_ = create_publisher<multisense_msgs::msg::Histogram>(HISTOGRAM_TOPIC, default_qos);
     info_pub_ = create_publisher<multisense_msgs::msg::Info>(INFO_TOPIC, latching_qos);
@@ -601,7 +630,9 @@ MultiSense::MultiSense(const std::string& node_name,
     const auto right_rect_header = create_header( now, frame_id_rectified_right_);
 
     const auto config = channel_->get_config();
-    const auto calibration = channel_->get_calibration();
+    const double x_scale = static_cast<double>(config.width) / static_cast<double>(info_.device.imager_width);
+    const double y_scale = static_cast<double>(config.height) / static_cast<double>(info_.device.imager_height);
+    const auto calibration = scale_calibration(channel_->get_calibration(), x_scale, y_scale);
     const auto left_cal = create_camera_info(calibration.left, left_header, config.width, config.height);
     const auto left_rect_cal = create_camera_info(calibration.left, left_rect_header, config.width, config.height);
     const auto right_cal = create_camera_info(calibration.left, right_header, config.width, config.height);
