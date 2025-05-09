@@ -1155,7 +1155,7 @@ rclcpp::PublisherOptions MultiSense::create_publisher_options(const std::vector<
 {
     rclcpp::PublisherOptions options;
     options.event_callbacks.matched_callback =
-        [this, sources, &topic](const auto &info)
+        [this, sources, topic](const auto &info)
         {
             std::lock_guard<std::mutex> lock{this->stream_mutex_};
 
