@@ -298,30 +298,35 @@ void publish_point_cloud(const lms::PointCloud<Color> &point_cloud,
 {
     ros_point_cloud.is_bigendian = (htonl(1) == 1);
     ros_point_cloud.is_dense = true;
-    ros_point_cloud.point_step = sizeof(lms::Point<Color>);
     ros_point_cloud.header.frame_id = frame_id;
     ros_point_cloud.fields.reserve(4);
     ros_point_cloud.fields.resize(3);
+    ros_point_cloud.point_step = 0;
     ros_point_cloud.fields[0].name     = "x";
     ros_point_cloud.fields[0].offset   = 0;
     ros_point_cloud.fields[0].count    = 1;
     ros_point_cloud.fields[0].datatype = sensor_msgs::msg::PointField::FLOAT32;
+    ros_point_cloud.point_step += sizeof(float);
     ros_point_cloud.fields[1].name     = "y";
     ros_point_cloud.fields[1].offset   = sizeof(float);
     ros_point_cloud.fields[1].count    = 1;
     ros_point_cloud.fields[1].datatype = sensor_msgs::msg::PointField::FLOAT32;
+    ros_point_cloud.point_step += sizeof(float);
     ros_point_cloud.fields[2].name     = "z";
     ros_point_cloud.fields[2].offset   = 2 * sizeof(float);
     ros_point_cloud.fields[2].count    = 1;
     ros_point_cloud.fields[2].datatype = sensor_msgs::msg::PointField::FLOAT32;
+    ros_point_cloud.point_step += sizeof(float);
 
     if constexpr (std::is_same_v<Color, std::array<uint8_t, 3>>)
     {
+
         ros_point_cloud.fields.resize(4);
         ros_point_cloud.fields[3].name = "bgr";
         ros_point_cloud.fields[3].offset = 3 * sizeof(float);
         ros_point_cloud.fields[3].count = 1;
         ros_point_cloud.fields[3].datatype = sensor_msgs::msg::PointField::FLOAT32;
+        ros_point_cloud.point_step += sizeof(float);
 
         //
         // Unfortunately we need to iterate and write our points to the output buffer since we need to convert
@@ -351,6 +356,7 @@ void publish_point_cloud(const lms::PointCloud<Color> &point_cloud,
         ros_point_cloud.fields[3].offset = 3 * sizeof(float);
         ros_point_cloud.fields[3].count = 1;
         ros_point_cloud.fields[3].datatype = sensor_msgs::msg::PointField::UINT8;
+        ros_point_cloud.point_step += sizeof(uint8_t);
 
         ros_point_cloud.data.resize(point_cloud.cloud.size() * sizeof(lms::Point<Color>));
         memcpy(&ros_point_cloud.data[0], reinterpret_cast<const uint8_t*>(point_cloud.cloud.data()), ros_point_cloud.data.size());
@@ -362,6 +368,7 @@ void publish_point_cloud(const lms::PointCloud<Color> &point_cloud,
         ros_point_cloud.fields[3].offset = 3 * sizeof(float);
         ros_point_cloud.fields[3].count = 1;
         ros_point_cloud.fields[3].datatype = sensor_msgs::msg::PointField::UINT16;
+        ros_point_cloud.point_step += sizeof(uint16_t);
 
         ros_point_cloud.data.resize(point_cloud.cloud.size() * sizeof(lms::Point<Color>));
         memcpy(&ros_point_cloud.data[0], reinterpret_cast<const uint8_t*>(point_cloud.cloud.data()), ros_point_cloud.data.size());
