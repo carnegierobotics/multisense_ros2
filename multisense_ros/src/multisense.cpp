@@ -1548,6 +1548,8 @@ rcl_interfaces::msg::SetParametersResult MultiSense::parameter_callback(const st
 
     param_listener_->update(parameters);
 
+    pointcloud_max_range_ = param_listener_->get_params().pointcloud_max_range;
+
     for (const auto &parameter : parameters)
     {
         const auto type = parameter.get_type();
