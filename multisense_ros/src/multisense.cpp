@@ -1350,7 +1350,7 @@ void MultiSense::publish_status(const multisense::MultiSenseStatus &status)
 
     if (status.temperature)
     {
-        output.power_supply_temp = status.temperature->power_supply_temperature;
+        output.cpu_temp = status.temperature->cpu_temperature;
         output.fpga_temp = status.temperature->fpga_temperature;
         output.left_imager_temp = status.temperature->left_imager_temperature;
         output.right_imager_temp = status.temperature->right_imager_temperature;

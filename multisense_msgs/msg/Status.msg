@@ -6,7 +6,7 @@ bool system_ok
 bool cameras_ok
 bool processing_pipeline_ok
 
-float32 power_supply_temp
+float32 cpu_temp
 float32 fpga_temp
 float32 left_imager_temp
 float32 right_imager_temp
