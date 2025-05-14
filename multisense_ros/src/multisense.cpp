@@ -320,32 +320,32 @@ void publish_point_cloud(const lms::PointCloud<Color> &point_cloud,
 
     if constexpr (std::is_same_v<Color, std::array<uint8_t, 3>>)
     {
-
         ros_point_cloud.fields.resize(4);
-        ros_point_cloud.fields[3].name = "bgr";
+        ros_point_cloud.fields[3].name = "rgb";
         ros_point_cloud.fields[3].offset = 3 * sizeof(float);
         ros_point_cloud.fields[3].count = 1;
         ros_point_cloud.fields[3].datatype = sensor_msgs::msg::PointField::FLOAT32;
         ros_point_cloud.point_step += sizeof(float);
 
-        //
-        // Unfortunately we need to iterate and write our points to the output buffer since we need to convert
-        // bgr pixels to rgb pixels, and pad them with an extra 8 bits to align with the FLOAT32 boundary
+        const size_t num_fields = ros_point_cloud.fields.size();
 
-        ros_point_cloud.data.resize(point_cloud.cloud.size() * (sizeof(lms::Point<Color>) + 1));
+        //
+        // Unfortunately we need to iterate and write our points to the output buffer since we need to
+        // pad color pixels with an extra 8 bits to align with the FLOAT32 boundary
+        ros_point_cloud.data.resize(point_cloud.cloud.size() * (ros_point_cloud.point_step));
         auto point_cloud_p = reinterpret_cast<float*>(ros_point_cloud.data.data());
         for (size_t i = 0; i < point_cloud.cloud.size(); ++i)
         {
-            point_cloud_p[i + 0] = point_cloud.cloud[i].x;
-            point_cloud_p[i + 1] = point_cloud.cloud[i].y;
-            point_cloud_p[i + 2] = point_cloud.cloud[i].z;
+            point_cloud_p[i * num_fields + 0] = point_cloud.cloud[i].x;
+            point_cloud_p[i * num_fields + 1] = point_cloud.cloud[i].y;
+            point_cloud_p[i * num_fields + 2] = point_cloud.cloud[i].z;
 
             const uint32_t rgb = static_cast<uint32_t>(0) |
                                  (static_cast<uint32_t>(point_cloud.cloud[i].color[2]) << 16) |
                                  (static_cast<uint32_t>(point_cloud.cloud[i].color[1]) << 8) |
                                  (static_cast<uint32_t>(point_cloud.cloud[i].color[0]));
 
-            auto color_p = reinterpret_cast<uint32_t*>(&point_cloud_p[i + 3]);
+            auto color_p = reinterpret_cast<uint32_t*>(&point_cloud_p[i * num_fields + 3]);
             color_p[0] = rgb;
         }
     }
@@ -783,26 +783,26 @@ MultiSense::MultiSense(const std::string& node_name,
     point_cloud_pub_= create_publisher<sensor_msgs::msg::PointCloud2>(POINTCLOUD_TOPIC,
                                                                       qos,
                                                                       create_publisher_options({ds::LEFT_DISPARITY_RAW},
-                                                                                     get_full_topic_name(shared_from_this(), POINTCLOUD_TOPIC)));
+                                                                                     get_full_topic_name(left_node_, POINTCLOUD_TOPIC)));
 
     luma_point_cloud_pub_= create_publisher<sensor_msgs::msg::PointCloud2>(LUMA_POINTCLOUD_TOPIC,
                                                                            qos,
                                                                            create_publisher_options({ds::LEFT_DISPARITY_RAW,
                                                                                                      ds::LEFT_RECTIFIED_RAW},
-                                                                                          get_full_topic_name(shared_from_this(), LUMA_POINTCLOUD_TOPIC)));
+                                                                                          get_full_topic_name(left_node_, LUMA_POINTCLOUD_TOPIC)));
 
     left_stereo_disparity_pub_ =
         left_node_->create_publisher<stereo_msgs::msg::DisparityImage>(DISPARITY_IMAGE_TOPIC,
                                                                        qos,
                                                                        create_publisher_options({ds::LEFT_DISPARITY_RAW},
-                                                                                                get_full_topic_name(shared_from_this(), DISPARITY_IMAGE_TOPIC)));
+                                                                                                get_full_topic_name(left_node_, DISPARITY_IMAGE_TOPIC)));
 
     if (info_.imu)
     {
         imu_pub_ = imu_node_->create_publisher<sensor_msgs::msg::Imu>(IMU_TOPIC,
                                                                       qos,
                                                                       create_publisher_options({ds::IMU},
-                                                                                               get_full_topic_name(shared_from_this(), IMU_TOPIC)));
+                                                                                               get_full_topic_name(left_node_, IMU_TOPIC)));
     }
 
 
@@ -1067,7 +1067,8 @@ void MultiSense::point_cloud_publisher()
                                             frame_id_rectified_left_);
                     }
                 }
-                else if (num_subscribers(this, LUMA_POINTCLOUD_TOPIC) > 0 && image_frame->has_image(lms::DataSource::LEFT_RECTIFIED_RAW))
+
+                if (num_subscribers(this, LUMA_POINTCLOUD_TOPIC) > 0 && image_frame->has_image(lms::DataSource::LEFT_RECTIFIED_RAW))
                 {
                     const auto color_format = image_frame->get_image(lms::DataSource::LEFT_RECTIFIED_RAW).format;
 
