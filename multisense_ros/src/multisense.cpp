@@ -373,6 +373,11 @@ void publish_point_cloud(const lms::PointCloud<Color> &point_cloud,
         ros_point_cloud.data.resize(point_cloud.cloud.size() * sizeof(lms::Point<Color>));
         memcpy(&ros_point_cloud.data[0], reinterpret_cast<const uint8_t*>(point_cloud.cloud.data()), ros_point_cloud.data.size());
     }
+    else if constexpr (std::is_same_v<Color, void>)
+    {
+        ros_point_cloud.data.resize(point_cloud.cloud.size() * sizeof(lms::Point<Color>));
+        memcpy(&ros_point_cloud.data[0], reinterpret_cast<const uint8_t*>(point_cloud.cloud.data()), ros_point_cloud.data.size());
+    }
 
     ros_point_cloud.width = point_cloud.cloud.size();
     ros_point_cloud.height = 1;
@@ -580,6 +585,7 @@ constexpr char MultiSense::COST_TOPIC[];
 constexpr char MultiSense::COLOR_TOPIC[];
 constexpr char MultiSense::RECT_COLOR_TOPIC[];
 constexpr char MultiSense::POINTCLOUD_TOPIC[];
+constexpr char MultiSense::LUMA_POINTCLOUD_TOPIC[];
 constexpr char MultiSense::COLOR_POINTCLOUD_TOPIC[];
 constexpr char MultiSense::ORGANIZED_POINTCLOUD_TOPIC[];
 constexpr char MultiSense::COLOR_ORGANIZED_POINTCLOUD_TOPIC[];
@@ -774,24 +780,29 @@ MultiSense::MultiSense(const std::string& node_name,
                                                                                           get_full_topic_name(aux_node_, COLOR_POINTCLOUD_TOPIC)));
     }
 
-    luma_point_cloud_pub_= create_publisher<sensor_msgs::msg::PointCloud2>(POINTCLOUD_TOPIC,
+    point_cloud_pub_= create_publisher<sensor_msgs::msg::PointCloud2>(POINTCLOUD_TOPIC,
+                                                                      qos,
+                                                                      create_publisher_options({ds::LEFT_DISPARITY_RAW},
+                                                                                     get_full_topic_name(shared_from_this(), POINTCLOUD_TOPIC)));
+
+    luma_point_cloud_pub_= create_publisher<sensor_msgs::msg::PointCloud2>(LUMA_POINTCLOUD_TOPIC,
                                                                            qos,
                                                                            create_publisher_options({ds::LEFT_DISPARITY_RAW,
                                                                                                      ds::LEFT_RECTIFIED_RAW},
-                                                                                          get_full_topic_name(aux_node_, POINTCLOUD_TOPIC)));
+                                                                                          get_full_topic_name(shared_from_this(), LUMA_POINTCLOUD_TOPIC)));
 
     left_stereo_disparity_pub_ =
         left_node_->create_publisher<stereo_msgs::msg::DisparityImage>(DISPARITY_IMAGE_TOPIC,
                                                                        qos,
                                                                        create_publisher_options({ds::LEFT_DISPARITY_RAW},
-                                                                                                get_full_topic_name(aux_node_, DISPARITY_IMAGE_TOPIC)));
+                                                                                                get_full_topic_name(shared_from_this(), DISPARITY_IMAGE_TOPIC)));
 
     if (info_.imu)
     {
         imu_pub_ = imu_node_->create_publisher<sensor_msgs::msg::Imu>(IMU_TOPIC,
                                                                       qos,
                                                                       create_publisher_options({ds::IMU},
-                                                                                               get_full_topic_name(aux_node_, IMU_TOPIC)));
+                                                                                               get_full_topic_name(shared_from_this(), IMU_TOPIC)));
     }
 
 
@@ -1042,7 +1053,21 @@ void MultiSense::point_cloud_publisher()
         {
             if (image_frame->has_image(disparity_source))
             {
-                if (num_subscribers(this, POINTCLOUD_TOPIC) > 0 && image_frame->has_image(lms::DataSource::LEFT_RECTIFIED_RAW))
+                if (num_subscribers(this, POINTCLOUD_TOPIC) > 0)
+                {
+                    if (const auto point_cloud = lms::create_pointcloud(image_frame.value(),
+                                                                        pointcloud_max_range_,
+                                                                        disparity_source);
+                                                                        point_cloud)
+                    {
+                        publish_point_cloud(point_cloud.value(),
+                                            use_ptp_time_ ? image_frame->ptp_frame_time : image_frame->frame_time,
+                                            point_cloud_pub_,
+                                            point_cloud_,
+                                            frame_id_rectified_left_);
+                    }
+                }
+                else if (num_subscribers(this, LUMA_POINTCLOUD_TOPIC) > 0 && image_frame->has_image(lms::DataSource::LEFT_RECTIFIED_RAW))
                 {
                     const auto color_format = image_frame->get_image(lms::DataSource::LEFT_RECTIFIED_RAW).format;
 

@@ -172,7 +172,8 @@ private:
     static constexpr char COST_TOPIC[] = "cost";
     static constexpr char COLOR_TOPIC[] = "image_color";
     static constexpr char RECT_COLOR_TOPIC[] = "image_rect_color";
-    static constexpr char POINTCLOUD_TOPIC[] = "image_points2";
+    static constexpr char POINTCLOUD_TOPIC[] = "points2";
+    static constexpr char LUMA_POINTCLOUD_TOPIC[] = "image_points2";
     static constexpr char COLOR_POINTCLOUD_TOPIC[] = "image_points2_color";
     static constexpr char ORGANIZED_POINTCLOUD_TOPIC[] = "organized_image_points2";
     static constexpr char COLOR_ORGANIZED_POINTCLOUD_TOPIC[] = "organized_image_points2_color";
@@ -313,6 +314,7 @@ private:
 
     rclcpp::Publisher<stereo_msgs::msg::DisparityImage>::SharedPtr left_stereo_disparity_pub_ = nullptr;
 
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr point_cloud_pub_ = nullptr;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr luma_point_cloud_pub_ = nullptr;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr color_point_cloud_pub_ = nullptr;
 
@@ -332,6 +334,7 @@ private:
     sensor_msgs::msg::Image         right_rect_image_{};
     sensor_msgs::msg::Image         depth_image_{};
     sensor_msgs::msg::Image         ni_depth_image_{};
+    sensor_msgs::msg::PointCloud2   point_cloud_{};
     sensor_msgs::msg::PointCloud2   luma_point_cloud_{};
     sensor_msgs::msg::PointCloud2   color_point_cloud_{};
     sensor_msgs::msg::PointCloud2   luma_organized_point_cloud_{};
