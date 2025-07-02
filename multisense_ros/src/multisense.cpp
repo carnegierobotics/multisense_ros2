@@ -653,8 +653,8 @@ MultiSense::MultiSense(const std::string& node_name,
     const auto calibration = scale_calibration(channel_->get_calibration(), x_scale, y_scale);
     const auto left_cal = create_camera_info(calibration.left, left_header, config.width, config.height);
     const auto left_rect_cal = create_camera_info(calibration.left, left_rect_header, config.width, config.height);
-    const auto right_cal = create_camera_info(calibration.left, right_header, config.width, config.height);
-    const auto right_rect_cal = create_camera_info(calibration.left, right_rect_header, config.width, config.height);
+    const auto right_cal = create_camera_info(calibration.right, right_header, config.width, config.height);
+    const auto right_rect_cal = create_camera_info(calibration.right, right_rect_header, config.width, config.height);
 
     //
     // Image publishers
@@ -754,7 +754,7 @@ MultiSense::MultiSense(const std::string& node_name,
                                                             aux_cal,
                                                             qos,
                                                             create_publisher_options({ds::AUX_RAW},
-                                                                                     get_full_topic_name(aux_node_, COST_TOPIC)),
+                                                                                     get_full_topic_name(aux_node_, COLOR_TOPIC)),
                                                             use_image_transport);
 
         aux_rect_cam_pub_ = std::make_shared<ImagePublisher>(aux_node_,
