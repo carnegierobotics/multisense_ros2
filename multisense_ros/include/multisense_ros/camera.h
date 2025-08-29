@@ -53,6 +53,8 @@
 
 #include <multisense_ros/camera_utilities.h>
 
+#include <optional>
+
 namespace multisense_ros {
 
 enum class BorderClip {NONE, RECTANGULAR, CIRCULAR};
