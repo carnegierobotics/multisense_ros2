@@ -63,6 +63,18 @@ struct ParameterStep
     double delta = 0.0;
 };
 
+bool is_imu_sample_time_valid(const lms::ImuSample &sample, bool use_ptp_time)
+{
+    return use_ptp_time ? sample.ptp_sample_time.time_since_epoch().count() >= 0 :
+                          sample.sample_time.time_since_epoch().count() > 0;
+}
+
+bool is_frame_time_valid(const lms::ImageFrame &frame, bool use_ptp_time)
+{
+    return use_ptp_time ? frame.ptp_frame_time.time_since_epoch().count() >= 0 :
+                          frame.frame_time.time_since_epoch().count() > 0;
+}
+
 bool is_gen2_camera(const lms::MultiSenseInfo::DeviceInfo::HardwareRevision &camera_type)
 {
     return (camera_type == lms::MultiSenseInfo::DeviceInfo::HardwareRevision::S27 ||
@@ -902,7 +914,7 @@ void MultiSense::image_publisher()
     {
         if (const auto image_frame = image_frame_notifier_.wait(timeout) ; image_frame)
         {
-            if (image_frame->frame_time.time_since_epoch().count() <= 0)
+            if (!is_frame_time_valid(image_frame.value(), use_ptp_time_))
             {
                 RCLCPP_WARN(get_logger(), "FrameId %ld has a negative or zero time. Skipping image publish", image_frame->frame_id);
                 continue;
@@ -1031,6 +1043,12 @@ void MultiSense::depth_publisher()
     {
         if (const auto image_frame = image_frame_notifier_.wait(timeout) ; image_frame)
         {
+            if (!is_frame_time_valid(image_frame.value(), use_ptp_time_))
+            {
+                RCLCPP_WARN(get_logger(), "FrameId %ld has a negative or zero time. Skipping image publish", image_frame->frame_id);
+                continue;
+            }
+
             if (image_frame->has_image(disparity_source))
             {
                 if (num_subscribers(left_node_, DEPTH_TOPIC) > 0)
@@ -1070,6 +1088,12 @@ void MultiSense::point_cloud_publisher()
     {
         if (const auto image_frame = image_frame_notifier_.wait(timeout) ; image_frame)
         {
+            if (!is_frame_time_valid(image_frame.value(), use_ptp_time_))
+            {
+                RCLCPP_WARN(get_logger(), "FrameId %ld has a negative or zero time. Skipping image publish", image_frame->frame_id);
+                continue;
+            }
+
             if (image_frame->has_image(disparity_source))
             {
                 if (num_subscribers(this, POINTCLOUD_TOPIC) > 0)
@@ -1156,6 +1180,12 @@ void MultiSense::color_publisher()
     {
         if (const auto image_frame = image_frame_notifier_.wait(timeout) ; image_frame)
         {
+            if (!is_frame_time_valid(image_frame.value(), use_ptp_time_))
+            {
+                RCLCPP_WARN(get_logger(), "FrameId %ld has a negative or zero time. Skipping image publish", image_frame->frame_id);
+                continue;
+            }
+
             if (num_subscribers(aux_node_, COLOR_TOPIC) > 0)
             {
                 if (auto bgr_image = lms::create_bgr_image(image_frame.value(), lms::DataSource::AUX_RAW); bgr_image)
@@ -1184,6 +1214,12 @@ void MultiSense::imu_publisher()
         {
             for (const auto &sample : imu_frame->samples)
             {
+                if (!is_imu_sample_time_valid(sample, use_ptp_time_))
+                {
+                    RCLCPP_WARN(get_logger(), "IMU smaple has a negative or zero time. Skipping sample publish");
+                    continue;
+                }
+
                 publish_imu_sample(sample, imu_pub_, frame_id_imu_, use_ptp_time_);
             }
         }
