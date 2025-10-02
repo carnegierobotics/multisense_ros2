@@ -63,7 +63,7 @@ struct ParameterStep
     double delta = 0.0;
 };
 
-bool is_modern_camera(const lms::MultiSenseInfo::DeviceInfo::HardwareRevision &camera_type)
+bool is_gen2_camera(const lms::MultiSenseInfo::DeviceInfo::HardwareRevision &camera_type)
 {
     return (camera_type == lms::MultiSenseInfo::DeviceInfo::HardwareRevision::S27 ||
             camera_type == lms::MultiSenseInfo::DeviceInfo::HardwareRevision::S30 ||
@@ -74,6 +74,13 @@ bool is_modern_camera(const lms::MultiSenseInfo::DeviceInfo::HardwareRevision &c
 
 std::chrono::microseconds get_closest_exposure(uint32_t exposure_us, uint32_t min, double step)
 {
+    if (step == 0.0)
+    {
+        std::cerr << "Exposure step size is invalid. Cannot find closest exposure" << std::endl;
+        return std::chrono::microseconds(exposure_us);
+
+    }
+
     return std::chrono::microseconds{static_cast<uint32_t>(std::floor((std::floor(static_cast<double>(exposure_us - min) / step) * step) + min))};
 }
 
@@ -482,7 +489,7 @@ multisense::MultiSenseConfig update_param_config(multisense::MultiSenseConfig co
 
     config.image_config = update_param_config(std::move(config.image_config),
                                               params.image,
-                                              is_modern_camera(camera_type) ?
+                                              is_gen2_camera(camera_type) ?
                                                 std::make_optional(ParameterStep{20.0, 10.0125}) : std::nullopt,
                                               false);
 
@@ -490,7 +497,7 @@ multisense::MultiSenseConfig update_param_config(multisense::MultiSenseConfig co
     {
         config.aux_config->image_config = update_param_config(std::move(config.aux_config->image_config),
                                                               params.aux.image,
-                                                              is_modern_camera(camera_type) ?
+                                                              is_gen2_camera(camera_type) ?
                                                                 std::make_optional(ParameterStep{20.0, 10.096875}) :
                                                                 std::nullopt,
                                                               true);
@@ -620,6 +627,11 @@ MultiSense::MultiSense(const std::string& node_name,
     static_tf_broadcaster_(std::make_shared<tf2_ros::StaticTransformBroadcaster>(*this))
 {
     using namespace std::chrono_literals;
+
+    if (channel_ == nullptr)
+    {
+        throw std::runtime_error("Invalid channel");
+    }
 
     //
     // All streams off
@@ -1381,12 +1393,12 @@ void MultiSense::publish_status(const multisense::MultiSenseStatus &status)
     status_pub_->publish(std::make_unique<multisense_msgs::msg::Status>(std::move(output)));
 }
 
-size_t MultiSense::num_subscribers(const rclcpp::Node::SharedPtr node, const std::string &topic)
+size_t MultiSense::num_subscribers(const rclcpp::Node::SharedPtr &node, const std::string &topic) const
 {
     return num_subscribers(node.get(), topic);
 }
 
-size_t MultiSense::num_subscribers(const rclcpp::Node* node, const std::string &topic)
+size_t MultiSense::num_subscribers(const rclcpp::Node* node, const std::string &topic) const
 {
     const std::string full_topic = node->get_sub_namespace().empty() ? topic : node->get_sub_namespace()  + "/" + topic;
 
@@ -1448,11 +1460,11 @@ void MultiSense::initialize_parameters(const multisense::MultiSenseConfig &confi
 
     //
     // If our main image pair does not support color, make sure we explicitly disable white balance. If
-    // we could undeclare the parameter
+    // we could undeclare the parameter, we would, but that interface does not seem to work
 
     if (!info.device.has_main_stereo_color())
     {
-        set_parameters(std::vector<rclcpp::Parameter>{rclcpp::Parameter{"image.auto_white_balance_enabled", false}});
+        set_parameter(rclcpp::Parameter{"image.auto_white_balance_enabled", false});
     }
 
     //
