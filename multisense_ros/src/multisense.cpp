@@ -902,6 +902,12 @@ void MultiSense::image_publisher()
     {
         if (const auto image_frame = image_frame_notifier_.wait(timeout) ; image_frame)
         {
+            if (image_frame->frame_time.time_since_epoch().count() <= 0)
+            {
+                RCLCPP_WARN(get_logger(), "FrameId %ld has a negative or zero time. Skipping image publish", image_frame->frame_id);
+                continue;
+            }
+
             if (image_frame->stereo_histogram)
             {
                 multisense_msgs::msg::Histogram histogram;
