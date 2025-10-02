@@ -628,7 +628,7 @@ MultiSense::MultiSense(const std::string& node_name,
 {
     using namespace std::chrono_literals;
 
-    if (channel_ == nullptr)
+    if (!channel_)
     {
         throw std::runtime_error("Invalid channel");
     }
