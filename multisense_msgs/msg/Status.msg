@@ -1,0 +1,26 @@
+builtin_interfaces/Time host_time
+builtin_interfaces/Time camera_time
+builtin_interfaces/Time network_delay
+
+bool system_ok
+bool cameras_ok
+bool processing_pipeline_ok
+
+float32 cpu_temp
+float32 fpga_temp
+float32 left_imager_temp
+float32 right_imager_temp
+float32 input_voltage
+float32 input_current
+float32 fpga_power
+
+bool ptp_valid
+bool ptp_grandmaster_present
+uint8[8] ptp_grandmaster_id
+int64 ptp_grandmaster_offset
+int64 ptp_path_delay
+int16 ptp_steps_removed
+
+int64 received_messages
+int64 dropped_messages
+int64 invalid_packets

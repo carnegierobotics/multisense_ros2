@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.5)
 
 project(multisense_msgs)
 
-# Default to C++14
+# Default to C++17
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -23,17 +23,9 @@ find_package(builtin_interfaces REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 set(msg_files
-    "msg/DeviceInfo.msg"
-    "msg/RawCamConfig.msg"
-    "msg/RawImuData.msg"
-    "msg/RawLidarData.msg"
-    "msg/RawCamCal.msg"
-    "msg/RawCamData.msg"
-    "msg/RawLidarCal.msg"
     "msg/Histogram.msg"
-    "msg/DeviceStatus.msg"
-    "msg/PtpStatus.msg"
-    "msg/StampedPps.msg")
+    "msg/Info.msg"
+    "msg/Status.msg")
 
 rosidl_generate_interfaces(${PROJECT_NAME}
                            ${msg_files}

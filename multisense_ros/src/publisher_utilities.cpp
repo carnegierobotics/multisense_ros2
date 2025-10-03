@@ -1,10 +1,10 @@
 /**
- * @file parameter_utilities.h
+ * @file publisher_utilities.cpp
  *
- * Copyright 2020
+ * Copyright 2025
  * Carnegie Robotics, LLC
  * 4501 Hatfield Street, Pittsburgh, PA 15201
- * http://www.carnegierobotics.com
+ * https://www.carnegierobotics.com
  *
  * All rights reserved.
  *
@@ -31,16 +31,13 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#ifndef MULTISENSE_ROS_UTILITY_H
-#define MULTISENSE_ROS_UTILITY_H
-
-#include <rclcpp/rclcpp.hpp>
+#include "multisense_ros/publisher_utilities.h"
 
 namespace multisense_ros {
 
-template <typename T>
-T get_as_number(const rclcpp::Parameter &parameter);
+std::string get_full_topic_name(const rclcpp::Node::SharedPtr node, const std::string &topic_name)
+{
+    return node->get_effective_namespace() + "/" + topic_name;
+}
 
-}// namespace
-
-#endif
+}

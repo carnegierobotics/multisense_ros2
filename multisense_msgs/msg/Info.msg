@@ -36,3 +36,7 @@ uint16 firmware_version
 uint64 bitstream_version
 uint64 bitstream_magic
 uint64 fpga_dna
+
+string ip_address
+string gateway
+string netmask

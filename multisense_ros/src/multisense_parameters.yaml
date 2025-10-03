@@ -1,0 +1,327 @@
+multisense:
+  sensor_resolution:
+      type: none
+      description: "Operating resolution for the MultiSense stored as [width, height, disparity]"
+  fps:
+      type: int
+      default_value: 10
+      description: "The number of image frames per second the camera will send"
+      validation:
+          bounds<>: [1, 30]
+  stereo:
+    postfilter_strength:
+        type: double
+        default_value: 0.85
+        description: "The confidence filtering level to apply to stereo matches. Larger numbers indicate more aggressive filtering"
+        validation:
+            bounds<>: [0.0, 1.0]
+  image:
+    gamma:
+        type: double
+        default_value: 2.2
+        description: "The gamma correction to apply to the main stereo pair"
+        validation:
+            bounds<>: [1.0, 2.2]
+    auto_exposure_enabled:
+        type: bool
+        default_value: true
+        description: "Enable auto exposure"
+    manual_exposure:
+      exposure_time:
+          type: int
+          default_value: 10000
+          description: "The sensor exposure time in microseconds"
+          validation:
+              bounds<>: [0, 33000]
+      gain:
+          type: double
+          default_value: 1.68421
+          description: "The analog and digital sensor gain"
+          validation:
+              bounds<>: [1.68421, 16.0]
+    auto_exposure:
+      max_exposure_time:
+          type: int
+          default_value: 10000
+          description: "The max auto exposure time in microseconds"
+          validation:
+              bounds<>: [0, 33000]
+      decay:
+          type: int
+          default_value: 3
+          description: "The auto exposure decay rate. Larger values increase the number of frames for the desired exposure to apply"
+          validation:
+              bounds<>: [0, 20]
+      target_intensity:
+          type: double
+          default_value: 0.5
+          description: "The auto-exposure algorithm in digital imaging endeavors to achieve a specified target intensity,
+                        which is represented as a ratio. This ratio, when multiplied by the maximum potential pixel
+                        brightness (255 for 8-bit images), produces the 'target auto-exposure pixel value'. The algorithm
+                        then adjusts the exposure of the camera to ensure a given 'target threshold' percentage of
+                        image pixels fall below this target intensity. This process maintains an ideal brightness balance,
+                        preventing overexposure or underexposure."
+          validation:
+              bounds<>: [0, 1.0]
+      target_threshold:
+          type: double
+          default_value: 0.85
+          description: "The fraction of pixels which must be equal or below the pixel value set by the target intensity pixel value"
+          validation:
+              bounds<>: [0, 1.0]
+      max_gain:
+          type: double
+          default_value: 2.0
+          description: "The max gain value the auto exposure algorithm can use to increase image brightness"
+          validation:
+              bounds<>: [1.68421, 16.0]
+      roi:
+        type: int_array
+        default_value: [0, 0, 0, 0]
+        description: "Controls for the region of interest auto exposure. Controlls are in the full resolution image.
+                       The settings order is [top_left_x, top_left_y, width, height]. A value of all zeros disables
+                       the ROI"
+    auto_white_balance_enabled:
+        type: bool
+        default_value: true
+        description: "Enable auto white balance"
+    manual_white_balance:
+      red:
+          type: double
+          default_value: 1.0
+          description: "The red white balance setting for manual white balance control"
+          validation:
+              bounds<>: [.25, 4]
+      blue:
+          type: double
+          default_value: 1.0
+          description: "The blue white balance setting for manual white balance control"
+          validation:
+              bounds<>: [.25, 4]
+    auto_white_balance:
+      decay:
+          type: int
+          default_value: 3
+          description: "The decay rate used for auto-white-balance"
+          validation:
+              bounds<>: [0, 20]
+      threshold:
+          type: double
+          default_value: 1.0
+          description: "The threshold for the auto white balance algorithm"
+          validation:
+              bounds<>: [0.0, 1.0]
+  aux:
+    image:
+      gamma:
+          type: double
+          default_value: 2.2
+          description: "The gamma correction to apply to the main stereo pair"
+          validation:
+              bounds<>: [1.0, 2.2]
+      auto_exposure_enabled:
+          type: bool
+          default_value: true
+          description: "Enable auto exposure"
+      manual_exposure:
+        exposure_time:
+            type: int
+            default_value: 10000
+            description: "The sensor exposure time in microseconds"
+            validation:
+                bounds<>: [0, 33000]
+        gain:
+            type: double
+            default_value: 1.0
+            description: "The analog and digital sensor gain"
+            validation:
+                bounds<>: [0.0, 85.0]
+      auto_exposure:
+        max_exposure_time:
+            type: int
+            default_value: 10000
+            description: "The max auto exposure time in microseconds"
+            validation:
+                bounds<>: [0, 33000]
+        decay:
+            type: int
+            default_value: 3
+            description: "The auto exposure decay rate. Larger values increase the number of frames for the desired exposure to apply"
+            validation:
+                bounds<>: [0, 20]
+        target_intensity:
+            type: double
+            default_value: 0.5
+            description: "The auto-exposure algorithm in digital imaging endeavors to achieve a specified target intensity,
+                          which is represented as a ratio. This ratio, when multiplied by the maximum potential pixel
+                          brightness (255 for 8-bit images), produces the 'target auto-exposure pixel value'. The algorithm
+                          then adjusts the exposure of the camera to ensure a given 'target threshold' percentage of
+                          image pixels fall below this target intensity. This process maintains an ideal brightness balance,
+                          preventing overexposure or underexposure."
+            validation:
+                bounds<>: [0, 1.0]
+        target_threshold:
+            type: double
+            default_value: 0.85
+            description: "The fraction of pixels which must be equal or below the pixel value set by the target intensity pixel value"
+            validation:
+                bounds<>: [0, 1.0]
+        max_gain:
+            type: double
+            default_value: 2.0
+            description: "The max gain value the auto exposure algorithm can use to increase image brightness"
+            validation:
+                bounds<>: [1.6842, 16.0]
+        roi:
+          type: int_array
+          default_value: [0, 0, 0, 0]
+          description: "Controls for the region of interest auto exposure. Controlls are in the full resolution image.
+                         The settings order is [top_left_x, top_left_y, width, height]. A value of all zeros disables
+                         the ROI"
+      auto_white_balance_enabled:
+          type: bool
+          default_value: true
+          description: "Enable auto white balance"
+      manual_white_balance:
+        red:
+            type: double
+            default_value: 1.0
+            description: "The red white balance setting for manual white balance control"
+            validation:
+                bounds<>: [.25, 4]
+        blue:
+            type: double
+            default_value: 1.0
+            description: "The blue white balance setting for manual white balance control"
+            validation:
+                bounds<>: [.25, 4]
+      auto_white_balance:
+        decay:
+            type: int
+            default_value: 3
+            description: "The decay rate used for auto-white-balance"
+            validation:
+                bounds<>: [0, 20]
+        threshold:
+            type: double
+            default_value: 1.0
+            description: "The threshold for the auto white balance algorithm"
+            validation:
+                bounds<>: [0.0, 1.0]
+    sharpening_enabled:
+        type: bool
+        default_value: false
+        description: "Enable sharpening on the aux image"
+    sharpening_percentage:
+        type: double
+        default_value: 50.0
+        description: "The percentage strength of the sharpening gain to apply to the aux image. Must use a step size
+                      of 100/255"
+        validation:
+            bounds<>: [0.0, 100.0]
+    sharpening_limit:
+        type: int
+        default_value: 100
+        description: "The maximum difference in pixels that sharpening is
+                      is allowed to change between neighboring pixels. This is useful for clamping
+                      the sharpening percentage, while still maintaining a large gain."
+        validation:
+            bounds<>: [0, 256]
+  time:
+    ptp_enabled:
+        type: bool
+        default_value: false
+        description: "Enable PTP for clock synchronization. This overrides all other time synchronization methods"
+    network_time_sync_enabled:
+        type: bool
+        default_value: true
+        description: "Enable network time sync which uses an estimate of the offset between the camera and host to synchronize data with host time"
+  network:
+    packet_delay_enabled:
+        type: bool
+        default_value: false
+        description: "Enable a fixed delay between the transmission of each UDP packet. This helps with embedded systems or ntworks with lots of traffic congestion"
+  imu:
+    samples_per_frame:
+        type: int
+        default_value: 200
+        description: "The number of imu samples to be include in an IMU frame"
+        validation:
+            bounds<>: [2, 2000]
+    accelerometer:
+      enabled:
+        type: bool
+        default_value: true
+        description: "Enable the accelerometer"
+      rate:
+        type: none
+        description: "The operating rate of the accelerometer"
+      range:
+        type: none
+        description: "The operating range of the accelerometer"
+    gyroscope:
+      enabled:
+        type: bool
+        default_value: true
+        description: "Enable the gyroscope"
+      rate:
+        type: none
+        description: "The operating rate of the gyroscope"
+      range:
+        type: none
+        description: "The operating range of the gyroscope"
+    magnetometer:
+      enabled:
+        type: bool
+        default_value: false
+        description: "Enable the magnetometer"
+      rate:
+        type: none
+        description: "The operating rate of the magnetometer"
+      range:
+        type: none
+        description: "The operating range of the magnetometer"
+
+  lighting:
+    internal:
+      intensity:
+          type: double
+          default_value: 0.0
+          description: "The intensity of the lights managed internally by the MultiSense"
+          validation:
+              bounds<>: [0.0, 100.0]
+      flash:
+          type: bool
+          default_value: false
+          description: "Flash the LEDs"
+    external:
+      intensity:
+          type: double
+          default_value: 0.0
+          description: "The intensity of the lights managed externally by the MultiSense"
+          validation:
+              bounds<>: [0.0, 100.0]
+      flash:
+          type: string_array
+          default_value: ["none"]
+          description: "Flasingt mode for the LED"
+          validation:
+              size_gt<>: [0]
+              unique<>: null
+              subset_of<>: [["none", "sync_with_main_stereo", "sync_with_aux"]]
+      pulses_per_exposure:
+          type: int
+          default_value: 1
+          description: "The number of led pulses per single exposure"
+          validation:
+              bounds<>: [0, 20]
+      pulses_per_exposure:
+          type: int
+          default_value: 0
+          description: "The startup time in microseconds"
+          validation:
+              bounds<>: [0, 1000]
+  pointcloud_max_range:
+      type: double
+      default_value: 15.0
+      description: "The max distance from the camera for any point to be included in the point cloud"
