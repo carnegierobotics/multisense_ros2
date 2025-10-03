@@ -39,7 +39,7 @@ jobs:
         run: |
           set -eux
           rosdep install \
-            --from-paths src \
+            --from-paths multisense-ros2 \
             --ignore-src \
             --rosdistro ${{ matrix.ros_distro }} \
             -y -r
