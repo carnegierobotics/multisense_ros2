@@ -17,7 +17,7 @@
   <build_depend>eigen</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>libopencv-dev</build_depend>
-  <build_depend>image-geometry</build_depend>
+  <build_depend>image_geometry</build_depend>
   <build_depend>multisense_lib</build_depend>
   <build_depend>multisense_msgs</build_depend>
   <build_depend>ros_environment</build_depend>
@@ -31,7 +31,7 @@
   <exec_depend>angles</exec_depend>
   <exec_depend>eigen</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
-  <exec_depend>image-geometry</exec_depend>
+  <exec_depend>image_geometry</exec_depend>
   <exec_depend>libopencv-dev</exec_depend>
   <exec_depend>multisense_lib</exec_depend>
   <exec_depend>multisense_msgs</exec_depend>
