@@ -65,7 +65,7 @@ struct ParameterStep
 
 rclcpp::Time create_time(const lms::ImuSample &sample,
                          const TimestampSource &time_source,
-                         const std::optional<std::chrono::nanoseconds> camera_host_offset)
+                         const std::optional<std::chrono::nanoseconds> &camera_host_offset)
 {
     switch (time_source)
     {
@@ -75,7 +75,7 @@ rclcpp::Time create_time(const lms::ImuSample &sample,
         }
         case TimestampSource::SYSTEM:
         {
-            return (camera_host_offset && camera_host_offset < sample.sample_time.time_since_epoch()) ?
+            return (camera_host_offset && (camera_host_offset.value() + sample.sample_time.time_since_epoch()) > 0s) ?
                 rclcpp::Time(camera_host_offset->count() + sample.sample_time.time_since_epoch().count()) :
                 rclcpp::Time(sample.sample_time.time_since_epoch().count());
 
@@ -86,7 +86,7 @@ rclcpp::Time create_time(const lms::ImuSample &sample,
         }
         default:
         {
-            throw std::runtime_error("Unkown time source");
+            throw std::runtime_error("Unknown time source");
         }
     }
 
@@ -95,7 +95,7 @@ rclcpp::Time create_time(const lms::ImuSample &sample,
 
 rclcpp::Time create_time(const lms::ImageFrame &frame,
                          const TimestampSource &time_source,
-                         const std::optional<std::chrono::nanoseconds> camera_host_offset)
+                         const std::optional<std::chrono::nanoseconds> &camera_host_offset)
 {
     switch (time_source)
     {
@@ -105,7 +105,7 @@ rclcpp::Time create_time(const lms::ImageFrame &frame,
         }
         case TimestampSource::SYSTEM:
         {
-            return (camera_host_offset && camera_host_offset < frame.frame_time.time_since_epoch()) ?
+            return (camera_host_offset && (camera_host_offset.value() + frame.frame_time.time_since_epoch()) > 0s) ?
                 rclcpp::Time(camera_host_offset->count() + frame.frame_time.time_since_epoch().count()) :
                 rclcpp::Time(frame.frame_time.time_since_epoch().count());
 
@@ -694,8 +694,6 @@ MultiSense::MultiSense(const std::string& node_name,
     frame_id_imu_(tf_prefix + IMU_FRAME),
     static_tf_broadcaster_(std::make_shared<tf2_ros::StaticTransformBroadcaster>(*this))
 {
-    using namespace std::chrono_literals;
-
     if (!channel_)
     {
         throw std::runtime_error("Invalid channel");
@@ -1458,11 +1456,12 @@ void MultiSense::publish_status(const multisense::MultiSenseStatus &status)
 
     if (status.time)
     {
-        using namespace std::chrono_literals;
-
         output.host_time = rclcpp::Time(status.time->client_host_time.count());
         output.camera_time = rclcpp::Time(status.time->camera_time.count());
         output.network_delay = rclcpp::Time(status.time->network_delay.count());
+
+        //
+        // Ignore outliers for delays in status response
 
         if (status.time->network_delay < 5ms)
         {
