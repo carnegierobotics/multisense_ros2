@@ -58,6 +58,13 @@
 
 namespace multisense_ros {
 
+enum class TimestampSource
+{
+    CAMERA,
+    SYSTEM,
+    PTP
+};
+
 template <typename T>
 class FrameNotifier
 {
@@ -401,9 +408,12 @@ private:
     bool aux_control_supported_ = false;
 
     //
-    // Stamp data with PTP timestamps
+    // Handle stamping messages with different time sources
 
-    std::atomic_bool use_ptp_time_ = false;
+    std::atomic<TimestampSource> timestamp_source_ {TimestampSource::SYSTEM};
+
+    size_t time_offset_buffer_size_ = 8;
+    std::optional<std::chrono::nanoseconds> camera_host_time_offset_{std::nullopt};
 };
 
 }// namespace

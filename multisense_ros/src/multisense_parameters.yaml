@@ -231,7 +231,11 @@ multisense:
     ptp_enabled:
         type: bool
         default_value: false
-        description: "Enable PTP for clock synchronization"
+        description: "Enable PTP for clock synchronization. This overrides all other time synchronization methods"
+    network_time_sync_enabled:
+        type: bool
+        default_value: true
+        description: "Enable network time sync which uses an estimate of the offset between the camera and host to synchronize data with host time"
   network:
     packet_delay_enabled:
         type: bool

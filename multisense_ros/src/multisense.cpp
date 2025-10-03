@@ -63,15 +63,75 @@ struct ParameterStep
     double delta = 0.0;
 };
 
-bool is_imu_sample_time_valid(const lms::ImuSample &sample, bool use_ptp_time)
+rclcpp::Time create_time(const lms::ImuSample &sample,
+                         const TimestampSource &time_source,
+                         const std::optional<std::chrono::nanoseconds> camera_host_offset)
 {
-    return use_ptp_time ? sample.ptp_sample_time.time_since_epoch().count() >= 0 :
+    switch (time_source)
+    {
+        case TimestampSource::CAMERA:
+        {
+            return rclcpp::Time(sample.sample_time.time_since_epoch().count());
+        }
+        case TimestampSource::SYSTEM:
+        {
+            return (camera_host_offset && camera_host_offset < sample.sample_time.time_since_epoch()) ?
+                rclcpp::Time(camera_host_offset->count() + sample.sample_time.time_since_epoch().count()) :
+                rclcpp::Time(sample.sample_time.time_since_epoch().count());
+
+        }
+        case TimestampSource::PTP:
+        {
+            return rclcpp::Time(sample.ptp_sample_time.time_since_epoch().count());
+        }
+        default:
+        {
+            throw std::runtime_error("Unkown time source");
+        }
+    }
+
+    return rclcpp::Time(0);
+}
+
+rclcpp::Time create_time(const lms::ImageFrame &frame,
+                         const TimestampSource &time_source,
+                         const std::optional<std::chrono::nanoseconds> camera_host_offset)
+{
+    switch (time_source)
+    {
+        case TimestampSource::CAMERA:
+        {
+            return rclcpp::Time(frame.frame_time.time_since_epoch().count());
+        }
+        case TimestampSource::SYSTEM:
+        {
+            return (camera_host_offset && camera_host_offset < frame.frame_time.time_since_epoch()) ?
+                rclcpp::Time(camera_host_offset->count() + frame.frame_time.time_since_epoch().count()) :
+                rclcpp::Time(frame.frame_time.time_since_epoch().count());
+
+        }
+        case TimestampSource::PTP:
+        {
+            return rclcpp::Time(frame.ptp_frame_time.time_since_epoch().count());
+        }
+        default:
+        {
+            throw std::runtime_error("Unkown time source");
+        }
+    }
+
+    return rclcpp::Time(0);
+}
+
+bool is_time_valid(const lms::ImuSample &sample, const TimestampSource &time_source)
+{
+    return time_source == TimestampSource::PTP ? sample.ptp_sample_time.time_since_epoch().count() >= 0 :
                           sample.sample_time.time_since_epoch().count() > 0;
 }
 
-bool is_frame_time_valid(const lms::ImageFrame &frame, bool use_ptp_time)
+bool is_time_valid(const lms::ImageFrame &frame, const TimestampSource &time_source)
 {
-    return use_ptp_time ? frame.ptp_frame_time.time_since_epoch().count() >= 0 :
+    return time_source == TimestampSource::PTP ? frame.ptp_frame_time.time_since_epoch().count() >= 0 :
                           frame.frame_time.time_since_epoch().count() > 0;
 }
 
@@ -251,15 +311,13 @@ sensor_msgs::msg::CameraInfo create_camera_info(const lms::CameraCalibration &ca
 void populate_image(const lms::Image &image,
                     sensor_msgs::msg::Image &ros_image,
                     const std::string &frame_id,
-                    bool use_ptp_time)
+                    const rclcpp::Time &ros_time)
 {
     ros_image.data.resize(image.image_data_length);
     memcpy(&ros_image.data[0], image.raw_data->data() + image.image_data_offset, image.image_data_length);
 
     ros_image.header.frame_id = frame_id;
-    ros_image.header.stamp = use_ptp_time ?
-        rclcpp::Time(image.ptp_timestamp.time_since_epoch().count()) :
-        rclcpp::Time(image.camera_timestamp.time_since_epoch().count());
+    ros_image.header.stamp = ros_time;
     ros_image.height = image.height;
     ros_image.width = image.width;
 
@@ -299,9 +357,9 @@ void publish_image(const lms::Image &image,
                    std::shared_ptr<ImagePublisher> publisher,
                    sensor_msgs::msg::Image &ros_image,
                    const std::string &frame_id,
-                   bool use_ptp_time)
+                   const rclcpp::Time &ros_time)
 {
-    populate_image(image, ros_image, frame_id, use_ptp_time);
+    populate_image(image, ros_image, frame_id, ros_time);
 
     auto camera_info = create_camera_info(image.calibration, ros_image.header, image.width, image.height);
     publisher->publish(std::make_unique<sensor_msgs::msg::Image>(ros_image),
@@ -310,7 +368,7 @@ void publish_image(const lms::Image &image,
 
 template <typename Color>
 void publish_point_cloud(const lms::PointCloud<Color> &point_cloud,
-                         const lms::TimeT &time,
+                         const rclcpp::Time &ros_time,
                          rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publisher,
                          sensor_msgs::msg::PointCloud2 &ros_point_cloud,
                          const std::string &frame_id)
@@ -403,7 +461,7 @@ void publish_point_cloud(const lms::PointCloud<Color> &point_cloud,
     ros_point_cloud.row_step = point_cloud.cloud.size() * ros_point_cloud.point_step;
 
     ros_point_cloud.header.frame_id = frame_id;
-    ros_point_cloud.header.stamp = rclcpp::Time(time.time_since_epoch().count());
+    ros_point_cloud.header.stamp = ros_time;
 
     publisher->publish(std::make_unique<sensor_msgs::msg::PointCloud2>(ros_point_cloud));
 }
@@ -411,16 +469,14 @@ void publish_point_cloud(const lms::PointCloud<Color> &point_cloud,
 void publish_imu_sample(const lms::ImuSample &sample,
                         rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr publisher,
                         const std::string &frame_id,
-                        bool use_ptp_time)
+                        const rclcpp::Time &ros_time)
 {
     constexpr double GRAVITY = 9.80665;
 
     sensor_msgs::msg::Imu message{};
 
     message.header.frame_id = frame_id;
-    message.header.stamp = use_ptp_time ?
-        rclcpp::Time(sample.ptp_sample_time.time_since_epoch().count()) :
-        rclcpp::Time(sample.sample_time.time_since_epoch().count());
+    message.header.stamp = ros_time;
 
     if (sample.accelerometer)
     {
@@ -914,20 +970,20 @@ void MultiSense::image_publisher()
     {
         if (const auto image_frame = image_frame_notifier_.wait(timeout) ; image_frame)
         {
-            if (!is_frame_time_valid(image_frame.value(), use_ptp_time_))
+            if (!is_time_valid(image_frame.value(), timestamp_source_))
             {
                 RCLCPP_WARN(get_logger(), "FrameId %ld has a negative or zero time. Skipping image publish", image_frame->frame_id);
                 continue;
             }
+
+            const auto ros_time = create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_);
 
             if (image_frame->stereo_histogram)
             {
                 multisense_msgs::msg::Histogram histogram;
 
                 histogram.frame_count = image_frame->frame_id;
-                histogram.time_stamp = use_ptp_time_ ?
-                    rclcpp::Time(image_frame->ptp_frame_time.time_since_epoch().count()) :
-                    rclcpp::Time(image_frame->frame_time.time_since_epoch().count());
+                histogram.time_stamp = ros_time;
 
                 histogram.width = current_config_.width;
                 histogram.height = current_config_.height;
@@ -949,37 +1005,37 @@ void MultiSense::image_publisher()
                     case lms::DataSource::LEFT_MONO_RAW:
                     {
                         if (num_subscribers(left_node_, MONO_TOPIC) == 0) continue;
-                        publish_image(image, left_mono_cam_pub_, left_mono_image_, frame_id_left_, use_ptp_time_);
+                        publish_image(image, left_mono_cam_pub_, left_mono_image_, frame_id_left_, ros_time);
                         break;
                     }
                     case lms::DataSource::RIGHT_MONO_RAW:
                     {
                         if (num_subscribers(right_node_, MONO_TOPIC) == 0) continue;
-                        publish_image(image, right_mono_cam_pub_, right_mono_image_, frame_id_right_, use_ptp_time_);
+                        publish_image(image, right_mono_cam_pub_, right_mono_image_, frame_id_right_, ros_time);
                         break;
                     }
                     case lms::DataSource::LEFT_RECTIFIED_RAW:
                     {
                         if (num_subscribers(left_node_, RECT_TOPIC) == 0) continue;
-                        publish_image(image, left_rect_cam_pub_, left_rect_image_, frame_id_rectified_left_, use_ptp_time_);
+                        publish_image(image, left_rect_cam_pub_, left_rect_image_, frame_id_rectified_left_, ros_time);
                         break;
                     }
                     case lms::DataSource::RIGHT_RECTIFIED_RAW:
                     {
                         if (num_subscribers(right_node_, RECT_TOPIC) == 0) continue;
-                        publish_image(image, right_rect_cam_pub_, right_rect_image_, frame_id_rectified_right_, use_ptp_time_);
+                        publish_image(image, right_rect_cam_pub_, right_rect_image_, frame_id_rectified_right_, ros_time);
                         break;
                     }
                     case lms::DataSource::LEFT_DISPARITY_RAW:
                     {
                         if (num_subscribers(left_node_, DISPARITY_TOPIC) > 0)
                         {
-                            publish_image(image, left_disparity_pub_, left_disparity_image_, frame_id_rectified_left_, use_ptp_time_);
+                            publish_image(image, left_disparity_pub_, left_disparity_image_, frame_id_rectified_left_, ros_time);
                         }
 
                         if (num_subscribers(left_node_, DISPARITY_IMAGE_TOPIC) > 0)
                         {
-                            populate_image(image, left_stereo_disparity_.image, frame_id_rectified_left_, use_ptp_time_);
+                            populate_image(image, left_stereo_disparity_.image, frame_id_rectified_left_, ros_time);
                             left_stereo_disparity_.f = image.calibration.P[0][0];
                             left_stereo_disparity_.t = -image_frame->calibration.right.rectified_translation()[0];
                             left_stereo_disparity_.min_disparity = 0.0f;
@@ -993,13 +1049,13 @@ void MultiSense::image_publisher()
                     case lms::DataSource::AUX_LUMA_RAW:
                     {
                         if (num_subscribers(aux_node_, MONO_TOPIC) == 0) continue;
-                        publish_image(image, aux_mono_cam_pub_, aux_mono_image_, frame_id_aux_, use_ptp_time_);
+                        publish_image(image, aux_mono_cam_pub_, aux_mono_image_, frame_id_aux_, ros_time);
                         break;
                     }
                     case lms::DataSource::AUX_LUMA_RECTIFIED_RAW:
                     {
                         if (num_subscribers(aux_node_, RECT_TOPIC) == 0) continue;
-                        publish_image(image, aux_rect_cam_pub_, aux_rect_image_, frame_id_rectified_aux_, use_ptp_time_);
+                        publish_image(image, aux_rect_cam_pub_, aux_rect_image_, frame_id_rectified_aux_, ros_time);
                         break;
                     }
                     case lms::DataSource::AUX_CHROMA_RAW:
@@ -1012,19 +1068,19 @@ void MultiSense::image_publisher()
                     case lms::DataSource::AUX_RAW:
                     {
                         if (num_subscribers(aux_node_, COLOR_TOPIC) == 0) continue;
-                        publish_image(image, aux_rgb_cam_pub_, aux_rgb_image_, frame_id_aux_, use_ptp_time_);
+                        publish_image(image, aux_rgb_cam_pub_, aux_rgb_image_, frame_id_aux_, ros_time);
                         break;
                     }
                     case lms::DataSource::AUX_RECTIFIED_RAW:
                     {
                         if (num_subscribers(aux_node_, RECT_COLOR_TOPIC) == 0) continue;
-                        publish_image(image, aux_rgb_rect_cam_pub_, aux_rect_rgb_image_, frame_id_rectified_aux_, use_ptp_time_);
+                        publish_image(image, aux_rgb_rect_cam_pub_, aux_rect_rgb_image_, frame_id_rectified_aux_, ros_time);
                         break;
                     }
                     case lms::DataSource::COST_RAW:
                     {
                         if (num_subscribers(left_node_, COST_TOPIC) == 0) continue;
-                        publish_image(image, left_disparity_cost_pub_, left_disparity_cost_image_, frame_id_rectified_left_, use_ptp_time_);
+                        publish_image(image, left_disparity_cost_pub_, left_disparity_cost_image_, frame_id_rectified_left_, ros_time);
                         break;
                     }
                     default: { RCLCPP_ERROR(get_logger(), "MultiSense: unknown image source"); continue;}
@@ -1043,11 +1099,13 @@ void MultiSense::depth_publisher()
     {
         if (const auto image_frame = image_frame_notifier_.wait(timeout) ; image_frame)
         {
-            if (!is_frame_time_valid(image_frame.value(), use_ptp_time_))
+            if (!is_time_valid(image_frame.value(), timestamp_source_))
             {
                 RCLCPP_WARN(get_logger(), "FrameId %ld has a negative or zero time. Skipping image publish", image_frame->frame_id);
                 continue;
             }
+
+            const auto ros_time = create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_);
 
             if (image_frame->has_image(disparity_source))
             {
@@ -1059,7 +1117,7 @@ void MultiSense::depth_publisher()
                                                                          std::numeric_limits<float>::quiet_NaN());
                                                                          depth_image)
                     {
-                        publish_image(depth_image.value(), depth_cam_pub_, depth_image_, frame_id_rectified_left_, use_ptp_time_);
+                        publish_image(depth_image.value(), depth_cam_pub_, depth_image_, frame_id_rectified_left_, ros_time);
                     }
                 }
 
@@ -1071,7 +1129,7 @@ void MultiSense::depth_publisher()
                                                                          0);
                                                                          depth_image)
                     {
-                        publish_image(depth_image.value(), ni_depth_cam_pub_, ni_depth_image_, frame_id_rectified_left_, use_ptp_time_);
+                        publish_image(depth_image.value(), ni_depth_cam_pub_, ni_depth_image_, frame_id_rectified_left_, ros_time);
                     }
                 }
             }
@@ -1088,11 +1146,13 @@ void MultiSense::point_cloud_publisher()
     {
         if (const auto image_frame = image_frame_notifier_.wait(timeout) ; image_frame)
         {
-            if (!is_frame_time_valid(image_frame.value(), use_ptp_time_))
+            if (!is_time_valid(image_frame.value(), timestamp_source_))
             {
                 RCLCPP_WARN(get_logger(), "FrameId %ld has a negative or zero time. Skipping image publish", image_frame->frame_id);
                 continue;
             }
+
+            const auto ros_time = create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_);
 
             if (image_frame->has_image(disparity_source))
             {
@@ -1104,7 +1164,7 @@ void MultiSense::point_cloud_publisher()
                                                                         point_cloud)
                     {
                         publish_point_cloud(point_cloud.value(),
-                                            use_ptp_time_ ? image_frame->ptp_frame_time : image_frame->frame_time,
+                                            ros_time,
                                             point_cloud_pub_,
                                             point_cloud_,
                                             frame_id_rectified_left_);
@@ -1124,7 +1184,7 @@ void MultiSense::point_cloud_publisher()
                                                                                            point_cloud)
                         {
                             publish_point_cloud(point_cloud.value(),
-                                                use_ptp_time_ ? image_frame->ptp_frame_time : image_frame->frame_time,
+                                                ros_time,
                                                 luma_point_cloud_pub_,
                                                 luma_point_cloud_,
                                                 frame_id_rectified_left_);
@@ -1139,7 +1199,7 @@ void MultiSense::point_cloud_publisher()
                                                                                             point_cloud)
                         {
                             publish_point_cloud(point_cloud.value(),
-                                                use_ptp_time_ ? image_frame->ptp_frame_time : image_frame->frame_time,
+                                                ros_time,
                                                 luma_point_cloud_pub_,
                                                 luma_point_cloud_,
                                                 frame_id_rectified_left_);
@@ -1161,7 +1221,7 @@ void MultiSense::point_cloud_publisher()
                                                                                                           point_cloud)
                         {
                             publish_point_cloud(point_cloud.value(),
-                                                use_ptp_time_ ? image_frame->ptp_frame_time : image_frame->frame_time,
+                                                ros_time,
                                                 color_point_cloud_pub_,
                                                 color_point_cloud_,
                                                 frame_id_rectified_left_);
@@ -1180,17 +1240,19 @@ void MultiSense::color_publisher()
     {
         if (const auto image_frame = image_frame_notifier_.wait(timeout) ; image_frame)
         {
-            if (!is_frame_time_valid(image_frame.value(), use_ptp_time_))
+            if (!is_time_valid(image_frame.value(), timestamp_source_))
             {
                 RCLCPP_WARN(get_logger(), "FrameId %ld has a negative or zero time. Skipping image publish", image_frame->frame_id);
                 continue;
             }
 
+            const auto ros_time = create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_);
+
             if (num_subscribers(aux_node_, COLOR_TOPIC) > 0)
             {
                 if (auto bgr_image = lms::create_bgr_image(image_frame.value(), lms::DataSource::AUX_RAW); bgr_image)
                 {
-                    publish_image(bgr_image.value(), aux_rgb_cam_pub_, aux_rgb_image_, frame_id_aux_, use_ptp_time_);
+                    publish_image(bgr_image.value(), aux_rgb_cam_pub_, aux_rgb_image_, frame_id_aux_, ros_time);
                 }
             }
 
@@ -1198,7 +1260,7 @@ void MultiSense::color_publisher()
             {
                 if (auto bgr_image = lms::create_bgr_image(image_frame.value(), lms::DataSource::AUX_RECTIFIED_RAW); bgr_image)
                 {
-                    publish_image(bgr_image.value(), aux_rgb_rect_cam_pub_, aux_rect_rgb_image_, frame_id_rectified_aux_, use_ptp_time_);
+                    publish_image(bgr_image.value(), aux_rgb_rect_cam_pub_, aux_rect_rgb_image_, frame_id_rectified_aux_, ros_time);
                 }
             }
         }
@@ -1214,13 +1276,15 @@ void MultiSense::imu_publisher()
         {
             for (const auto &sample : imu_frame->samples)
             {
-                if (!is_imu_sample_time_valid(sample, use_ptp_time_))
+                if (!is_time_valid(sample, timestamp_source_))
                 {
                     RCLCPP_WARN(get_logger(), "IMU smaple has a negative or zero time. Skipping sample publish");
                     continue;
                 }
 
-                publish_imu_sample(sample, imu_pub_, frame_id_imu_, use_ptp_time_);
+                const auto ros_time = create_time(sample, timestamp_source_, camera_host_time_offset_);
+
+                publish_imu_sample(sample, imu_pub_, frame_id_imu_, ros_time);
             }
         }
     }
@@ -1394,9 +1458,32 @@ void MultiSense::publish_status(const multisense::MultiSenseStatus &status)
 
     if (status.time)
     {
+        using namespace std::chrono_literals;
+
         output.host_time = rclcpp::Time(status.time->client_host_time.count());
         output.camera_time = rclcpp::Time(status.time->camera_time.count());
         output.network_delay = rclcpp::Time(status.time->network_delay.count());
+
+        if (status.time->network_delay < 5ms)
+        {
+            if (!camera_host_time_offset_)
+            {
+                camera_host_time_offset_ = status.time->offset_to_host();
+            }
+            else
+            {
+                //
+                // Run a decayed average on our offset. Use doubles to handle interger overflow
+
+                const auto previous_camera_host_time_offset = std::chrono::duration<double>(camera_host_time_offset_.value());
+                const auto current_camera_host_time_offset = std::chrono::duration<double>(status.time->offset_to_host());
+
+                const auto offset = std::chrono::duration<double>(((time_offset_buffer_size_ - 1) * previous_camera_host_time_offset.count() +
+                                     current_camera_host_time_offset.count()) / time_offset_buffer_size_);
+
+                camera_host_time_offset_ = std::chrono::duration_cast<std::chrono::nanoseconds>(offset);
+            }
+        }
     }
 
     output.system_ok = status.system_ok;
@@ -1598,7 +1685,16 @@ multisense::MultiSenseConfig MultiSense::update_config(multisense::MultiSenseCon
 {
     config = update_param_config(std::move(config), param_listener_->get_params(), info_.device.hardware_revision);
 
-    use_ptp_time_ = config.time_config ? config.time_config->ptp_enabled: false;
+    if (config.time_config)
+    {
+        //
+        // Force a PTP timesource if PTP is enabled
+
+        if (config.time_config->ptp_enabled)
+        {
+            timestamp_source_ = TimestampSource::PTP;
+        }
+    }
 
     const auto res = get_parameter("sensor_resolution").as_integer_array();
     config.width = res[0];
@@ -1635,6 +1731,22 @@ rcl_interfaces::msg::SetParametersResult MultiSense::parameter_callback(const st
     result.set__successful(true);
 
     param_listener_->update(parameters);
+
+    //
+    // PTP subsumes network time sync, which subsumes camera time
+
+    if (param_listener_->get_params().time.ptp_enabled)
+    {
+        timestamp_source_ = TimestampSource::PTP;
+    }
+    else if (param_listener_->get_params().time.network_time_sync_enabled)
+    {
+        timestamp_source_ = TimestampSource::SYSTEM;
+    }
+    else
+    {
+        timestamp_source_ = TimestampSource::CAMERA;
+    }
 
     pointcloud_max_range_ = param_listener_->get_params().pointcloud_max_range;
 
