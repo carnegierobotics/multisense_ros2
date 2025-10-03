@@ -25,14 +25,24 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
-      - name: Install apt packages
+      - uses: ros-tooling/setup-ros@v0.7
+        with:
+          required-ros-distributions: ${{ matrix.ros_distro }}
+      - name: Install rosdep
         run: |
+          set -eux
           sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            ros-${{ matrix.ros_distro }}-image_transport \
-            ros-${{ matrix.ros_distro }}-generate-parameter-library \
-            nlohmann-json3-dev
-          sudo rm -rf /var/lib/apt/lists/*
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3-rosdep
+          sudo rosdep init || true
+          rosdep update
+      - name: Install dependencies with rosdep
+        run: |
+          set -eux
+          rosdep install \
+            --from-paths src \
+            --ignore-src \
+            --rosdistro ${{ matrix.ros_distro }} \
+            -y -r
       - uses: docker/setup-buildx-action@v3
       - name: Build Docker Image
         uses: docker/build-push-action@v6
