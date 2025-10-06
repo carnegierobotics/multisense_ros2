@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>multisense_ros</name>
-  <version>4.0.3</version>
+  <version>2.0.0</version>
   <description>multisense_ros</description>
   <maintainer email="support@carnegierobotics.com">Carnegie Robotics</maintainer>
   <license>BSD</license>
@@ -15,9 +15,11 @@
 
   <build_depend>angles</build_depend>
   <build_depend>eigen</build_depend>
+  <build_depend>generate_parameter_library</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>libopencv-dev</build_depend>
   <build_depend>image_geometry</build_depend>
+  <build_depend>image_transport</build_depend>
   <build_depend>multisense_lib</build_depend>
   <build_depend>multisense_msgs</build_depend>
   <build_depend>ros_environment</build_depend>
@@ -30,8 +32,10 @@
 
   <exec_depend>angles</exec_depend>
   <exec_depend>eigen</exec_depend>
+  <exec_depend>generate_parameter_library</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>image_geometry</exec_depend>
+  <exec_depend>image_transport</exec_depend>
   <exec_depend>libopencv-dev</exec_depend>
   <exec_depend>multisense_lib</exec_depend>
   <exec_depend>multisense_msgs</exec_depend>

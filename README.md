@@ -1,44 +1,33 @@
 # MultiSense ROS2 Driver
 
-A port of the MultiSense ROS1 driver to ROS2
+The officially supported MultiSense ROS2 driver
 
-This driver was tested using Foxy Fitzroy. Earlier ROS2 distros are not supported
+This driver was developed and tested using Jazzy Jalisco. Earlier ROS2 distros are not supported
 
-## Notable Changes
-
-- Replace dynamic reconfigure interface with ROS2 parameters
-- Remove support for sensor firmware versions < 3.3
-- Remove support for monocular and BCAM configurations
-- Move custom messages to standalone multisense_msgs package
-- Merge multisense_bringup and multisense_description into the multisense_ros package
-- General cleanup and port to c++17 and gcc 9.3.0
-- Update launch file to new ROS2 launch file format
-- multisense_lib has LibMultiSense as a submodule
+If you are unable to use ROS2 Jazzy, please build [v1.0.0](https://github.com/carnegierobotics/multisense_ros2/releases/tag/v1.0.0) of
+the MultiSense ROS2 driver
 
 ## Build
+
+Clone the MultiSense ROS2 driver
 
 ```
 source /opt/ros/<ros2_distro>/setup.bash
 mkdir ros2_ws && cd ros2_ws
 git clone --recurse-submodules https://github.com/carnegierobotics/multisense_ros2 src
-colcon build
-source install/setup.bash
 ```
 
-The launch file depends on xacro being installed. To install xacro execute the following command.
-```
-sudo apt install ros-<distro>-xacro ros-<distro>-tf2-geometry-msgs
-```
-
-If your release does not have a pre-built xacro package, you can build it manually
-alongside the multisense_ros2 driver. 
-
-Execute the following commands to build xacro from source. This assumes the workspace setup and clone instructions above were followed.
+Ensure all the MultiSense ROS2 dependencies are installed using rosdep
 
 ```
-cd ros2_ws/src
-git clone -b dashing-devel https://github.com/ros/xacro.git
-cd ..
+sudo rosdep init
+rosdep update
+rosdep install --from-paths src -y --ignore-src
+```
+
+Build and install the ROS2 driver
+
+```
 colcon build
 source install/setup.bash
 ```
@@ -55,6 +44,9 @@ For the full set of launch arguments use
 
 MultiSense operation parameters including resolution, frame rate, gain, exposure gamma, etc. can be dynamically changed
 at runtime via the [ROS2 parameter server](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Parameters/Understanding-ROS2-Parameters.html).
+
+For convince the MultiSense ROS2 driver uses the ROS2 [generate_parameter_library](https://github.com/PickNikRobotics/generate_parameter_library) for managing the
+majority of it's parameters
 
 ### GUI
 
@@ -82,20 +74,20 @@ The following command gets a full list of ROS2 parameters which can reconfigure 
 ros2 param list
 ```
 
-#### Examples
+#### Parameter Examples
 
 ##### Change Framerate
 
 To get the current framerate execute the following command
 
 ```
-ros2 param get /multisense/camera fps
+ros2 param get /multisense/sensor fps
 ```
 
 To set the framerate to new value (in this example 15fps) execute the following command
 
 ```
-ros2 param set /multisense/camera fps 15
+ros2 param set /multisense/sensor fps 15
 ```
 
 ##### Change Resolution
@@ -103,25 +95,54 @@ ros2 param set /multisense/camera fps 15
 To get the current operating resolution execute the following command
 
 ```
-ros2 param get /multisense/camera sensor_resolution
+ros2 param get /multisense/sensor sensor_resolution
 ```
 
 To set the sensor resolution to new value (in this example 1/4 resolution with 256 disparities) execute the following command
 
 ```
-ros2 param set /multisense/camera sensor_resolution "[960, 600, 256]"
+ros2 param set /multisense/sensor sensor_resolution "[960, 600, 256]"
 ```
 
-##### Disable Auto-Exposure
+##### Disable Auto-Exposure for the Main Stereo Pair
 
 To get the current auto exposure execute the following command
 
 ```
-ros2 param get /multisense/camera auto_exposure
+ros2 param get /multisense/sensor image.auto_exposure_enabled
 ```
 
 To enable/disable the camera's auto exposure algorithm (in this example disable) execute the following command
 
 ```
-ros2 param set /multisense/camera auto_exposure false
+ros2 param set /multisense/sensor image.auto_exposure_enabled false
 ```
+
+##### Disable Auto-Exposure for the Aux Imager (Only supported on S27, S30, and KS21 cameras)
+
+To get the current auto exposure execute the following command
+
+```
+ros2 param get /multisense/sensor aux.image.auto_exposure_enabled
+```
+
+To enable/disable the aux camera's auto exposure algorithm (in this example disable) execute the following command
+
+```
+ros2 param set /multisense/sensor aux.image.auto_exposure_enabled false
+```
+
+## Time Synchronization
+
+The MultiSense ROS2 driver supports the following three types of time synchronization.
+
+- PTP time synchronization: If the camera has been properly configured to synchronize its time with a remote PTP grandmaster, enabling the
+`time.ptp_enabled` parameter will stamp all sensor data with the PTP synchronized time. Enabling the `time.ptp_enabled` parameter will override
+all other time synchronization methods.
+- Network time synchronization: For local testing where microsecond level synchronization is not critical, network time synchronization can be
+used to update sensor data timestamps to match the host system time. This uses a simple request-response scheme to query the MultiSense system
+time, and estimate the network latency between sending the request and receiving the response message. The adjusted offset is smoothed, and applied
+to all published sensor data from the MultiSense ROS2 driver. Network time sync can be enabled using the `time.network_time_sync_enabled`, and is the
+default time synchronization mode for the MultiSense driver
+- Camera time: Sensor data is published using the raw MultiSense system time. This time source starts at 0 when the camera is powered on.
+This mode is enabled when the parameters `time.ptp_enabled` and `time.network_time_sync_enabled` are both set to false

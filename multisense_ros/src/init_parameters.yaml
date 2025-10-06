@@ -1,0 +1,28 @@
+initialization:
+  sensor_ip:
+      type: string
+      default_value: "10.66.171.21"
+      read_only: true
+      description: "MultiSense IP Address"
+  sensor_mtu:
+      type: int
+      default_value: 1500
+      read_only: true
+      description: "MultiSense MTU"
+      validation:
+          bounds<>: [1500, 9000]
+  tf_prefix:
+      type: string
+      default_value: "multisense"
+      read_only: true
+      description: "TF2 prefix for this camera"
+  use_image_transport:
+      type: bool
+      default_value: false
+      read_only: true
+      description: "Use image transport for publishing image topics"
+  use_sensor_qos:
+      type: bool
+      default_value: false
+      read_only: true
+      description: "Use the SensorDataQoS which publishes image over UDP instead of the system default QOS"
