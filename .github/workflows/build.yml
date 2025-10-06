@@ -38,8 +38,9 @@ jobs:
       - name: Install dependencies with rosdep
         run: |
           set -eux
+          ls -la
           rosdep install \
-            --from-paths multisense-ros2 \
+            --from-paths . \
             --ignore-src \
             --rosdistro ${{ matrix.ros_distro }} \
             -y -r
