@@ -4,6 +4,9 @@ The officially supported MultiSense ROS2 driver
 
 This driver was developed and tested using Jazzy Jalisco. Earlier ROS2 distros are not supported
 
+If you are unable to use ROS2 Jazzy, please build [v1.0.0](https://github.com/carnegierobotics/multisense_ros2/releases/tag/v1.0.0) of
+the MultiSense ROS2 driver
+
 ## Build
 
 Clone the MultiSense ROS2 driver
