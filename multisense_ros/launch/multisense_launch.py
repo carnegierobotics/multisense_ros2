@@ -13,6 +13,7 @@ def multisense_setup(context, *args, **kwargs):
     # Resolve all LaunchConfiguration values
     ip = LaunchConfiguration('ip_address').perform(context)
     mtu = LaunchConfiguration('mtu').perform(context)
+    reconnect = LaunchConfiguration('reconnect').perform(context)
     namespace = LaunchConfiguration('namespace').perform(context)
     params_file = LaunchConfiguration('params_file').perform(context)
 
@@ -29,6 +30,7 @@ def multisense_setup(context, *args, **kwargs):
         'sensor_ip': ip,
         'sensor_mtu': int(mtu),
         'tf_prefix': namespace
+        'reconnect': reconnect
     }
 
     # Conditionally include param file if it exists
@@ -62,6 +64,10 @@ def generate_launch_description():
                                                          default_value='True',
                                                          description='Launch the robot_state_publisher')
 
+    reconnect = DeclareLaunchArgument(name='reconnect',
+                                      default_value='False',
+                                      description='Reconnect on camera issues')
+
     params_file = DeclareLaunchArgument('params_file',
                                         default_value='',
                                         description='Path to YAML parameter config file')
@@ -91,5 +97,6 @@ def generate_launch_description():
                               launch_robot_state_publisher,
                               robot_state_publisher,
                               params_file,
+                              reconnect,
                               OpaqueFunction(function=multisense_setup)
                               ])

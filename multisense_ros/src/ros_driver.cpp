@@ -55,6 +55,8 @@ int main(int argc, char** argv)
 
     do
     {
+        RCLCPP_INFO(initialize_node->get_logger(), "multisense_ros: attempting to connecec to sensor @ \"%s\"",
+                    sensor_ip.c_str());
         try
         {
             auto channel = lms::Channel::create(lms::Channel::Config{sensor_ip, params.sensor_mtu});
@@ -62,6 +64,12 @@ int main(int argc, char** argv)
             {
                 RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: failed to create communication channel to sensor @ \"%s\"",
                              sensor_ip.c_str());
+
+                if (params.reconnect)
+                {
+                    continue;
+                }
+
                 return EXIT_FAILURE;
             }
 
