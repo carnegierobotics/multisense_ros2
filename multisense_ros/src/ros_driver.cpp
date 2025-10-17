@@ -90,7 +90,7 @@ int main(int argc, char** argv)
             auto context = initialize_node->get_node_base_interface()->get_context();
             rclcpp::CallbackGroup::SharedPtr watchdog_group = initialize_node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
-            auto stop_timer = initialize_node->create_wall_timer(std::chrono::milliseconds{250},
+            auto stop_timer = initialize_node->create_wall_timer(250ms,
                 [context, sensor, &stop_promise]()
                 {
                     const auto last_response  = sensor->time_since_last_response();
