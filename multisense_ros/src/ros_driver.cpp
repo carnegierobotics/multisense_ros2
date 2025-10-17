@@ -42,6 +42,8 @@ namespace lms = multisense;
 
 int main(int argc, char** argv)
 {
+    using namespace std::chrono_literals;
+
     rclcpp::init(argc, argv);
 
     auto initialize_node = std::make_shared<rclcpp::Node>("multisense_initialization");
@@ -51,33 +53,80 @@ int main(int argc, char** argv)
 
     const std::string sensor_ip = params.sensor_ip;
 
-    try
+    const std::chrono::seconds timeout{params.reconnect_timeout_s};
+
+    do
     {
-        auto channel = lms::Channel::create(lms::Channel::Config{sensor_ip, params.sensor_mtu});
-	    if (nullptr == channel)
+        RCLCPP_INFO(initialize_node->get_logger(), "multisense_ros: attempting to connect to sensor @ \"%s\"",
+                    sensor_ip.c_str());
+        try
         {
-            RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: failed to create communication channel to sensor @ \"%s\"",
-                         sensor_ip.c_str());
+            auto channel = lms::Channel::create(lms::Channel::Config{sensor_ip, params.sensor_mtu});
+            if (nullptr == channel)
+            {
+                RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: failed to create communication channel to sensor @ \"%s\"",
+                             sensor_ip.c_str());
+
+                if (params.reconnect)
+                {
+                    std::this_thread::sleep_for(1s);
+                    continue;
+                }
+
+                return EXIT_FAILURE;
+            }
+            RCLCPP_INFO(initialize_node->get_logger(), "multisense_ros: connected to sensor @ \"%s\"",
+                        sensor_ip.c_str());
+
+            auto sensor = std::make_shared<multisense_ros::MultiSense>("sensor",
+                                                                       rclcpp::NodeOptions{},
+                                                                       std::move(channel),
+                                                                       params.tf_prefix,
+                                                                       params.use_image_transport,
+                                                                       params.use_sensor_qos);
+
+            rclcpp::executors::SingleThreadedExecutor executor;
+            executor.add_node(sensor);
+            executor.add_node(initialize_node);
+
+            std::promise<void> stop_promise;
+            auto stop_future = stop_promise.get_future();
+            auto context = initialize_node->get_node_base_interface()->get_context();
+            rclcpp::CallbackGroup::SharedPtr watchdog_group = initialize_node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+
+            auto stop_timer = initialize_node->create_wall_timer(250ms,
+                [context, sensor, &stop_promise, timeout]()
+                {
+                    const auto last_response  = sensor->time_since_last_response();
+                    if (!rclcpp::ok(context) || (last_response && last_response.value() > timeout))
+                    {
+                        try
+                        {
+                            stop_promise.set_value();
+                        }
+                        catch (const std::exception& e)
+                        {
+                            RCLCPP_ERROR(sensor->get_logger(), "multisense_ros: failed to set promise");
+                        }
+                    }
+                },
+                watchdog_group);
+
+            const auto res = executor.spin_until_future_complete(stop_future);
+            (void) res;
+
+
+            executor.cancel();
+            executor.remove_node(sensor);
+            sensor.reset();
+        }
+        catch (const std::exception& e)
+        {
+            RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: caught exception: %s", e.what());
             return EXIT_FAILURE;
         }
-
-        auto sensor = std::make_shared<multisense_ros::MultiSense>("sensor",
-                                                                   rclcpp::NodeOptions{},
-                                                                   std::move(channel),
-                                                                   params.tf_prefix,
-                                                                   params.use_image_transport,
-                                                                   params.use_sensor_qos);
-
-        rclcpp::executors::SingleThreadedExecutor executor;
-        executor.add_node(sensor);
-        executor.add_node(initialize_node);
-        executor.spin();
     }
-    catch (const std::exception& e)
-    {
-        RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: caught exception: %s", e.what());
-        return EXIT_FAILURE;
-    }
+    while(rclcpp::ok() && params.reconnect);
 
     rclcpp::shutdown();
 

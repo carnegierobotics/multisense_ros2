@@ -5,6 +5,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, TextSubstitution, Command, PathJoinSubstitution
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackagePrefix
 
@@ -12,7 +13,9 @@ def multisense_setup(context, *args, **kwargs):
 
     # Resolve all LaunchConfiguration values
     ip = LaunchConfiguration('ip_address').perform(context)
-    mtu = LaunchConfiguration('mtu').perform(context)
+    mtu = LaunchConfiguration('mtu')
+    reconnect = LaunchConfiguration('reconnect')
+    reconnect_timeout_s = LaunchConfiguration('reconnect_timeout_s')
     namespace = LaunchConfiguration('namespace').perform(context)
     params_file = LaunchConfiguration('params_file').perform(context)
 
@@ -27,8 +30,10 @@ def multisense_setup(context, *args, **kwargs):
     # Inline parameters
     params = {
         'sensor_ip': ip,
-        'sensor_mtu': int(mtu),
-        'tf_prefix': namespace
+        'sensor_mtu': ParameterValue(mtu, value_type=int),
+        'tf_prefix': namespace,
+        'reconnect': ParameterValue(reconnect, value_type=bool),
+        'reconnect_timeout_s': ParameterValue(reconnect_timeout_s, value_type=int)
     }
 
     # Conditionally include param file if it exists
@@ -62,6 +67,14 @@ def generate_launch_description():
                                                          default_value='True',
                                                          description='Launch the robot_state_publisher')
 
+    reconnect = DeclareLaunchArgument(name='reconnect',
+                                      default_value='False',
+                                      description='Reconnect on camera issues')
+
+    reconnect_timeout_s = DeclareLaunchArgument(name='reconnect_timeout_s',
+                                                default_value='5',
+                                                description='Timeout in seconds before the driver configures a reconnect')
+
     params_file = DeclareLaunchArgument('params_file',
                                         default_value='',
                                         description='Path to YAML parameter config file')
@@ -91,5 +104,7 @@ def generate_launch_description():
                               launch_robot_state_publisher,
                               robot_state_publisher,
                               params_file,
+                              reconnect,
+                              reconnect_timeout_s,
                               OpaqueFunction(function=multisense_setup)
                               ])

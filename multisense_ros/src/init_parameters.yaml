@@ -26,3 +26,14 @@ initialization:
       default_value: false
       read_only: true
       description: "Use the SensorDataQoS which publishes image over UDP instead of the system default QOS"
+  reconnect:
+      type: bool
+      default_value: false
+      read_only: true
+      description: "Try to reconnect to the camera if there are any connection issues detected"
+  reconnect_timeout_s:
+      type: int
+      default_value: 5
+      read_only: true
+      description: "The time, in seconds, for communications from the MultiSense to drop before reconnecting.
+                     reconnect must be set to True for this to apply"
