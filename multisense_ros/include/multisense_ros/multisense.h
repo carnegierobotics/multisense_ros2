@@ -417,7 +417,7 @@ private:
     size_t time_offset_buffer_size_ = 8;
     std::optional<std::chrono::nanoseconds> camera_host_time_offset_{std::nullopt};
 
-    std::optional<rclcpp::Time> last_response_time_ns_{0};
+    std::optional<rclcpp::Time> last_response_time_ns_{std::nullopt};
 };
 
 }// namespace

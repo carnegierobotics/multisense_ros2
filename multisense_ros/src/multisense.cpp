@@ -940,6 +940,7 @@ MultiSense::MultiSense(const std::string& node_name,
                     if (const auto status = channel_->get_system_status(); status)
                     {
                         publish_status(status.value());
+                        last_response_time_ns_ = this->now();
                     }
                 }
             });
