@@ -85,23 +85,32 @@ int main(int argc, char** argv)
             executor.add_node(sensor);
             executor.add_node(initialize_node);
 
-            if (params.reconnect)
-            {
-                while (rclcpp::ok())
+            std::promise<void> stop_promise;
+            auto stop_future = stop_promise.get_future();
+            auto context = initialize_node->get_node_base_interface()->get_context();
+            rclcpp::CallbackGroup::SharedPtr watchdog_group = initialize_node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+
+            auto stop_timer = initialize_node->create_wall_timer(std::chrono::milliseconds{250},
+                [context, sensor, &stop_promise]()
                 {
-                    executor.spin_some();
-
-                    if (const auto last_response = sensor->time_since_last_response(); (last_response && last_response.value() > 5s))
+                    const auto last_response  = sensor->time_since_last_response();
+                    if (!rclcpp::ok(context) || (last_response && last_response.value() > 5s))
                     {
-                        break;
+                        try
+                        {
+                            stop_promise.set_value();
+                        }
+                        catch (const std::exception& e)
+                        {
+                            RCLCPP_ERROR(sensor->get_logger(), "multisense_ros: failed to set promise");
+                        }
                     }
+                },
+                watchdog_group);
 
-                    std::this_thread::sleep_for(10ms);
-                }
-            }
-            else
+            if (const auto res = executor.spin_until_future_complete(stop_future); res != rclcpp::FutureReturnCode::SUCCESS)
             {
-                executor.spin();
+                RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: executor did not shut down cleanly");
             }
 
             executor.cancel();
