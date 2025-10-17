@@ -55,7 +55,7 @@ int main(int argc, char** argv)
 
     do
     {
-        RCLCPP_INFO(initialize_node->get_logger(), "multisense_ros: attempting to connecec to sensor @ \"%s\"",
+        RCLCPP_INFO(initialize_node->get_logger(), "multisense_ros: attempting to connect to sensor @ \"%s\"",
                     sensor_ip.c_str());
         try
         {
@@ -67,6 +67,7 @@ int main(int argc, char** argv)
 
                 if (params.reconnect)
                 {
+                    std::this_thread::sleep_for(1s);
                     continue;
                 }
 

@@ -5,6 +5,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, TextSubstitution, Command, PathJoinSubstitution
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackagePrefix
 
@@ -12,8 +13,8 @@ def multisense_setup(context, *args, **kwargs):
 
     # Resolve all LaunchConfiguration values
     ip = LaunchConfiguration('ip_address').perform(context)
-    mtu = LaunchConfiguration('mtu').perform(context)
-    reconnect = LaunchConfiguration('reconnect').perform(context)
+    mtu = LaunchConfiguration('mtu')
+    reconnect = LaunchConfiguration('reconnect')
     namespace = LaunchConfiguration('namespace').perform(context)
     params_file = LaunchConfiguration('params_file').perform(context)
 
@@ -28,9 +29,9 @@ def multisense_setup(context, *args, **kwargs):
     # Inline parameters
     params = {
         'sensor_ip': ip,
-        'sensor_mtu': int(mtu),
-        'tf_prefix': namespace
-        'reconnect': reconnect
+        'sensor_mtu': ParameterValue(mtu, value_type=int),
+        'tf_prefix': namespace,
+        'reconnect': ParameterValue(reconnect, value_type=bool)
     }
 
     # Conditionally include param file if it exists
