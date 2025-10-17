@@ -724,7 +724,7 @@ MultiSense::MultiSense(const std::string& node_name,
     const auto left_header = create_header(now, frame_id_left_);
     const auto left_rect_header = create_header(now, frame_id_rectified_left_);
     const auto right_header = create_header(now, frame_id_right_);
-    const auto right_rect_header = create_header( now, frame_id_rectified_right_);
+    const auto right_rect_header = create_header(now, frame_id_rectified_right_);
 
     const auto config = channel_->get_config();
     const double x_scale = static_cast<double>(config.width) / static_cast<double>(info_.device.imager_width);
@@ -947,18 +947,24 @@ MultiSense::MultiSense(const std::string& node_name,
 
 MultiSense::~MultiSense()
 {
-    stop();
-
     //
     // Shutdown all our publishing threads
 
     shutdown_ = true;
     image_frame_notifier_.notify_all();
+    status_timer_->cancel();
 
     for (auto &thread : procesing_threads_)
     {
         thread.join();
     }
+}
+
+std::optional<std::chrono::nanoseconds> MultiSense::time_since_last_response() const
+{
+    return last_response_time_ns_ ?
+        std::optional{std::chrono::nanoseconds{(now() - last_response_time_ns_.value()).nanoseconds()}} :
+        std::nullopt;
 }
 
 void MultiSense::image_publisher()
