@@ -53,6 +53,8 @@ int main(int argc, char** argv)
 
     const std::string sensor_ip = params.sensor_ip;
 
+    const std::chrono::seconds timeout{params.reconnect_timeout_s};
+
     do
     {
         RCLCPP_INFO(initialize_node->get_logger(), "multisense_ros: attempting to connect to sensor @ \"%s\"",
@@ -73,6 +75,8 @@ int main(int argc, char** argv)
 
                 return EXIT_FAILURE;
             }
+            RCLCPP_INFO(initialize_node->get_logger(), "multisense_ros: connected to sensor @ \"%s\"",
+                        sensor_ip.c_str());
 
             auto sensor = std::make_shared<multisense_ros::MultiSense>("sensor",
                                                                        rclcpp::NodeOptions{},
@@ -91,10 +95,10 @@ int main(int argc, char** argv)
             rclcpp::CallbackGroup::SharedPtr watchdog_group = initialize_node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
             auto stop_timer = initialize_node->create_wall_timer(250ms,
-                [context, sensor, &stop_promise]()
+                [context, sensor, &stop_promise, timeout]()
                 {
                     const auto last_response  = sensor->time_since_last_response();
-                    if (!rclcpp::ok(context) || (last_response && last_response.value() > 5s))
+                    if (!rclcpp::ok(context) || (last_response && last_response.value() > timeout))
                     {
                         try
                         {
@@ -108,10 +112,9 @@ int main(int argc, char** argv)
                 },
                 watchdog_group);
 
-            if (const auto res = executor.spin_until_future_complete(stop_future); res != rclcpp::FutureReturnCode::SUCCESS)
-            {
-                RCLCPP_ERROR(initialize_node->get_logger(), "multisense_ros: executor did not shut down cleanly");
-            }
+            const auto res = executor.spin_until_future_complete(stop_future);
+            (void) res;
+
 
             executor.cancel();
             executor.remove_node(sensor);

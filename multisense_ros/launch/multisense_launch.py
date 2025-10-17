@@ -15,6 +15,7 @@ def multisense_setup(context, *args, **kwargs):
     ip = LaunchConfiguration('ip_address').perform(context)
     mtu = LaunchConfiguration('mtu')
     reconnect = LaunchConfiguration('reconnect')
+    reconnect_timeout_s = LaunchConfiguration('reconnect_timeout_s')
     namespace = LaunchConfiguration('namespace').perform(context)
     params_file = LaunchConfiguration('params_file').perform(context)
 
@@ -31,7 +32,8 @@ def multisense_setup(context, *args, **kwargs):
         'sensor_ip': ip,
         'sensor_mtu': ParameterValue(mtu, value_type=int),
         'tf_prefix': namespace,
-        'reconnect': ParameterValue(reconnect, value_type=bool)
+        'reconnect': ParameterValue(reconnect, value_type=bool),
+        'reconnect_timeout_s': ParameterValue(reconnect_timeout_s, value_type=int)
     }
 
     # Conditionally include param file if it exists
@@ -69,6 +71,10 @@ def generate_launch_description():
                                       default_value='False',
                                       description='Reconnect on camera issues')
 
+    reconnect_timeout_s = DeclareLaunchArgument(name='reconnect_timeout_s',
+                                                default_value='5',
+                                                description='Timeout in seconds before the driver configures a reconnect')
+
     params_file = DeclareLaunchArgument('params_file',
                                         default_value='',
                                         description='Path to YAML parameter config file')
@@ -99,5 +105,6 @@ def generate_launch_description():
                               robot_state_publisher,
                               params_file,
                               reconnect,
+                              reconnect_timeout_s,
                               OpaqueFunction(function=multisense_setup)
                               ])
