@@ -569,6 +569,10 @@ multisense::MultiSenseConfig update_param_config(multisense::MultiSenseConfig co
                                                                 std::make_optional(ParameterStep{20.0, 10.096875}) :
                                                                 std::nullopt,
                                                               true);
+
+        config.aux_config->sharpening_enabled = params.aux.sharpening_enabled;
+        config.aux_config->sharpening_percentage = params.aux.sharpening_percentage;
+        config.aux_config->sharpening_limit = params.aux.sharpening_limit;
     }
 
     if (config.time_config)
