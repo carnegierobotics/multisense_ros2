@@ -1809,6 +1809,9 @@ rcl_interfaces::msg::SetParametersResult MultiSense::parameter_callback(const st
             ss << std::setw(4) << nlohmann::json::diff(config, current);
 
             RCLCPP_WARN(get_logger(), "configs which did not apply:\n %s", ss.str().c_str());
+
+            // TODO (malvarado): Remove this once firmware stability fixes are rolled out
+            return result;
         }
 
         publish_config(config);
