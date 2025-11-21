@@ -1528,6 +1528,7 @@ void MultiSense::publish_status(const multisense::MultiSenseStatus &status)
     output.received_messages = status.client_network.received_messages;
     output.dropped_messages = status.client_network.dropped_messages;
     output.invalid_packets = status.client_network.invalid_packets;
+    output.unprocessed_packets = status.client_network.unprocessed_packets;
 
     status_pub_->publish(std::make_unique<multisense_msgs::msg::Status>(std::move(output)));
 }
