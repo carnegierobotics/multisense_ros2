@@ -24,3 +24,4 @@ int16 ptp_steps_removed
 int64 received_messages
 int64 dropped_messages
 int64 invalid_packets
+int64 unprocessed_packets
