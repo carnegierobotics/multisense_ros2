@@ -1474,7 +1474,7 @@ void MultiSense::publish_status(const multisense::MultiSenseStatus &status)
         //
         // Ignore outliers for delays in status response
 
-        if (status.time->network_delay < 5ms)
+        if (status.time->network_delay < 30ms)
         {
             if (!camera_host_time_offset_)
             {
