@@ -42,6 +42,7 @@
 #include <Eigen/Geometry>
 #include <sensor_msgs/image_encodings.hpp>
 
+#include <diagnostic_msgs/msg/diagnostic_status.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <multisense_ros/multisense.h>
@@ -945,9 +946,33 @@ MultiSense::MultiSense(const std::string& node_name,
                     {
                         publish_status(status.value());
                         last_response_time_ns_ = this->now();
+                        {
+                            std::lock_guard<std::mutex> lock(status_mutex_);
+                            last_status_ = status.value();
+                        }
                     }
                 }
             });
+
+    //
+    // ROS2 diagnostics
+
+    diagnostic_updater_ = std::make_unique<diagnostic_updater::Updater>(
+        /* node */ this, /* period */ 1.0);
+    diagnostic_updater_->setHardwareIDf(
+        "%s (MultiSense %s @ %s)", info_.device.serial_number.c_str(),
+        info_.device.camera_name.c_str(), info_.network.ip_address.c_str());
+
+    diagnostic_updater_->add(
+        "Connection",
+        [this](diagnostic_updater::DiagnosticStatusWrapper &stat) {
+            connection_diagnostic_callback(stat);
+        });
+    diagnostic_updater_->add(
+        "Sensor status",
+        [this](diagnostic_updater::DiagnosticStatusWrapper &stat) {
+            sensor_status_diagnostic_callback(stat);
+        });
 }
 
 MultiSense::~MultiSense()
@@ -1531,6 +1556,95 @@ void MultiSense::publish_status(const multisense::MultiSenseStatus &status)
     output.unprocessed_packets = status.client_network.unprocessed_packets;
 
     status_pub_->publish(std::make_unique<multisense_msgs::msg::Status>(std::move(output)));
+}
+
+void MultiSense::connection_diagnostic_callback(diagnostic_updater::DiagnosticStatusWrapper &stat)
+{
+    using diagnostic_msgs::msg::DiagnosticStatus;
+
+    if (!last_response_time_ns_.has_value())
+    {
+        stat.summary(DiagnosticStatus::ERROR, "No response from sensor");
+        stat.add("Connection", "Never established");
+        return;
+    }
+
+    const auto elapsed = (now() - last_response_time_ns_.value()).nanoseconds();
+    static constexpr int64_t stale_threshold_ns = 5'000'000'000; // 5 seconds
+    if (elapsed > stale_threshold_ns)
+    {
+        stat.summary(DiagnosticStatus::WARN, "No recent response from sensor");
+        stat.add("Connection", "Stale");
+        stat.add("Seconds since last response", static_cast<double>(elapsed) / 1e9);
+    }
+    else
+    {
+        stat.summary(DiagnosticStatus::OK, "Connected");
+        stat.add("Connection", "OK");
+        stat.add("Seconds since last response", static_cast<double>(elapsed) / 1e9);
+    }
+}
+
+void MultiSense::sensor_status_diagnostic_callback(diagnostic_updater::DiagnosticStatusWrapper &stat)
+{
+    using diagnostic_msgs::msg::DiagnosticStatus;
+
+    std::optional<lms::MultiSenseStatus> status_copy;
+    {
+        std::lock_guard<std::mutex> lock(status_mutex_);
+        status_copy = last_status_;
+    }
+
+    if (!status_copy.has_value())
+    {
+        stat.summary(DiagnosticStatus::WARN, "No status received yet");
+        return;
+    }
+    const auto & s = status_copy.value();
+
+    if (!s.system_ok)
+    {
+        stat.summary(DiagnosticStatus::ERROR, "System not OK");
+    }
+    else if (!s.camera.cameras_ok || !s.camera.processing_pipeline_ok)
+    {
+        stat.summary(DiagnosticStatus::WARN, "Camera or pipeline degraded");
+    }
+    else
+    {
+        stat.summary(DiagnosticStatus::OK, "Sensor OK");
+    }
+
+    stat.add("system_ok", s.system_ok);
+    stat.add("cameras_ok", s.camera.cameras_ok);
+    stat.add("processing_pipeline_ok", s.camera.processing_pipeline_ok);
+    stat.add("received_messages", static_cast<int64_t>(s.client_network.received_messages));
+    stat.add("dropped_messages", static_cast<int64_t>(s.client_network.dropped_messages));
+    stat.add("invalid_packets", static_cast<int64_t>(s.client_network.invalid_packets));
+    stat.add("unprocessed_packets", static_cast<int64_t>(s.client_network.unprocessed_packets));
+    if (s.temperature)
+    {
+        stat.add("cpu_temp (°C)", s.temperature->cpu_temperature);
+        stat.add("fpga_temp (°C)", s.temperature->fpga_temperature);
+        stat.add("left_imager_temp (°C)", s.temperature->left_imager_temperature);
+        stat.add("right_imager_temp (°C)", s.temperature->right_imager_temperature);
+    }
+    if (s.power)
+    {
+        stat.add("input_voltage (V)", s.power->input_voltage);
+        stat.add("input_current (A)", s.power->input_current);
+        stat.add("fpga_power (W)", s.power->fpga_power);
+    }
+    stat.add("ptp_valid", static_cast<bool>(s.ptp));
+    if (s.ptp)
+    {
+        stat.add("ptp_grandmaster_present", s.ptp->grandmaster_present);
+        stat.add("ptp_steps_removed", static_cast<int>(s.ptp->steps_from_local_to_grandmaster));
+    }
+    if (s.time)
+    {
+        stat.add("network_delay (ms)", std::chrono::duration<double, std::milli>(s.time->network_delay).count());
+    }
 }
 
 size_t MultiSense::num_subscribers(const rclcpp::Node::SharedPtr &node, const std::string &topic) const

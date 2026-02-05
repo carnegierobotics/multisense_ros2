@@ -34,10 +34,13 @@
 #pragma once
 
 #include <condition_variable>
+#include <memory>
 #include <mutex>
+#include <optional>
 
 #include <rclcpp/rclcpp.hpp>
 
+#include <diagnostic_updater/diagnostic_updater.hpp>
 #include <image_transport/image_transport.hpp>
 #include <sensor_msgs/distortion_models.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
@@ -55,6 +58,7 @@
 #include <multisense_ros/multisense_parameters.hpp>
 
 #include <MultiSense/MultiSenseChannel.hh>
+#include <MultiSense/MultiSenseTypes.hh>
 
 namespace multisense_ros {
 
@@ -230,6 +234,12 @@ private:
     void publish_status(const multisense::MultiSenseStatus &status);
 
     //
+    // Diagnostic update callbacks for ROS2 diagnostics
+
+    void connection_diagnostic_callback(diagnostic_updater::DiagnosticStatusWrapper &stat);
+    void sensor_status_diagnostic_callback(diagnostic_updater::DiagnosticStatusWrapper &stat);
+
+    //
     // Function which waits for image frames from the camera, and publishes images if there is
     // an active subscription to the corresponding image topic
 
@@ -304,6 +314,13 @@ private:
     // Timer callback object for publishing status
 
     rclcpp::TimerBase::SharedPtr status_timer_ = nullptr;
+
+    //
+    // ROS2 diagnostics
+
+    std::unique_ptr<diagnostic_updater::Updater> diagnostic_updater_{nullptr};
+    mutable std::mutex status_mutex_{};
+    std::optional<multisense::MultiSenseStatus> last_status_{std::nullopt};
 
     //
     // Data publishers
