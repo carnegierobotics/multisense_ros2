@@ -11,7 +11,7 @@ the MultiSense ROS2 driver
 
 Clone the MultiSense ROS2 driver
 
-```
+```bash
 source /opt/ros/<ros2_distro>/setup.bash
 mkdir ros2_ws && cd ros2_ws
 git clone --recurse-submodules https://github.com/carnegierobotics/multisense_ros2 src
@@ -19,7 +19,7 @@ git clone --recurse-submodules https://github.com/carnegierobotics/multisense_ro
 
 Ensure all the MultiSense ROS2 dependencies are installed using rosdep
 
-```
+```bash
 sudo rosdep init
 rosdep update
 rosdep install --from-paths src -y --ignore-src
@@ -27,18 +27,22 @@ rosdep install --from-paths src -y --ignore-src
 
 Build and install the ROS2 driver
 
-```
+```bash
 colcon build
 source install/setup.bash
 ```
 
 ## Launch
 
-`ros2 launch multisense_ros multisense_launch.py`
+```bash
+ros2 launch multisense_ros multisense_launch.py
+```
 
 For the full set of launch arguments use
 
-`ros2 launch multisense_ros multisense_launch.py -s`
+```bash
+ros2 launch multisense_ros multisense_launch.py -s
+```
 
 ## Configuration
 
@@ -54,7 +58,7 @@ The rqt_reconfigure GUI can be used to dynamically change camera parameters duri
 
 The following command launches the rqt_reconfigure GUI
 
-```
+```bash
 ros2 run rqt_reconfigure rqt_reconfigure
 ```
 
@@ -70,7 +74,7 @@ has a command line interface to dynamically set MultiSense camera parameters at 
 
 The following command gets a full list of ROS2 parameters which can reconfigure the MultiSense at runtime
 
-```
+```bash
 ros2 param list
 ```
 
@@ -80,13 +84,13 @@ ros2 param list
 
 To get the current framerate execute the following command
 
-```
+```bash
 ros2 param get /multisense/sensor fps
 ```
 
 To set the framerate to new value (in this example 15fps) execute the following command
 
-```
+```bash
 ros2 param set /multisense/sensor fps 15
 ```
 
@@ -94,13 +98,13 @@ ros2 param set /multisense/sensor fps 15
 
 To get the current operating resolution execute the following command
 
-```
+```bash
 ros2 param get /multisense/sensor sensor_resolution
 ```
 
 To set the sensor resolution to new value (in this example 1/4 resolution with 256 disparities) execute the following command
 
-```
+```bash
 ros2 param set /multisense/sensor sensor_resolution "[960, 600, 256]"
 ```
 
@@ -108,13 +112,13 @@ ros2 param set /multisense/sensor sensor_resolution "[960, 600, 256]"
 
 To get the current auto exposure execute the following command
 
-```
+```bash
 ros2 param get /multisense/sensor image.auto_exposure_enabled
 ```
 
 To enable/disable the camera's auto exposure algorithm (in this example disable) execute the following command
 
-```
+```bash
 ros2 param set /multisense/sensor image.auto_exposure_enabled false
 ```
 
@@ -122,14 +126,44 @@ ros2 param set /multisense/sensor image.auto_exposure_enabled false
 
 To get the current auto exposure execute the following command
 
-```
+```bash
 ros2 param get /multisense/sensor aux.image.auto_exposure_enabled
 ```
 
 To enable/disable the aux camera's auto exposure algorithm (in this example disable) execute the following command
 
-```
+```bash
 ros2 param set /multisense/sensor aux.image.auto_exposure_enabled false
+```
+
+#### Set parameters during launch
+
+The recommended way to configure parameters when launching ROS2 drivers is via [YAML parameter configuration files](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Launch/Using-ROS2-Launch-For-Large-Projects.html#setting-parameters-in-the-launch-file).
+
+Save the following content to a YAML file and pass it to `ros2 launch` to set IMU parameters at startup:
+
+```yaml
+multisense:
+  sensor:
+    ros__parameters:
+      imu.accelerometer.rate: 3
+      imu.accelerometer.range: 1
+      imu.gyroscope.rate: 2
+      imu.gyroscope.range: 0
+```
+
+You can use:
+
+```bash
+ros2 param dump multisense
+```
+
+to retrieve the full set of parameters and their current values. The resulting YAML file can be reused as a parameter file when launching the ROS2 driver.
+
+The `params_file` argument to the launch file loads the configured parameters and overrides each parameter’s default value with the values specified in the YAML file:
+
+```bash
+ros2 launch multisense_ros multisense_launch.py params_file:=<path-to-yaml-file>
 ```
 
 ## Time Synchronization
