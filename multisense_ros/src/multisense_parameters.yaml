@@ -38,7 +38,7 @@ multisense:
           default_value: 1.68421
           description: "The analog and digital sensor gain"
           validation:
-              bounds<>: [1.68421, 16.0]
+              bounds<>: [1.68421, 64.0]
     auto_exposure:
       max_exposure_time:
           type: int
@@ -74,7 +74,7 @@ multisense:
           default_value: 2.0
           description: "The max gain value the auto exposure algorithm can use to increase image brightness"
           validation:
-              bounds<>: [1.68421, 16.0]
+              bounds<>: [1.68421, 64.0]
       roi:
         type: int_array
         default_value: [0, 0, 0, 0]
@@ -135,7 +135,7 @@ multisense:
             default_value: 1.0
             description: "The analog and digital sensor gain"
             validation:
-                bounds<>: [0.0, 85.0]
+                bounds<>: [1.0, 1000.0]
       auto_exposure:
         max_exposure_time:
             type: int
@@ -171,7 +171,7 @@ multisense:
             default_value: 90.0
             description: "The max gain value the auto exposure algorithm can use to increase image brightness"
             validation:
-                bounds<>: [1.6842, 900.0]
+                bounds<>: [1.0, 1000.0]
         roi:
           type: int_array
           default_value: [0, 0, 0, 0]
