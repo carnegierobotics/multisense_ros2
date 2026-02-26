@@ -168,10 +168,10 @@ multisense:
                 bounds<>: [0, 1.0]
         max_gain:
             type: double
-            default_value: 2.0
+            default_value: 90.0
             description: "The max gain value the auto exposure algorithm can use to increase image brightness"
             validation:
-                bounds<>: [1.6842, 16.0]
+                bounds<>: [1.6842, 900.0]
         roi:
           type: int_array
           default_value: [0, 0, 0, 0]
