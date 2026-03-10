@@ -155,10 +155,11 @@ multisense:
 You can use:
 
 ```bash
-ros2 param dump multisense
+ros2 param dump <node name>
+ros2 param dump /multisense/config
 ```
 
-to retrieve the full set of parameters and their current values. The resulting YAML file can be reused as a parameter file when launching the ROS2 driver.
+to retrieve the full set of parameters and their current values from each node. The resulting YAML files can be reused as a parameter file when launching the ROS2 driver.
 
 The `params_file` argument to the launch file loads the configured parameters and overrides each parameter’s default value with the values specified in the YAML file:
 
