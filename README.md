@@ -9,7 +9,7 @@ the MultiSense ROS2 driver
 
 > [!TIP]
 > Carnegie Robotics has found [Eclipse Cyclone DDS](https://docs.ros.org/en/jazzy/Installation/RMW-Implementations/DDS-Implementations/Working-with-Eclipse-CycloneDDS.html)
-> to be the best DDS implementation for handling large messages published at a high frequency. If you are seeing lower than expected topic frequencies, please confirm you are using Cyclone DDS.
+> to be the best DDS implementation for handling large messages published at a high frequencies. If you are seeing lower than expected topic frequencies, please confirm you are using Cyclone DDS.
 > If you are still seeing lower than expected topic frequencies using Cyclone DDS, please confirm your [network is properly configured](https://docs.carnegierobotics.com/network/network.html#os-specific-network-configuration).
 
 ## Build
