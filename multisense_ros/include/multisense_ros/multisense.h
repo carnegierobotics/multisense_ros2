@@ -35,6 +35,7 @@
 
 #include <condition_variable>
 #include <mutex>
+#include <functional>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -208,6 +209,18 @@ private:
 
     rclcpp::PublisherOptions create_publisher_options(const std::vector<multisense::DataSource> &sources,
                                                       const std::string &topic);
+
+    void update_streams(const std::vector<multisense::DataSource> &sources, const std::string &topic, size_t current_count);
+
+    rclcpp::TimerBase::SharedPtr poll_timer_ = nullptr;
+    void poll_subscribers();
+
+    struct PublisherInfo {
+        std::function<size_t()> get_count;
+        std::vector<multisense::DataSource> sources;
+        std::string topic;
+    };
+    std::vector<PublisherInfo> stream_publishers_info_;
 
     //
     // Publish static transforms for convenience
@@ -401,7 +414,7 @@ private:
 
     std::mutex stream_mutex_{};
     std::map<multisense::DataSource, int> active_streams_{};
-    std::unordered_map<std::string, int> active_topics_{};
+    std::unordered_map<std::string, size_t> active_topics_{};
 
     //
     // Has a 3rd aux color camera

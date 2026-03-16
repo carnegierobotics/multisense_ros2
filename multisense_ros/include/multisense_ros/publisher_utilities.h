@@ -65,8 +65,7 @@ public:
             image_transport_pub_ =
                 std::make_unique<image_transport::Publisher>(image_transport::create_publisher(node.get(),
                                                              get_full_topic_name(node, topic_name),
-                                                             qos.get_rmw_qos_profile(),
-                                                             options));
+                                                             qos.get_rmw_qos_profile()));
         }
         else
         {
@@ -87,7 +86,7 @@ public:
     {
         if (image_transport_pub_)
         {
-            image_transport_pub_->publish(std::move(image));
+            image_transport_pub_->publish(*image);
         }
         else if (image_pub_)
         {
@@ -95,6 +94,19 @@ public:
         }
 
         camera_info_pub_->publish(std::move(camera_info));
+    }
+
+    uint32_t getNumSubscribers() const
+    {
+        if (image_transport_pub_)
+        {
+            return image_transport_pub_->getNumSubscribers();
+        }
+        else if (image_pub_)
+        {
+            return image_pub_->get_subscription_count();
+        }
+        return 0;
     }
 
 private:

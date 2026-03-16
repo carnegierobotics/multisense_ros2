@@ -42,7 +42,7 @@
 #include <Eigen/Geometry>
 #include <sensor_msgs/image_encodings.hpp>
 
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 #include <multisense_ros/multisense.h>
 
@@ -900,6 +900,35 @@ MultiSense::MultiSense(const std::string& node_name,
 
     publish_static_tf(channel_->get_calibration());
 
+    stream_publishers_info_.push_back({[this](){return left_mono_cam_pub_->getNumSubscribers();}, {ds::LEFT_MONO_RAW}, get_full_topic_name(left_node_, MONO_TOPIC)});
+    stream_publishers_info_.push_back({[this](){return right_mono_cam_pub_->getNumSubscribers();}, {ds::RIGHT_MONO_RAW}, get_full_topic_name(right_node_, MONO_TOPIC)});
+    stream_publishers_info_.push_back({[this](){return left_rect_cam_pub_->getNumSubscribers();}, {ds::LEFT_RECTIFIED_RAW}, get_full_topic_name(left_node_, RECT_TOPIC)});
+    stream_publishers_info_.push_back({[this](){return right_rect_cam_pub_->getNumSubscribers();}, {ds::RIGHT_RECTIFIED_RAW}, get_full_topic_name(right_node_, RECT_TOPIC)});
+    stream_publishers_info_.push_back({[this](){return depth_cam_pub_->getNumSubscribers();}, {ds::LEFT_DISPARITY_RAW}, get_full_topic_name(left_node_, DEPTH_TOPIC)});
+    stream_publishers_info_.push_back({[this](){return ni_depth_cam_pub_->getNumSubscribers();}, {ds::LEFT_DISPARITY_RAW}, get_full_topic_name(left_node_, OPENNI_DEPTH_TOPIC)});
+    stream_publishers_info_.push_back({[this](){return left_disparity_pub_->getNumSubscribers();}, {ds::LEFT_DISPARITY_RAW}, get_full_topic_name(left_node_, DISPARITY_TOPIC)});
+    stream_publishers_info_.push_back({[this](){return left_disparity_cost_pub_->getNumSubscribers();}, {ds::COST_RAW}, get_full_topic_name(left_node_, COST_TOPIC)});
+
+    if (has_aux_camera_)
+    {
+        stream_publishers_info_.push_back({[this](){return aux_mono_cam_pub_->getNumSubscribers();}, {ds::AUX_LUMA_RAW}, get_full_topic_name(aux_node_, MONO_TOPIC)});
+        stream_publishers_info_.push_back({[this](){return aux_rgb_cam_pub_->getNumSubscribers();}, {ds::AUX_RAW}, get_full_topic_name(aux_node_, COLOR_TOPIC)});
+        stream_publishers_info_.push_back({[this](){return aux_rect_cam_pub_->getNumSubscribers();}, {ds::AUX_LUMA_RECTIFIED_RAW}, get_full_topic_name(aux_node_, RECT_TOPIC)});
+        stream_publishers_info_.push_back({[this](){return aux_rgb_rect_cam_pub_->getNumSubscribers();}, {ds::AUX_RECTIFIED_RAW}, get_full_topic_name(aux_node_, RECT_COLOR_TOPIC)});
+        stream_publishers_info_.push_back({[this](){return color_point_cloud_pub_->get_subscription_count();}, {ds::LEFT_DISPARITY_RAW, ds::AUX_RECTIFIED_RAW}, get_full_topic_name(aux_node_, COLOR_POINTCLOUD_TOPIC)});
+    }
+
+    stream_publishers_info_.push_back({[this](){return point_cloud_pub_->get_subscription_count();}, {ds::LEFT_DISPARITY_RAW}, get_full_topic_name(left_node_, POINTCLOUD_TOPIC)});
+    stream_publishers_info_.push_back({[this](){return luma_point_cloud_pub_->get_subscription_count();}, {ds::LEFT_DISPARITY_RAW, ds::LEFT_RECTIFIED_RAW}, get_full_topic_name(left_node_, LUMA_POINTCLOUD_TOPIC)});
+    stream_publishers_info_.push_back({[this](){return left_stereo_disparity_pub_->get_subscription_count();}, {ds::LEFT_DISPARITY_RAW}, get_full_topic_name(left_node_, DISPARITY_IMAGE_TOPIC)});
+
+    if (info_.imu)
+    {
+        stream_publishers_info_.push_back({[this](){return imu_pub_->get_subscription_count();}, {ds::IMU}, get_full_topic_name(imu_node_, IMU_TOPIC)});
+    }
+
+    poll_timer_ = this->create_wall_timer(std::chrono::milliseconds(500), std::bind(&MultiSense::poll_subscribers, this));
+
     procesing_threads_.emplace_back(std::thread(&MultiSense::image_publisher, this));
     procesing_threads_.emplace_back(std::thread(&MultiSense::depth_publisher, this));
     procesing_threads_.emplace_back(std::thread(&MultiSense::point_cloud_publisher, this));
@@ -1311,58 +1340,87 @@ void MultiSense::stop()
     active_topics_.clear();
 }
 
-rclcpp::PublisherOptions MultiSense::create_publisher_options(const std::vector<multisense::DataSource> &sources,
-                                                              const std::string &topic)
+void MultiSense::update_streams(const std::vector<multisense::DataSource> &sources, const std::string &topic, size_t current_count)
+{
+    std::lock_guard<std::mutex> lock{this->stream_mutex_};
+
+    const size_t previous_count = (active_topics_.count(topic) > 0) ? active_topics_.at(topic) : 0;
+
+    if (current_count >= 1 && previous_count == 0)
+    {
+        for (const auto &source : sources)
+        {
+            this->active_streams_[source]++;
+        }
+    }
+    else if (current_count == 0 && previous_count > 0)
+    {
+        for (const auto &source : sources)
+        {
+            this->active_streams_[source]--;
+        }
+    }
+    else if (current_count == previous_count)
+    {
+        // No change in active status
+        return;
+    }
+
+    active_topics_[topic] = current_count;
+
+    std::vector<multisense::DataSource> streams_to_stop{};
+    std::vector<multisense::DataSource> start_streams{};
+    for (const auto &[stream, count] : this->active_streams_)
+    {
+        if (count > 0)
+        {
+            start_streams.push_back(stream);
+        }
+        else
+        {
+            streams_to_stop.push_back(stream);
+        }
+    }
+
+    if (const auto status = this->channel_->stop_streams(streams_to_stop) ; status != lms::Status::OK)
+    {
+        RCLCPP_ERROR(get_logger(), "Unable to stop streams");
+    }
+
+    if (const auto status = this->channel_->start_streams(start_streams) ; status != lms::Status::OK)
+    {
+        RCLCPP_ERROR(get_logger(), "Unable to modify active streams");
+    }
+}
+
+void MultiSense::poll_subscribers()
+{
+    for (const auto& info : stream_publishers_info_)
+    {
+        if (info.get_count)
+        {
+            size_t current_count = info.get_count();
+            size_t previous_count = 0;
+            {
+                std::lock_guard<std::mutex> lock{this->stream_mutex_};
+                if (active_topics_.count(info.topic) > 0)
+                {
+                    previous_count = active_topics_.at(info.topic);
+                }
+            }
+
+            if ((current_count > 0 && previous_count == 0) || (current_count == 0 && previous_count > 0))
+            {
+                update_streams(info.sources, info.topic, current_count);
+            }
+        }
+    }
+}
+
+rclcpp::PublisherOptions MultiSense::create_publisher_options(const std::vector<multisense::DataSource> & /*sources*/,
+                                                              const std::string & /*topic*/)
 {
     rclcpp::PublisherOptions options;
-    options.event_callbacks.matched_callback =
-        [this, sources, topic](const auto &info)
-        {
-            std::lock_guard<std::mutex> lock{this->stream_mutex_};
-
-            if (info.current_count >= 1 && (active_topics_.count(topic) == 0 || active_topics_.at(topic) == 0))
-            {
-                for (const auto &source : sources)
-                {
-                    this->active_streams_[source]++;
-                }
-            }
-            else if (info.current_count <= 0)
-            {
-                for (const auto &source : sources)
-                {
-                    this->active_streams_[source]--;
-                }
-            }
-
-            active_topics_[topic] = info.current_count;
-
-            std::vector<multisense::DataSource> streams_to_stop{};
-            std::vector<multisense::DataSource> start_streams{};
-            for (const auto &[stream, count] : this->active_streams_)
-            {
-                if (count > 0)
-                {
-                    start_streams.push_back(stream);
-                }
-                else
-                {
-                    streams_to_stop.push_back(stream);
-                }
-            }
-
-            if (const auto status = this->channel_->stop_streams(streams_to_stop) ; status != lms::Status::OK)
-            {
-                RCLCPP_ERROR(get_logger(), "Unable to stop streams");
-            }
-
-
-            if (const auto status = this->channel_->start_streams(start_streams) ; status != lms::Status::OK)
-            {
-                RCLCPP_ERROR(get_logger(), "Unable to modify active streams");
-            }
-        };
-
     return options;
 }
 
