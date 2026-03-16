@@ -86,7 +86,7 @@ public:
     {
         if (image_transport_pub_)
         {
-            image_transport_pub_->publish(*image);
+            image_transport_pub_->publish(std::move(image));
         }
         else if (image_pub_)
         {
