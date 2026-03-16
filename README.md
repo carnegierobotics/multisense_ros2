@@ -7,10 +7,10 @@ This driver was developed and tested using Jazzy Jalisco. The [humble branch](ht
 If you are unable to use ROS2 Jazzy or Humble, please build [v1.0.0](https://github.com/carnegierobotics/multisense_ros2/releases/tag/v1.0.0) of
 the MultiSense ROS2 driver
 
-[!TIP]
-Carnegie Robotics has found [Eclipse Cyclone DDS](https://docs.ros.org/en/jazzy/Installation/RMW-Implementations/DDS-Implementations/Working-with-Eclipse-CycloneDDS.html)
-to be the best DDS implementation for handling large messages published at a high frequency. If you are seeing lower than expected topic frequencies, please confirm you are using Cyclone DDS.
-If you are still seeing lower than expected topic frequencies using Cyclone DDS, please confirm your [network is properly configured](https://docs.carnegierobotics.com/network/network.html#os-specific-network-configuration).
+> [!TIP]
+> Carnegie Robotics has found [Eclipse Cyclone DDS](https://docs.ros.org/en/jazzy/Installation/RMW-Implementations/DDS-Implementations/Working-with-Eclipse-CycloneDDS.html)
+> to be the best DDS implementation for handling large messages published at a high frequency. If you are seeing lower than expected topic frequencies, please confirm you are using Cyclone DDS.
+> If you are still seeing lower than expected topic frequencies using Cyclone DDS, please confirm your [network is properly configured](https://docs.carnegierobotics.com/network/network.html#os-specific-network-configuration).
 
 ## Build
 
