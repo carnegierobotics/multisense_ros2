@@ -856,6 +856,24 @@ MultiSense::MultiSense(const std::string& node_name,
                                                                                           get_full_topic_name(aux_node_, RECT_COLOR_TOPIC)),
                                                                  use_image_transport);
 
+        aux_depth_cam_pub_ = std::make_shared<ImagePublisher>(aux_node_,
+                                                              DEPTH_TOPIC,
+                                                              aux_rect_cal,
+                                                              qos,
+                                                              create_publisher_options({ds::LEFT_DISPARITY_RAW},
+                                                                                       get_full_topic_name(aux_node_, DEPTH_TOPIC)),
+                                                              use_image_transport);
+
+        aux_ni_depth_cam_pub_ = std::make_shared<ImagePublisher>(aux_node_,
+                                                                 OPENNI_DEPTH_TOPIC,
+                                                                 aux_rect_cal,
+                                                                 qos,
+                                                                 create_publisher_options({ds::LEFT_DISPARITY_RAW},
+                                                                                          get_full_topic_name(aux_node_, OPENNI_DEPTH_TOPIC)),
+                                                                 use_image_transport);
+
+
+
         color_point_cloud_pub_= create_publisher<sensor_msgs::msg::PointCloud2>(COLOR_POINTCLOUD_TOPIC,
                                                                                 qos,
                                                                                 create_publisher_options({ds::LEFT_DISPARITY_RAW,
@@ -1152,6 +1170,7 @@ void MultiSense::depth_publisher()
                     if (const auto depth_image = lms::create_depth_image(image_frame.value(),
                                                                          lms::Image::PixelFormat::FLOAT32,
                                                                          disparity_source,
+                                                                         false,
                                                                          std::numeric_limits<float>::quiet_NaN());
                                                                          depth_image)
                     {
@@ -1164,10 +1183,37 @@ void MultiSense::depth_publisher()
                     if (const auto depth_image = lms::create_depth_image(image_frame.value(),
                                                                          lms::Image::PixelFormat::MONO16,
                                                                          disparity_source,
+                                                                         false,
                                                                          0);
                                                                          depth_image)
                     {
                         publish_image(depth_image.value(), ni_depth_cam_pub_, ni_depth_image_, frame_id_rectified_left_, ros_time);
+                    }
+                }
+
+                if (num_subscribers(aux_node_, DEPTH_TOPIC) > 0)
+                {
+                    if (const auto depth_image = lms::create_depth_image(image_frame.value(),
+                                                                         lms::Image::PixelFormat::FLOAT32,
+                                                                         disparity_source,
+                                                                         true,
+                                                                         std::numeric_limits<float>::quiet_NaN());
+                                                                         depth_image)
+                    {
+                        publish_image(depth_image.value(), aux_depth_cam_pub_, depth_image_, frame_id_rectified_aux_, ros_time);
+                    }
+                }
+
+                if (num_subscribers(aux_node_, OPENNI_DEPTH_TOPIC) > 0)
+                {
+                    if (const auto depth_image = lms::create_depth_image(image_frame.value(),
+                                                                         lms::Image::PixelFormat::MONO16,
+                                                                         disparity_source,
+                                                                         true,
+                                                                         0);
+                                                                         depth_image)
+                    {
+                        publish_image(depth_image.value(), aux_ni_depth_cam_pub_, ni_depth_image_, frame_id_rectified_aux_, ros_time);
                     }
                 }
             }
