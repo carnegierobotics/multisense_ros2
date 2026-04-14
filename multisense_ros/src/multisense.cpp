@@ -1368,6 +1368,7 @@ rclcpp::PublisherOptions MultiSense::create_publisher_options(const std::vector<
 
             if (info.current_count >= 1 && (active_topics_.count(topic) == 0 || active_topics_.at(topic) == 0))
             {
+                RCLCPP_DEBUG(get_logger(), "Registering subscription to %s", topic.c_str());
                 for (const auto &source : sources)
                 {
                     this->active_streams_[source]++;
@@ -1375,6 +1376,7 @@ rclcpp::PublisherOptions MultiSense::create_publisher_options(const std::vector<
             }
             else if (info.current_count <= 0)
             {
+                RCLCPP_DEBUG(get_logger(), "Removing subscription to %s", topic.c_str());
                 for (const auto &source : sources)
                 {
                     this->active_streams_[source]--;
@@ -1390,10 +1392,12 @@ rclcpp::PublisherOptions MultiSense::create_publisher_options(const std::vector<
                 if (count > 0)
                 {
                     start_streams.push_back(stream);
+                    RCLCPP_DEBUG(get_logger(), "Starting stream: %s", lms::to_string(stream).c_str());
                 }
                 else
                 {
                     streams_to_stop.push_back(stream);
+                    RCLCPP_DEBUG(get_logger(), "Stopping stream: %s", lms::to_string(stream).c_str());
                 }
             }
 
