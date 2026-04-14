@@ -314,6 +314,8 @@ private:
     std::shared_ptr<ImagePublisher> right_rect_cam_pub_ = nullptr;
     std::shared_ptr<ImagePublisher> depth_cam_pub_ = nullptr;
     std::shared_ptr<ImagePublisher> ni_depth_cam_pub_ = nullptr;
+    std::shared_ptr<ImagePublisher> aux_depth_cam_pub_ = nullptr;
+    std::shared_ptr<ImagePublisher> aux_ni_depth_cam_pub_ = nullptr;
     std::shared_ptr<ImagePublisher> aux_rgb_cam_pub_ = nullptr;
     std::shared_ptr<ImagePublisher> aux_mono_cam_pub_ = nullptr;
     std::shared_ptr<ImagePublisher> aux_rect_cam_pub_ = nullptr;
