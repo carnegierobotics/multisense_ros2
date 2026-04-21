@@ -44,6 +44,83 @@ For the full set of launch arguments use
 ros2 launch multisense_ros multisense_launch.py -s
 ```
 
+## Published Topics
+
+The MultiSense ROS2 driver publishes data under several namespaces. By default, the main namespace is `/multisense`. Topics are only published when there are active subscribers to conserve network bandwidth.
+
+### Main Node (`/multisense`)
+
+- `histogram` (`multisense_msgs/msg/Histogram`): A 256-bin histogram of image intensities from the left camera, can be used for auto-exposure calculations or image analysis. This is computed onboard the MultiSense
+- `info` (`multisense_msgs/msg/Info`): Static sensor information, including the serial number, hardware version, firmware version, and details about the available optics and imagers. Published as a latched topic.
+- `raw_config` (`std_msgs/msg/String`): The raw configuration state from the sensor. Will change as parameters are changed via the ROS2 parameter server. Published as a latched topic.
+- `status` (`multisense_msgs/msg/Status`): Periodic diagnostic messages reporting internal temperatures, power consumption, uptime, and other sensor health metrics.
+- `points2` (`sensor_msgs/msg/PointCloud2`): A dense 3D point cloud generated from the stereo disparity image. This contains only 3D points, and does not contain any color imformation
+- `image_points2` (`sensor_msgs/msg/PointCloud2`): A 3D point cloud that includes a `luminance` (grayscale) intensity channel mapped from the left camera's image.
+- `image_points2_color` (`sensor_msgs/msg/PointCloud2`): A 3D point cloud that includes RGB color information, typically mapped from the aux camera (if available) onto the 3D structure.
+
+### Left Camera (`/multisense/left`)
+
+- `image_mono` (`sensor_msgs/msg/Image`): The raw, unrectified monochrome image direct from the left image sensor.
+- `image_mono/camera_info` (`sensor_msgs/msg/CameraInfo`): The intrinsic camera calibration parameters and distortion coefficients corresponding to the raw left image.
+- `image_rect` (`sensor_msgs/msg/Image`): The rectified monochrome image from the left sensor, corrected for lens distortion and aligned to a common epipolar geometry.
+- `image_rect/camera_info` (`sensor_msgs/msg/CameraInfo`): The intrinsic camera calibration parameters and distortion coefficients corresponding to the rectified left image.
+- `depth` (`sensor_msgs/msg/Image`): A 32-bit floating-point image where each pixel value represents the estimated depth in meters from the camera's optical center.
+- `depth/camera_info` (`sensor_msgs/msg/CameraInfo`): Camera calibration info corresponding to the depth image.
+- `openni_depth` (`sensor_msgs/msg/Image`): A 16-bit unsigned integer depth image quantized in millimeters, formatted for compatibility with OpenNI-based applications.
+- `openni_depth/camera_info` (`sensor_msgs/msg/CameraInfo`): Camera calibration info corresponding to the OpenNI depth image.
+- `disparity` (`sensor_msgs/msg/Image`): A 16-bit disparity image representing the horizontal pixel shift between the left and right rectified images. This is quantized to 1/16th of a pixel
+- `disparity/camera_info` (`sensor_msgs/msg/CameraInfo`): Camera calibration info corresponding to the disparity image.
+- `cost` (`sensor_msgs/msg/Image`): An image representing the stereo matching cost (confidence or error metric) for each pixel from the onboard stereo matching algorithm.
+- `cost/camera_info` (`sensor_msgs/msg/CameraInfo`): Camera calibration info corresponding to the cost image.
+- `disparity_image` (`stereo_msgs/msg/DisparityImage`): A standard ROS disparity image message containing the disparity data along with focal length, baseline, and min/max disparity values needed for 3D reconstruction.
+
+### Right Camera (`/multisense/right`)
+
+- `image_mono` (`sensor_msgs/msg/Image`): The raw, unrectified monochrome image direct from the right image sensor.
+- `image_mono/camera_info` (`sensor_msgs/msg/CameraInfo`): The intrinsic camera calibration parameters and distortion coefficients corresponding to the raw right image.
+- `image_rect` (`sensor_msgs/msg/Image`): The rectified monochrome image from the right sensor, corrected for lens distortion and aligned to a common epipolar geometry with the left camera.
+- `image_rect/camera_info` (`sensor_msgs/msg/CameraInfo`): The intrinsic camera calibration parameters and distortion coefficients corresponding to the rectified right image.
+
+### Aux Camera (`/multisense/aux`) - If Available
+
+The auxiliary camera (typically a high-resolution RGB sensor) is available on specific models like the S27, S30, and KS21.
+
+- `image_mono` (`sensor_msgs/msg/Image`): The raw, unrectified monochrome (luma) image from the auxiliary sensor.
+- `image_mono/camera_info` (`sensor_msgs/msg/CameraInfo`): Camera calibration info for the raw aux luma image.
+- `image_color` (`sensor_msgs/msg/Image`): The raw, unrectified RGB color image from the auxiliary sensor.
+- `image_color/camera_info` (`sensor_msgs/msg/CameraInfo`): Camera calibration info for the raw aux color image.
+- `image_rect` (`sensor_msgs/msg/Image`): The rectified monochrome (luma) image from the auxiliary sensor, corrected for lens distortion.
+- `image_rect/camera_info` (`sensor_msgs/msg/CameraInfo`): Camera calibration info for the rectified aux luma image.
+- `image_rect_color` (`sensor_msgs/msg/Image`): The rectified BGR color image from the auxiliary sensor, corrected for lens distortion.
+- `image_rect_color/camera_info` (`sensor_msgs/msg/CameraInfo`): Camera calibration info for the rectified aux color image.
+- `depth` (`sensor_msgs/msg/Image`): The 32-bit floating-point depth image specifically projected and aligned to the viewpoint of the auxiliary camera.
+- `depth/camera_info` (`sensor_msgs/msg/CameraInfo`): Camera calibration info corresponding to the aux-aligned depth image.
+- `openni_depth` (`sensor_msgs/msg/Image`): The 16-bit unsigned integer depth image quantized in millimeteres specifically projected and aligned to the viewpoint of the auxiliary camera.
+- `openni_depth/camera_info` (`sensor_msgs/msg/CameraInfo`): Camera calibration info corresponding to the aux-aligned OpenNI depth image.
+
+### IMU (`/multisense/imu`) - If Available
+
+- `imu_data` (`sensor_msgs/msg/Imu`): High-rate inertial measurement data containing 3-axis linear acceleration and 3-axis angular velocity from the sensor's internal IMU.
+
+## Published TF Frames
+
+The MultiSense ROS2 driver publishes a static TF tree based on the factory calibration of the device. These transforms establish the exact optical relationships between the camera sensors. The default TF prefix is the `namespace` of the node (default: `multisense`).
+
+The optical coordinate frame convention used is: X right, Y down, Z forward.
+
+The root of the optical TF tree published by the driver is the rectified left camera frame. The following static transforms are published:
+
+- `/<namespace>/left_camera_optical_frame` $\rightarrow$ `/<namespace>/left_camera_frame` (unrectified left image frame)
+- `/<namespace>/left_camera_optical_frame` $\rightarrow$ `/<namespace>/right_camera_optical_frame` (rectified right image frame)
+- `/<namespace>/right_camera_optical_frame` $\rightarrow$ `/<namespace>/right_camera_frame` (unrectified right image frame)
+
+If an auxiliary camera is present, the following transforms are also published:
+
+- `/<namespace>/left_camera_optical_frame` $\rightarrow$ `/<namespace>/aux_camera_optical_frame` (rectified aux image frame)
+- `/<namespace>/aux_camera_optical_frame` $\rightarrow$ `/<namespace>/aux_camera_frame` (unrectified aux image frame)
+
+*Note:* When `launch_robot_state_publisher` is enabled in the launch file (which is the default), a `robot_state_publisher` node is also launched with the appropriate URDF for your MultiSense model. The URDF provides the physical device links (e.g., `base_link`, physical mounting points, and the `imu_frame`) and connects them to the optical TF tree. Please be aware that the link transformations defined within the URDF are approximate (based on nominal CAD models) and are not factory calibrated.
+
 ## Configuration
 
 MultiSense operation parameters including resolution, frame rate, gain, exposure gamma, etc. can be dynamically changed
