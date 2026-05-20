@@ -1,0 +1,43 @@
+{
+  "name": "Default",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "../"
+  },
+  "remoteEnv": {
+    "DISPLAY": "${localEnv:DISPLAY}"
+  },
+  "mounts": [
+    "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached"
+  ],
+  "workspaceMount": "source=${localWorkspaceFolder},target=/opt/crl/ros_ws/src/multisense_ros2,type=bind",
+  "workspaceFolder": "/opt/crl/ros_ws",
+  "postCreateCommand": "cd /opt/crl/ros_ws && /opt/crl/ros_ws/src/multisense_ros2/.devcontainer/entrypoint.sh",
+  "remoteUser": "ubuntu",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anysphere.cpptools",
+        "charles-caldwell.ros2",
+        "ms-azuretools.vscode-docker",
+        "ms-vscode.cmake-tools",
+        "ms-vscode.cpptools",
+        "ms-vscode.cpptools-extension-pack"
+      ],
+      "settings": {
+        "cmake.configureOnOpen": false,
+        "cmake.buildDirectory": "/opt/crl/ros_ws/build",
+        "cmake.installDirectory": "/opt/crl/ros_ws/install",
+        "cmake.generator": "Unix Makefiles",
+        "cmake.exportCompileCommands": true,
+        "files.exclude": {
+          "**/build": false,
+          "**/install": false,
+          "**/log": false
+        },
+        "C_Cpp.errorSquiggles": "enabled",
+        "ROS2.distro": "jazzy"
+      }
+    }
+  }
+}
