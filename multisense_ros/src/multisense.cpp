@@ -141,7 +141,9 @@ bool is_gen2_camera(const lms::MultiSenseInfo::DeviceInfo::HardwareRevision &cam
             camera_type == lms::MultiSenseInfo::DeviceInfo::HardwareRevision::S30 ||
             camera_type == lms::MultiSenseInfo::DeviceInfo::HardwareRevision::KS21 ||
             camera_type == lms::MultiSenseInfo::DeviceInfo::HardwareRevision::KS21_SILVER ||
-            camera_type == lms::MultiSenseInfo::DeviceInfo::HardwareRevision::KS21i);
+            camera_type == lms::MultiSenseInfo::DeviceInfo::HardwareRevision::KS21i || 
+            camera_type == lms::MultiSenseInfo::DeviceInfo::HardwareRevision::ST25 || 
+            camera_type == lms::MultiSenseInfo::DeviceInfo::HardwareRevision::STLC );
 }
 
 std::chrono::microseconds get_closest_exposure(uint32_t exposure_us, uint32_t min, double step)
