@@ -48,29 +48,27 @@ target_include_directories(${PROJECT_NAME}
         PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         PUBLIC $<INSTALL_INTERFACE:include>)
 
-ament_target_dependencies(${PROJECT_NAME} PUBLIC
-                         angles
-                         Eigen3
-                         geometry_msgs
-                         generate_parameter_library
-                         image_geometry
-                         image_transport
-                         MultiSense
-                         multisense_lib
-                         multisense_msgs
-                         OpenCV
-                         rclcpp
-                         sensor_msgs
-                         stereo_msgs
-                         tf2
-                         tf2_ros
-                         tf2_geometry_msgs)
+target_link_libraries(${PROJECT_NAME} PUBLIC
+      ${geometry_msgs_TARGETS}
+      ${multisense_msgs_TARGETS}
+      ${sensor_msgs_TARGETS}
+      ${stereo_msgs_TARGETS}
+      angles::angles
+      image_geometry::image_geometry
+      image_transport::image_transport
+      rclcpp::rclcpp
+      sensor_msgs::sensor_msgs_library
+      tf2::tf2
+      tf2_geometry_msgs::tf2_geometry_msgs
+      tf2_ros::static_transform_broadcaster_node
+      tf2_ros::tf2_ros
+)
 
 add_executable(ros_driver src/ros_driver.cpp)
 target_link_libraries(ros_driver PUBLIC ${PROJECT_NAME})
 
-ament_target_dependencies(ros_driver PUBLIC
-                          rclcpp)
+target_link_libraries(ros_driver PUBLIC
+                      rclcpp::rclcpp)
 
 install(
   TARGETS
