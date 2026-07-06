@@ -199,8 +199,8 @@ private:
     //
     // Device stream control
 
-    size_t num_subscribers(const rclcpp::Node::SharedPtr &node, const std::string &topic) const;
-    size_t num_subscribers(const rclcpp::Node* node, const std::string &topic) const;
+    size_t num_subscribers(rclcpp::Node::SharedPtr &node, const std::string &topic);
+    size_t num_subscribers(rclcpp::Node* node, const std::string &topic);
     void stop();
 
     //

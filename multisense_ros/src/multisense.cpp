@@ -1583,12 +1583,12 @@ void MultiSense::publish_status(const multisense::MultiSenseStatus &status)
     status_pub_->publish(std::make_unique<multisense_msgs::msg::Status>(std::move(output)));
 }
 
-size_t MultiSense::num_subscribers(const rclcpp::Node::SharedPtr &node, const std::string &topic) const
+size_t MultiSense::num_subscribers(rclcpp::Node::SharedPtr &node, const std::string &topic)
 {
     return num_subscribers(node.get(), topic);
 }
 
-size_t MultiSense::num_subscribers(const rclcpp::Node* node, const std::string &topic) const
+size_t MultiSense::num_subscribers(rclcpp::Node* node, const std::string &topic)
 {
     const std::string full_topic = node->get_sub_namespace().empty() ? topic : node->get_sub_namespace()  + "/" + topic;
 
@@ -1597,7 +1597,11 @@ size_t MultiSense::num_subscribers(const rclcpp::Node* node, const std::string &
         return 0;
     }
 
-    return node->count_subscribers(full_topic) ;
+    // Resolve through the node's remap rules so subscriber counts are checked against the topic's *actual* 
+    // (possibly remapped) name rather than its default name.
+    const std::string resolved_topic = node->get_node_base_interface()->resolve_topic_or_service_name(full_topic, false);
+
+    return node->count_subscribers(resolved_topic);
 }
 
 void MultiSense::initialize_parameters(const multisense::MultiSenseConfig &config, const multisense::MultiSenseInfo& info)
