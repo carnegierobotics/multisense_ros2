@@ -83,7 +83,8 @@ int main(int argc, char** argv)
                                                                        std::move(channel),
                                                                        params.tf_prefix,
                                                                        params.use_image_transport,
-                                                                       params.use_sensor_qos);
+                                                                       params.use_sensor_qos,
+                                                                       params.publish_static_tf);
 
             rclcpp::executors::SingleThreadedExecutor executor;
             executor.add_node(sensor);

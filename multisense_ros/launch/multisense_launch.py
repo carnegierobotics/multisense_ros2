@@ -22,6 +22,7 @@ def multisense_setup(context, *args, **kwargs):
     mtu = LaunchConfiguration('mtu')
     reconnect = LaunchConfiguration('reconnect')
     reconnect_timeout_s = LaunchConfiguration('reconnect_timeout_s')
+    publish_static_tf = LaunchConfiguration('publish_static_tf')
 
     # Params file: normalize and fail loudly if user provided a bad path
     params_file = LaunchConfiguration('params_file').perform(context).strip()
@@ -41,6 +42,7 @@ def multisense_setup(context, *args, **kwargs):
         'tf_prefix': namespace,
         'reconnect': ParameterValue(reconnect, value_type=bool),
         'reconnect_timeout_s': ParameterValue(reconnect_timeout_s, value_type=int),
+        'publish_static_tf': ParameterValue(publish_static_tf, value_type=bool),
     }
 
     node_args = {
@@ -98,6 +100,12 @@ def generate_launch_description():
         description='Timeout in seconds before the driver configures a reconnect'
     )
 
+    publish_static_tf = DeclareLaunchArgument(
+        name='publish_static_tf',
+        default_value='true',  # use lowercase for launch boolean parsing
+        description='Publish static TF for camera optical frames from MultiSense calibration'
+    )
+
     # Declare params_file ONCE (no duplicates)
     params_file_arg = DeclareLaunchArgument(
         name='params_file',
@@ -134,6 +142,7 @@ def generate_launch_description():
         launch_robot_state_publisher,
         reconnect,
         reconnect_timeout_s,
+        publish_static_tf,
         params_file_arg,
         robot_state_publisher,
         OpaqueFunction(function=multisense_setup),

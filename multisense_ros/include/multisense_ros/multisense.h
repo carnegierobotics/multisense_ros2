@@ -138,7 +138,8 @@ public:
            std::unique_ptr<multisense::Channel> channel,
            const std::string& tf_prefix,
            bool use_image_transport,
-           bool use_sensor_qos);
+           bool use_sensor_qos,
+           bool publish_static_tf);
 
     ~MultiSense();
 
