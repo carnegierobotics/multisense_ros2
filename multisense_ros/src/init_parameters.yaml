@@ -21,7 +21,7 @@ initialization:
       default_value: true
       read_only: true
       description: "Publish static TF transforms for the camera optical frames"
-  use_image_transpor:
+  use_image_transport:
       type: bool
       default_value: false
       read_only: true
