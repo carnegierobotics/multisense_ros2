@@ -138,7 +138,8 @@ public:
            std::unique_ptr<multisense::Channel> channel,
            const std::string& tf_prefix,
            bool use_image_transport,
-           bool use_sensor_qos);
+           bool use_sensor_qos,
+           bool publish_static_tf);
 
     ~MultiSense();
 
@@ -199,8 +200,8 @@ private:
     //
     // Device stream control
 
-    size_t num_subscribers(const rclcpp::Node::SharedPtr &node, const std::string &topic) const;
-    size_t num_subscribers(const rclcpp::Node* node, const std::string &topic) const;
+    size_t num_subscribers(rclcpp::Node::SharedPtr &node, const std::string &topic);
+    size_t num_subscribers(rclcpp::Node* node, const std::string &topic);
     void stop();
 
     //

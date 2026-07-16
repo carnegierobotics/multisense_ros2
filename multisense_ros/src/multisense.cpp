@@ -682,7 +682,8 @@ MultiSense::MultiSense(const std::string& node_name,
                std::unique_ptr<multisense::Channel> channel,
                const std::string& tf_prefix,
                bool use_image_transport,
-               bool use_sensor_qos):
+               bool use_sensor_qos,
+               bool publish_static_tf):
     Node(node_name, options),
     channel_(std::move(channel)),
     left_node_(create_sub_node(LEFT)),
@@ -696,7 +697,9 @@ MultiSense::MultiSense(const std::string& node_name,
     frame_id_rectified_right_(tf_prefix + RIGHT_RECTIFIED_FRAME),
     frame_id_rectified_aux_(tf_prefix + AUX_RECTIFIED_FRAME),
     frame_id_imu_(tf_prefix + IMU_FRAME),
-    static_tf_broadcaster_(std::make_shared<tf2_ros::StaticTransformBroadcaster>(*this))
+    static_tf_broadcaster_(publish_static_tf ?
+                           std::make_shared<tf2_ros::StaticTransformBroadcaster>(*this) :
+                           nullptr)
 {
     if (!channel_)
     {
@@ -916,7 +919,10 @@ MultiSense::MultiSense(const std::string& node_name,
     // Publish the static transforms for our camera extrinsics for the left/right/aux frames. We will
     // use the left camera frame as the reference coordinate frame
 
-    publish_static_tf(channel_->get_calibration());
+    if (publish_static_tf)
+    {
+        this->publish_static_tf(channel_->get_calibration());
+    }
 
     procesing_threads_.emplace_back(std::thread(&MultiSense::image_publisher, this));
     procesing_threads_.emplace_back(std::thread(&MultiSense::depth_publisher, this));
@@ -1583,12 +1589,12 @@ void MultiSense::publish_status(const multisense::MultiSenseStatus &status)
     status_pub_->publish(std::make_unique<multisense_msgs::msg::Status>(std::move(output)));
 }
 
-size_t MultiSense::num_subscribers(const rclcpp::Node::SharedPtr &node, const std::string &topic) const
+size_t MultiSense::num_subscribers(rclcpp::Node::SharedPtr &node, const std::string &topic)
 {
     return num_subscribers(node.get(), topic);
 }
 
-size_t MultiSense::num_subscribers(const rclcpp::Node* node, const std::string &topic) const
+size_t MultiSense::num_subscribers(rclcpp::Node* node, const std::string &topic)
 {
     const std::string full_topic = node->get_sub_namespace().empty() ? topic : node->get_sub_namespace()  + "/" + topic;
 
@@ -1597,7 +1603,11 @@ size_t MultiSense::num_subscribers(const rclcpp::Node* node, const std::string &
         return 0;
     }
 
-    return node->count_subscribers(full_topic) ;
+    // Resolve through the node's remap rules so subscriber counts are checked against the topic's *actual* 
+    // (possibly remapped) name rather than its default name.
+    const std::string resolved_topic = node->get_node_base_interface()->resolve_topic_or_service_name(full_topic, false);
+
+    return node->count_subscribers(resolved_topic);
 }
 
 void MultiSense::initialize_parameters(const multisense::MultiSenseConfig &config, const multisense::MultiSenseInfo& info)
