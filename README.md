@@ -255,7 +255,8 @@ The MultiSense ROS2 driver supports the following three types of time synchroniz
 
 - PTP time synchronization: If the camera has been properly configured to synchronize its time with a remote PTP grandmaster, enabling the
 `time.ptp_enabled` parameter will stamp all sensor data with the PTP synchronized time. Enabling the `time.ptp_enabled` parameter will override
-all other time synchronization methods.
+all other time synchronization methods. MultiSense PTP timestamps use the TAI time domain. Set `time.ptp_tai_to_utc_enabled` to true to subtract
+the 37-second TAI-UTC leap-second offset before publishing timestamps in the UTC domain; it defaults to false to preserve raw PTP timestamps.
 - Network time synchronization: For local testing where microsecond level synchronization is not critical, network time synchronization can be
 used to update sensor data timestamps to match the host system time. This uses a simple request-response scheme to query the MultiSense system
 time, and estimate the network latency between sending the request and receiving the response message. The adjusted offset is smoothed, and applied

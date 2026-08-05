@@ -63,9 +63,12 @@ struct ParameterStep
     double delta = 0.0;
 };
 
+constexpr auto TAI_UTC_LEAP_SECOND_OFFSET = 37s;
+
 rclcpp::Time create_time(const lms::ImuSample &sample,
                          const TimestampSource &time_source,
-                         const std::optional<std::chrono::nanoseconds> &camera_host_offset)
+                         const std::optional<std::chrono::nanoseconds> &camera_host_offset,
+                         const bool ptp_tai_to_utc_enabled)
 {
     switch (time_source)
     {
@@ -82,7 +85,10 @@ rclcpp::Time create_time(const lms::ImuSample &sample,
         }
         case TimestampSource::PTP:
         {
-            return rclcpp::Time(sample.ptp_sample_time.time_since_epoch().count());
+            const auto raw_ptp_time = sample.ptp_sample_time.time_since_epoch();
+            const auto ptp_time = raw_ptp_time -
+                (ptp_tai_to_utc_enabled && raw_ptp_time != 0s ? TAI_UTC_LEAP_SECOND_OFFSET : 0s);
+            return rclcpp::Time(ptp_time.count());
         }
         default:
         {
@@ -95,7 +101,8 @@ rclcpp::Time create_time(const lms::ImuSample &sample,
 
 rclcpp::Time create_time(const lms::ImageFrame &frame,
                          const TimestampSource &time_source,
-                         const std::optional<std::chrono::nanoseconds> &camera_host_offset)
+                         const std::optional<std::chrono::nanoseconds> &camera_host_offset,
+                         const bool ptp_tai_to_utc_enabled)
 {
     switch (time_source)
     {
@@ -112,7 +119,10 @@ rclcpp::Time create_time(const lms::ImageFrame &frame,
         }
         case TimestampSource::PTP:
         {
-            return rclcpp::Time(frame.ptp_frame_time.time_since_epoch().count());
+            const auto raw_ptp_time = frame.ptp_frame_time.time_since_epoch();
+            const auto ptp_time = raw_ptp_time -
+                (ptp_tai_to_utc_enabled && raw_ptp_time != 0s ? TAI_UTC_LEAP_SECOND_OFFSET : 0s);
+            return rclcpp::Time(ptp_time.count());
         }
         default:
         {
@@ -952,6 +962,7 @@ MultiSense::MultiSense(const std::string& node_name,
     auto params = param_listener_->get_params();
 
     pointcloud_max_range_ = params.pointcloud_max_range;
+    ptp_tai_to_utc_enabled_ = params.time.ptp_tai_to_utc_enabled;
 
     if (const auto status = channel_->set_config(update_config(config)); status != multisense::Status::OK)
     {
@@ -1009,7 +1020,8 @@ void MultiSense::image_publisher()
                 continue;
             }
 
-            const auto ros_time = create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_);
+            const auto ros_time = create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_,
+                                              ptp_tai_to_utc_enabled_);
 
             if (image_frame->stereo_histogram)
             {
@@ -1138,7 +1150,8 @@ void MultiSense::depth_publisher()
                 continue;
             }
 
-            const auto ros_time = create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_);
+            const auto ros_time = create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_,
+                                              ptp_tai_to_utc_enabled_);
 
             if (image_frame->has_image(disparity_source))
             {
@@ -1213,7 +1226,8 @@ void MultiSense::point_cloud_publisher()
                 continue;
             }
 
-            const auto ros_time = create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_);
+            const auto ros_time = create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_,
+                                              ptp_tai_to_utc_enabled_);
 
             if (image_frame->has_image(disparity_source))
             {
@@ -1307,7 +1321,8 @@ void MultiSense::color_publisher()
                 continue;
             }
 
-            const auto ros_time = create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_);
+            const auto ros_time = create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_,
+                                              ptp_tai_to_utc_enabled_);
 
             if (num_subscribers(aux_node_, COLOR_TOPIC) > 0)
             {
@@ -1343,7 +1358,8 @@ void MultiSense::imu_publisher()
                     continue;
                 }
 
-                const auto ros_time = create_time(sample, timestamp_source_, camera_host_time_offset_);
+                const auto ros_time = create_time(sample, timestamp_source_, camera_host_time_offset_,
+                                                  ptp_tai_to_utc_enabled_);
 
                 publish_imu_sample(sample, imu_pub_, frame_id_imu_, ros_time);
             }
@@ -1820,6 +1836,7 @@ rcl_interfaces::msg::SetParametersResult MultiSense::parameter_callback(const st
     }
 
     pointcloud_max_range_ = param_listener_->get_params().pointcloud_max_range;
+    ptp_tai_to_utc_enabled_ = param_listener_->get_params().time.ptp_tai_to_utc_enabled;
 
     for (const auto &parameter : parameters)
     {
