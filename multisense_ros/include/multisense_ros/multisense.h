@@ -416,6 +416,7 @@ private:
     // Handle stamping messages with different time sources
 
     std::atomic<TimestampSource> timestamp_source_ {TimestampSource::SYSTEM};
+    std::atomic_bool ptp_tai_to_utc_enabled_ = false;
 
     size_t time_offset_buffer_size_ = 8;
     std::optional<std::chrono::nanoseconds> camera_host_time_offset_{std::nullopt};

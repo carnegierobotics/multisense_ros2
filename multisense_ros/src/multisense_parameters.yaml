@@ -232,6 +232,10 @@ multisense:
         type: bool
         default_value: false
         description: "Enable PTP for clock synchronization. This overrides all other time synchronization methods"
+    ptp_tai_to_utc_enabled:
+        type: bool
+        default_value: false
+        description: "Subtract the 37 second TAI-UTC leap second offset from TAI PTP timestamps before publishing them in the UTC time domain"
     network_time_sync_enabled:
         type: bool
         default_value: true
