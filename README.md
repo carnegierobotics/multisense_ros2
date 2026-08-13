@@ -107,6 +107,15 @@ The auxiliary camera (typically a high-resolution RGB sensor) is available on sp
 
 - `imu_data` (`sensor_msgs/msg/Imu`): High-rate inertial measurement data containing 3-axis linear acceleration and 3-axis angular velocity from the sensor's internal IMU.
 
+### Thermal Cameras (`/multisense/thermal`) - T6/STT6 Only
+
+The T6 thermal application supports as many as six imagers. The driver creates a namespace only for each imager reported as enabled by the device, using its LibMultiSense ID from `0` through `5`.
+
+- `<id>/image` (`sensor_msgs/msg/Image`): Rectified or raw monochrome thermal pixels. The encoding is `mono8` or `mono16` according to `thermal.bits_per_pixel`.
+- `<id>/image/camera_info` (`sensor_msgs/msg/CameraInfo`): Calibration for the corresponding thermal imager.
+
+Thermal images use the frame `<namespace>/thermal_<id>_optical_frame`. The driver does not publish transforms for these frames; applications should provide mounting transforms in their robot description. Like the stereo streams, the thermal application runs only while at least one thermal image has a subscriber.
+
 ## Published TF Frames
 
 The MultiSense ROS2 driver publishes a static TF tree based on the factory calibration of the device. These transforms establish the exact optical relationships between the camera sensors. The default TF prefix is the `namespace` of the node (default: `multisense`).
@@ -248,6 +257,49 @@ The `params_file` argument to the launch file loads the configured parameters an
 ```bash
 ros2 launch multisense_ros multisense_launch.py params_file:=<path-to-yaml-file>
 ```
+
+### T6 Thermal Startup Parameters
+
+Thermal parameters are declared only when the connected device reports T6/STT6 hardware. They therefore do not appear in `rqt_reconfigure` or `ros2 param list` for other MultiSense models. They are read-only after startup because changing thermal bit depth can restart the device pipeline.
+
+- `thermal.rectified` (default `true`): Select rectified rather than raw thermal images.
+- `thermal.bits_per_pixel` (default `16`): Select `8`-bit normalized pixels or `16`-bit raw pixels.
+- `thermal.post_processing.ffc`: Flat-field correction (bit 0).
+- `thermal.post_processing.gain`: Gain correction (bit 1).
+- `thermal.post_processing.temperature`: Temperature correction (bit 2).
+- `thermal.post_processing.bad_pixel`: Bad-pixel correction (bit 3).
+- `thermal.post_processing.scnr`: Spatial column-noise reduction (bit 4).
+- `thermal.post_processing.srnr`: Spatial row-noise reduction (bit 5).
+- `thermal.post_processing.tf`: Temporal filtering (bit 6).
+- `thermal.post_processing.spnr`: Spatial pixel-noise reduction (bit 7).
+- `thermal.post_processing.sffc`: Supplemental flat-field correction (bit 8).
+- `thermal.post_processing.toss`: TOSS/high-pass processing (bit 9).
+- `thermal.post_processing.bcnr`: Bad-column noise reduction (bit 10).
+
+All post-processing flags default to `true` except `spnr` and `toss`, following vendor guidance to avoid burn-in and image artifacts. The driver assembles these flags into the LibMultiSense correction mask at startup.
+
+For example:
+
+```yaml
+multisense:
+  sensor:
+    ros__parameters:
+      thermal.rectified: true
+      thermal.bits_per_pixel: 16
+      thermal.post_processing.ffc: true
+      thermal.post_processing.gain: true
+      thermal.post_processing.temperature: true
+      thermal.post_processing.bad_pixel: true
+      thermal.post_processing.scnr: true
+      thermal.post_processing.srnr: true
+      thermal.post_processing.tf: true
+      thermal.post_processing.spnr: false
+      thermal.post_processing.sffc: true
+      thermal.post_processing.toss: false
+      thermal.post_processing.bcnr: true
+```
+
+These values are applied whenever the driver starts with a T6. If thermal activation or configuration fails, the driver reports an error and continues without thermal topics.
 
 ## Time Synchronization
 

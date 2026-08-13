@@ -37,6 +37,11 @@ namespace multisense_ros {
 
 std::string get_full_topic_name(const rclcpp::Node::SharedPtr node, const std::string &topic_name)
 {
+    return get_full_topic_name(node.get(), topic_name);
+}
+
+std::string get_full_topic_name(const rclcpp::Node *node, const std::string &topic_name)
+{
     return node->get_effective_namespace() + "/" + topic_name;
 }
 

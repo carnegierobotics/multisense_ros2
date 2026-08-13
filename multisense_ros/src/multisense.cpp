@@ -45,6 +45,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <multisense_ros/multisense.h>
+#include <multisense_ros/thermal_publisher.h>
 
 #include <MultiSense/MultiSenseSerialization.hh>
 #include <MultiSense/MultiSenseUtilities.hh>
@@ -758,6 +759,29 @@ MultiSense::MultiSense(const std::string& node_name,
     const rclcpp::QoS sensor_data_qos = rclcpp::SensorDataQoS();
     const auto qos = use_sensor_qos ? sensor_data_qos : default_qos;
 
+    if (info_.device.hardware_revision ==
+        lms::MultiSenseInfo::DeviceInfo::HardwareRevision::STT6)
+    {
+        try
+        {
+            thermal_publisher_ = ThermalPublisher::create(
+                this, *channel_, tf_prefix, qos, use_image_transport,
+                [this](const std::vector<lms::DataSource> &sources, const std::string &topic)
+                {
+                    return create_publisher_options(sources, topic);
+                },
+                [this](const lms::secondary_application::thermal::FrameGroup &frame)
+                {
+                    return thermal_timestamp(frame.camera_timestamp, frame.ptp_locked);
+                });
+        }
+        catch (const std::exception &error)
+        {
+            RCLCPP_ERROR(get_logger(), "Unable to initialize STT6 thermal publishing: %s", error.what());
+            thermal_publisher_.reset();
+        }
+    }
+
     using ds = lms::DataSource;
 
     left_mono_cam_pub_ = std::make_shared<ImagePublisher>(left_node_,
@@ -991,6 +1015,11 @@ MultiSense::~MultiSense()
     // Shutdown all our publishing threads
 
     shutdown_ = true;
+    if (thermal_publisher_)
+    {
+        thermal_publisher_->shutdown();
+    }
+    thermal_publisher_.reset();
     image_frame_notifier_.notify_all();
     status_timer_->cancel();
 
@@ -1005,6 +1034,41 @@ std::optional<std::chrono::nanoseconds> MultiSense::time_since_last_response() c
     return last_response_time_ns_ ?
         std::optional{std::chrono::nanoseconds{(now() - last_response_time_ns_.value()).nanoseconds()}} :
         std::nullopt;
+}
+
+std::optional<rclcpp::Time> MultiSense::thermal_timestamp(const lms::TimeT camera_timestamp,
+                                                          const bool ptp_locked) const
+{
+    const auto raw_time = camera_timestamp.time_since_epoch();
+    switch (timestamp_source_.load())
+    {
+        case TimestampSource::CAMERA:
+            return raw_time > 0s ? std::make_optional(rclcpp::Time(raw_time.count())) : std::nullopt;
+        case TimestampSource::SYSTEM:
+        {
+            if (camera_host_time_offset_)
+            {
+                const auto adjusted_time = camera_host_time_offset_.value() + raw_time;
+                if (adjusted_time > 0s)
+                {
+                    return std::make_optional(rclcpp::Time(adjusted_time.count()));
+                }
+            }
+            return raw_time > 0s ? std::make_optional(rclcpp::Time(raw_time.count())) : std::nullopt;
+        }
+        case TimestampSource::PTP:
+        {
+            if (!ptp_locked || raw_time < 0s)
+            {
+                return std::nullopt;
+            }
+            const auto adjusted_time = raw_time -
+                (ptp_tai_to_utc_enabled_.load() && raw_time != 0s ? TAI_UTC_LEAP_SECOND_OFFSET : 0s);
+            return std::make_optional(rclcpp::Time(adjusted_time.count()));
+        }
+    }
+
+    return std::nullopt;
 }
 
 void MultiSense::image_publisher()

@@ -1,0 +1,70 @@
+multisense_thermal:
+  thermal:
+    rectified:
+      type: bool
+      default_value: true
+      read_only: true
+      description: "Publish rectified thermal images. Applied once when an STT6 driver starts."
+    bits_per_pixel:
+      type: int
+      default_value: 16
+      read_only: true
+      description: "Thermal image depth. Applied once when an STT6 driver starts."
+      validation:
+        one_of<>: [[8, 16]]
+    post_processing:
+      ffc:
+        type: bool
+        default_value: true
+        read_only: true
+        description: "Enable flat-field correction (mask bit 0)."
+      gain:
+        type: bool
+        default_value: true
+        read_only: true
+        description: "Enable gain correction (mask bit 1)."
+      temperature:
+        type: bool
+        default_value: true
+        read_only: true
+        description: "Enable temperature correction (mask bit 2)."
+      bad_pixel:
+        type: bool
+        default_value: true
+        read_only: true
+        description: "Enable bad-pixel correction (mask bit 3)."
+      scnr:
+        type: bool
+        default_value: true
+        read_only: true
+        description: "Enable spatial column-noise reduction (mask bit 4)."
+      srnr:
+        type: bool
+        default_value: true
+        read_only: true
+        description: "Enable spatial row-noise reduction (mask bit 5)."
+      tf:
+        type: bool
+        default_value: true
+        read_only: true
+        description: "Enable temporal filtering (mask bit 6)."
+      spnr:
+        type: bool
+        default_value: false
+        read_only: true
+        description: "Enable spatial pixel-noise reduction (mask bit 7); disabled by default to avoid burn-in."
+      sffc:
+        type: bool
+        default_value: true
+        read_only: true
+        description: "Enable supplemental flat-field correction (mask bit 8)."
+      toss:
+        type: bool
+        default_value: false
+        read_only: true
+        description: "Enable TOSS/high-pass processing (mask bit 9); disabled by default to avoid artifacts."
+      bcnr:
+        type: bool
+        default_value: true
+        read_only: true
+        description: "Enable bad-column noise reduction (mask bit 10)."
