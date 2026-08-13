@@ -396,18 +396,19 @@ void ThermalPublisher::run()
                 continue;
             }
 
-            if (!populate_image(thermal_image.image, imager.frame_id, stamp.value(), imager.image))
+            auto image = std::make_unique<sensor_msgs::msg::Image>();
+            if (!populate_image(thermal_image.image, imager.frame_id, stamp.value(), *image))
             {
                 RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
                                      "Ignoring invalid thermal image from imager %zu", id);
                 continue;
             }
 
-            imager.camera_info.header = imager.image.header;
-            imager.camera_info.width = imager.image.width;
-            imager.camera_info.height = imager.image.height;
+            imager.camera_info.header = image->header;
+            imager.camera_info.width = image->width;
+            imager.camera_info.height = image->height;
             imager.publisher->publish(
-                std::make_unique<sensor_msgs::msg::Image>(imager.image),
+                std::move(image),
                 std::make_unique<sensor_msgs::msg::CameraInfo>(imager.camera_info));
         }
     }

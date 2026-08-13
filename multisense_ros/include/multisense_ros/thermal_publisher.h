@@ -72,7 +72,6 @@ private:
     {
         std::shared_ptr<ImagePublisher> publisher;
         sensor_msgs::msg::CameraInfo camera_info;
-        sensor_msgs::msg::Image image;
         std::string frame_id;
     };
 
