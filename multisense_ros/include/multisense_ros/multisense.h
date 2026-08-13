@@ -207,6 +207,19 @@ private:
     void stop();
 
     //
+    // Hardware-specific publisher and processing setup
+
+    void initialize_thermal_publisher(const std::string &tf_prefix,
+                                      const rclcpp::QoS &qos,
+                                      bool use_image_transport);
+    void initialize_stereo_publishers(const multisense::MultiSenseConfig &config,
+                                      const rclcpp::QoS &qos,
+                                      bool use_image_transport,
+                                      bool publish_static_tf);
+    void initialize_imu_publisher(const rclcpp::QoS &qos);
+    void start_processing_threads(bool enable_stereo_processing);
+
+    //
     // Create publisher options which enable disable sources on active subscriptions
 
     rclcpp::PublisherOptions create_publisher_options(const std::vector<multisense::DataSource> &sources,

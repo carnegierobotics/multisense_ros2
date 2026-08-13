@@ -110,6 +110,7 @@ The auxiliary camera (typically a high-resolution RGB sensor) is available on sp
 ### Thermal Cameras (`/multisense/thermal`) - T6/STT6 Only
 
 The T6 thermal application supports as many as six imagers. The driver creates a namespace only for each imager reported as enabled by the device, using its LibMultiSense ID from `0` through `5`.
+On T6 hardware, the driver does not create the left, right, auxiliary, disparity, depth, point-cloud, histogram, or other stereo image publishers and processing threads.
 
 - `imager_<id>/image` (`sensor_msgs/msg/Image`): Rectified or raw monochrome thermal pixels. The encoding is `mono8` or `mono16` according to `thermal.bits_per_pixel`.
 - `imager_<id>/image/camera_info` (`sensor_msgs/msg/CameraInfo`): Calibration for the corresponding thermal imager.
