@@ -39,10 +39,18 @@ include_directories(include)
 
 generate_parameter_library(multisense_parameters src/multisense_parameters.yaml)
 generate_parameter_library(multisense_init_parameters src/init_parameters.yaml)
+generate_parameter_library(thermal_parameters src/thermal_parameters.yaml)
 
-add_library(${PROJECT_NAME} src/multisense.cpp src/publisher_utilities.cpp)
+add_library(${PROJECT_NAME}
+            src/multisense.cpp
+            src/publisher_utilities.cpp
+            src/thermal_publisher.cpp)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC multisense_init_parameters multisense_parameters MultiSense)
+target_link_libraries(${PROJECT_NAME} PUBLIC
+                      multisense_init_parameters
+                      multisense_parameters
+                      thermal_parameters
+                      MultiSense)
 
 target_include_directories(${PROJECT_NAME}
         PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -77,6 +85,7 @@ install(
     ${PROJECT_NAME}
     multisense_init_parameters
     multisense_parameters
+    thermal_parameters
     ros_driver
   EXPORT multisense_ros-targets
   ARCHIVE DESTINATION lib

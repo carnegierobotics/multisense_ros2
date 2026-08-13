@@ -45,6 +45,7 @@
 namespace multisense_ros {
 
 std::string get_full_topic_name(const rclcpp::Node::SharedPtr node, const std::string &topic_name);
+std::string get_full_topic_name(const rclcpp::Node *node, const std::string &topic_name);
 
 ///
 /// @brief A custom Image publisher which can optionally publish via image transport or standard rclcpp
@@ -59,11 +60,21 @@ public:
                    const rclcpp::QoS &qos,
                    const rclcpp::PublisherOptions &options,
                    bool image_transport)
+        : ImagePublisher(node.get(), topic_name, initial_camera_info, qos, options, image_transport)
+    {
+    }
+
+    ImagePublisher(rclcpp::Node *node,
+                   const std::string &topic_name,
+                   const sensor_msgs::msg::CameraInfo &initial_camera_info,
+                   const rclcpp::QoS &qos,
+                   const rclcpp::PublisherOptions &options,
+                   bool image_transport)
     {
         if (image_transport)
         {
             image_transport_pub_ =
-                std::make_unique<image_transport::Publisher>(image_transport::create_publisher(node.get(),
+                std::make_unique<image_transport::Publisher>(image_transport::create_publisher(node,
                                                              get_full_topic_name(node, topic_name),
                                                              qos.get_rmw_qos_profile(),
                                                              options));
@@ -81,6 +92,15 @@ public:
     }
 
     ~ImagePublisher() = default;
+
+    size_t get_subscription_count() const
+    {
+        if (image_transport_pub_)
+        {
+            return image_transport_pub_->getNumSubscribers();
+        }
+        return image_pub_ ? image_pub_->get_subscription_count() : 0;
+    }
 
     void publish(std::unique_ptr<sensor_msgs::msg::Image> image,
                  std::unique_ptr<sensor_msgs::msg::CameraInfo> camera_info)

@@ -58,6 +58,8 @@
 
 namespace multisense_ros {
 
+class ThermalPublisher;
+
 enum class TimestampSource
 {
     CAMERA,
@@ -205,6 +207,19 @@ private:
     void stop();
 
     //
+    // Hardware-specific publisher and processing setup
+
+    void initialize_thermal_publisher(const std::string &tf_prefix,
+                                      const rclcpp::QoS &qos,
+                                      bool use_image_transport);
+    void initialize_stereo_publishers(const multisense::MultiSenseConfig &config,
+                                      const rclcpp::QoS &qos,
+                                      bool use_image_transport,
+                                      bool publish_static_tf);
+    void initialize_imu_publisher(const rclcpp::QoS &qos);
+    void start_processing_threads(bool enable_stereo_processing);
+
+    //
     // Create publisher options which enable disable sources on active subscriptions
 
     rclcpp::PublisherOptions create_publisher_options(const std::vector<multisense::DataSource> &sources,
@@ -260,6 +275,9 @@ private:
 
     void imu_publisher();
 
+    std::optional<rclcpp::Time> thermal_timestamp(multisense::TimeT camera_timestamp,
+                                                  bool ptp_locked) const;
+
     //
     // Helper function to setup the nodes configuration parameters. This setups parameters which were were unable
     // to configure statically via the generate__parameter_library
@@ -292,6 +310,10 @@ private:
     // CRL sensor API
 
     std::unique_ptr<multisense::Channel> channel_ = nullptr;
+
+    // Present only on STT6 hardware. ThermalPublisher owns all thermal-specific
+    // parameters, publishers, callbacks, and processing state.
+    std::shared_ptr<ThermalPublisher> thermal_publisher_ = nullptr;
 
     //
     // Sub nodes
