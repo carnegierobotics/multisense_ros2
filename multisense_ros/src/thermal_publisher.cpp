@@ -29,6 +29,17 @@ namespace
 
 namespace thermal = multisense::secondary_application::thermal;
 
+constexpr size_t IMAGERS_PER_BANK = 2;
+constexpr size_t ENABLE_MASK_BITS_PER_BANK = 4;
+
+bool imager_enabled(const uint32_t enable_mask, const size_t imager_id)
+{
+    const size_t bank = imager_id / IMAGERS_PER_BANK;
+    const size_t bank_imager = imager_id % IMAGERS_PER_BANK;
+    const size_t mask_bit = bank * ENABLE_MASK_BITS_PER_BANK + bank_imager;
+    return (enable_mask & (1u << mask_bit)) != 0;
+}
+
 uint16_t post_processing_mask(const multisense_thermal::Params::Thermal::PostProcessing &parameters)
 {
     uint16_t output = 0;
@@ -267,7 +278,7 @@ void ThermalPublisher::initialize()
 
         for (size_t id = 0; id < MAX_IMAGERS; ++id)
         {
-            if ((config.imager_enable_mask & (1u << id)) != 0)
+            if (imager_enabled(config.imager_enable_mask, id))
             {
                 calibrations[id] = thermal::get_calibration(channel_, static_cast<uint8_t>(id));
             }
@@ -276,7 +287,7 @@ void ThermalPublisher::initialize()
 
     for (size_t id = 0; id < MAX_IMAGERS; ++id)
     {
-        if ((config.imager_enable_mask & (1u << id)) == 0)
+        if (!imager_enabled(config.imager_enable_mask, id))
         {
             continue;
         }
