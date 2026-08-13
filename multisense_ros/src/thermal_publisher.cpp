@@ -281,7 +281,7 @@ void ThermalPublisher::initialize()
             continue;
         }
 
-        const std::string topic = "thermal/" + std::to_string(id) + "/image";
+        const std::string topic = "thermal/imager_" + std::to_string(id) + "/image";
         const std::string frame_id = tf_prefix_ + "/thermal_" + std::to_string(id) + "_optical_frame";
 
         multisense::CameraCalibration calibration;

@@ -111,8 +111,8 @@ The auxiliary camera (typically a high-resolution RGB sensor) is available on sp
 
 The T6 thermal application supports as many as six imagers. The driver creates a namespace only for each imager reported as enabled by the device, using its LibMultiSense ID from `0` through `5`.
 
-- `<id>/image` (`sensor_msgs/msg/Image`): Rectified or raw monochrome thermal pixels. The encoding is `mono8` or `mono16` according to `thermal.bits_per_pixel`.
-- `<id>/image/camera_info` (`sensor_msgs/msg/CameraInfo`): Calibration for the corresponding thermal imager.
+- `imager_<id>/image` (`sensor_msgs/msg/Image`): Rectified or raw monochrome thermal pixels. The encoding is `mono8` or `mono16` according to `thermal.bits_per_pixel`.
+- `imager_<id>/image/camera_info` (`sensor_msgs/msg/CameraInfo`): Calibration for the corresponding thermal imager.
 
 Thermal images use the frame `<namespace>/thermal_<id>_optical_frame`. The driver does not publish transforms for these frames; applications should provide mounting transforms in their robot description. Like the stereo streams, the thermal application runs only while at least one thermal image has a subscriber.
 
