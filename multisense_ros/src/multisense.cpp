@@ -1474,50 +1474,61 @@ rclcpp::PublisherOptions MultiSense::create_publisher_options(const std::vector<
         {
             std::lock_guard<std::mutex> lock{this->stream_mutex_};
 
-            if (info.current_count >= 1 && (active_topics_.count(topic) == 0 || active_topics_.at(topic) == 0))
-            {
-                RCLCPP_DEBUG(get_logger(), "Registering subscription to %s", topic.c_str());
-                for (const auto &source : sources)
-                {
-                    this->active_streams_[source]++;
-                }
-            }
-            else if (info.current_count <= 0)
-            {
-                RCLCPP_DEBUG(get_logger(), "Removing subscription to %s", topic.c_str());
-                for (const auto &source : sources)
-                {
-                    this->active_streams_[source]--;
-                }
-            }
+            const int previous = this->active_topics_.count(topic) ? this->active_topics_.at(topic) : 0;
+            const int current = static_cast<int>(info.current_count);
+            this->active_topics_[topic] = current;
 
-            active_topics_[topic] = info.current_count;
-
+            // Only change camera streams when a topic goes from zero to non-zero subscribers
+            // or the reverse. Re-issuing start/stop for every match event (2->1, 1->2, etc.)
+            // flaps ST25 firmware and is a no-op for S27.
+            std::vector<multisense::DataSource> streams_to_start{};
             std::vector<multisense::DataSource> streams_to_stop{};
-            std::vector<multisense::DataSource> start_streams{};
-            for (const auto &[stream, count] : this->active_streams_)
+
+            if (previous <= 0 && current >= 1)
             {
-                if (count > 0)
+                RCLCPP_INFO(get_logger(), "Subscribers on %s (%d): starting sources", topic.c_str(), current);
+                for (const auto &source : sources)
                 {
-                    start_streams.push_back(stream);
-                    RCLCPP_DEBUG(get_logger(), "Starting stream: %s", lms::to_string(stream).c_str());
+                    const int count = ++this->active_streams_[source];
+                    if (count == 1)
+                    {
+                        streams_to_start.push_back(source);
+                    }
                 }
-                else
+            }
+            else if (previous >= 1 && current <= 0)
+            {
+                RCLCPP_INFO(get_logger(), "No subscribers on %s: stopping sources", topic.c_str());
+                for (const auto &source : sources)
                 {
-                    streams_to_stop.push_back(stream);
-                    RCLCPP_DEBUG(get_logger(), "Stopping stream: %s", lms::to_string(stream).c_str());
+                    auto it = this->active_streams_.find(source);
+                    if (it == this->active_streams_.end())
+                    {
+                        continue;
+                    }
+                    it->second--;
+                    if (it->second <= 0)
+                    {
+                        streams_to_stop.push_back(source);
+                        this->active_streams_.erase(it);
+                    }
                 }
             }
 
-            if (const auto status = this->channel_->stop_streams(streams_to_stop) ; status != lms::Status::OK)
+            if (!streams_to_stop.empty())
             {
-                RCLCPP_ERROR(get_logger(), "Unable to stop streams");
+                if (const auto status = this->channel_->stop_streams(streams_to_stop); status != lms::Status::OK)
+                {
+                    RCLCPP_ERROR(get_logger(), "Unable to stop streams: %s", lms::to_string(status).c_str());
+                }
             }
 
-
-            if (const auto status = this->channel_->start_streams(start_streams) ; status != lms::Status::OK)
+            if (!streams_to_start.empty())
             {
-                RCLCPP_ERROR(get_logger(), "Unable to modify active streams");
+                if (const auto status = this->channel_->start_streams(streams_to_start); status != lms::Status::OK)
+                {
+                    RCLCPP_ERROR(get_logger(), "Unable to start streams: %s", lms::to_string(status).c_str());
+                }
             }
         };
 
