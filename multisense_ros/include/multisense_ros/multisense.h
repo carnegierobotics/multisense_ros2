@@ -220,7 +220,8 @@ private:
     void start_processing_threads(bool enable_stereo_processing);
 
     //
-    // Create publisher options which enable disable sources on active subscriptions
+    // Create publisher options which start/stop camera streams only when a topic's
+    // subscriber count crosses between zero and non-zero (not on every DDS match event)
 
     rclcpp::PublisherOptions create_publisher_options(const std::vector<multisense::DataSource> &sources,
                                                       const std::string &topic);
