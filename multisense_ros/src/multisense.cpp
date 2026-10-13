@@ -31,22 +31,25 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#include <sensor_msgs/image_encodings.hpp>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-
-#include <Eigen/Geometry>
-#include <MultiSense/MultiSenseSerialization.hh>
-#include <MultiSense/MultiSenseUtilities.hh>
-#include <arpa/inet.h>
-#include <multisense_ros/multisense.h>
-#include <multisense_ros/thermal_publisher.h>
-#include <nlohmann/json.hpp>
-#include <opencv2/opencv.hpp>
-
 #include <algorithm>
+#include <arpa/inet.h>
 #include <chrono>
 #include <fstream>
 #include <sstream>
+
+#include <nlohmann/json.hpp>
+#include <opencv2/opencv.hpp>
+
+#include <Eigen/Geometry>
+#include <sensor_msgs/image_encodings.hpp>
+
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
+#include <multisense_ros/multisense.h>
+#include <multisense_ros/thermal_publisher.h>
+
+#include <MultiSense/MultiSenseSerialization.hh>
+#include <MultiSense/MultiSenseUtilities.hh>
 
 namespace lms = multisense;
 
@@ -83,15 +86,16 @@ rclcpp::Time create_time(const lms::ImuSample &sample,
         }
         case TimestampSource::SYSTEM:
         {
-            return (camera_host_offset && (camera_host_offset.value() + sample.sample_time.time_since_epoch()) > 0s)
-                       ? rclcpp::Time(camera_host_offset->count() + sample.sample_time.time_since_epoch().count())
-                       : rclcpp::Time(sample.sample_time.time_since_epoch().count());
+            return (camera_host_offset && (camera_host_offset.value() + sample.sample_time.time_since_epoch()) > 0s) ?
+                rclcpp::Time(camera_host_offset->count() + sample.sample_time.time_since_epoch().count()) :
+                rclcpp::Time(sample.sample_time.time_since_epoch().count());
+
         }
         case TimestampSource::PTP:
         {
             const auto raw_ptp_time = sample.ptp_sample_time.time_since_epoch();
-            const auto ptp_time =
-                raw_ptp_time - (ptp_tai_to_utc_enabled && raw_ptp_time != 0s ? TAI_UTC_LEAP_SECOND_OFFSET : 0s);
+            const auto ptp_time = raw_ptp_time -
+                (ptp_tai_to_utc_enabled && raw_ptp_time != 0s ? TAI_UTC_LEAP_SECOND_OFFSET : 0s);
             return rclcpp::Time(ptp_time.count());
         }
         default:
@@ -116,15 +120,16 @@ rclcpp::Time create_time(const lms::ImageFrame &frame,
         }
         case TimestampSource::SYSTEM:
         {
-            return (camera_host_offset && (camera_host_offset.value() + frame.frame_time.time_since_epoch()) > 0s)
-                       ? rclcpp::Time(camera_host_offset->count() + frame.frame_time.time_since_epoch().count())
-                       : rclcpp::Time(frame.frame_time.time_since_epoch().count());
+            return (camera_host_offset && (camera_host_offset.value() + frame.frame_time.time_since_epoch()) > 0s) ?
+                rclcpp::Time(camera_host_offset->count() + frame.frame_time.time_since_epoch().count()) :
+                rclcpp::Time(frame.frame_time.time_since_epoch().count());
+
         }
         case TimestampSource::PTP:
         {
             const auto raw_ptp_time = frame.ptp_frame_time.time_since_epoch();
-            const auto ptp_time =
-                raw_ptp_time - (ptp_tai_to_utc_enabled && raw_ptp_time != 0s ? TAI_UTC_LEAP_SECOND_OFFSET : 0s);
+            const auto ptp_time = raw_ptp_time -
+                (ptp_tai_to_utc_enabled && raw_ptp_time != 0s ? TAI_UTC_LEAP_SECOND_OFFSET : 0s);
             return rclcpp::Time(ptp_time.count());
         }
         default:
@@ -138,14 +143,14 @@ rclcpp::Time create_time(const lms::ImageFrame &frame,
 
 bool is_time_valid(const lms::ImuSample &sample, const TimestampSource &time_source)
 {
-    return time_source == TimestampSource::PTP ? sample.ptp_sample_time.time_since_epoch().count() >= 0
-                                               : sample.sample_time.time_since_epoch().count() > 0;
+    return time_source == TimestampSource::PTP ? sample.ptp_sample_time.time_since_epoch().count() >= 0 :
+                          sample.sample_time.time_since_epoch().count() > 0;
 }
 
 bool is_time_valid(const lms::ImageFrame &frame, const TimestampSource &time_source)
 {
-    return time_source == TimestampSource::PTP ? frame.ptp_frame_time.time_since_epoch().count() >= 0
-                                               : frame.frame_time.time_since_epoch().count() > 0;
+    return time_source == TimestampSource::PTP ? frame.ptp_frame_time.time_since_epoch().count() >= 0 :
+                          frame.frame_time.time_since_epoch().count() > 0;
 }
 
 bool is_gen2_camera(const lms::MultiSenseInfo::DeviceInfo::HardwareRevision &camera_type)
@@ -163,21 +168,23 @@ std::chrono::microseconds get_closest_exposure(uint32_t exposure_us, uint32_t mi
     {
         std::cerr << "Exposure step size is invalid. Cannot find closest exposure" << std::endl;
         return std::chrono::microseconds(exposure_us);
+
     }
 
-    return std::chrono::microseconds{
-        static_cast<uint32_t>(std::floor((std::floor(static_cast<double>(exposure_us - min) / step) * step) + min))};
+    return std::chrono::microseconds{static_cast<uint32_t>(std::floor((std::floor(static_cast<double>(exposure_us - min) / step) * step) + min))};
 }
 
 float get_closet_aux_gain(float gain)
 {
-    constexpr std::array<float, 86> gains = {
-        1.00,  1.03,  1.07,  1.10,  1.14,  1.19,  1.23,  1.28,  1.33,  1.39,  1.45,  1.52,  1.60,  1.68,  1.78,
-        1.88,  2.00,  2.13,  2.29,  2.46,  2.67,  2.91,  3.00,  3.10,  3.20,  3.31,  3.43,  3.56,  3.69,  3.84,
-        4.00,  4.17,  4.36,  4.57,  4.80,  5.05,  5.33,  5.65,  6.00,  6.40,  6.86,  7.38,  8.00,  8.73,  9.60,
-        10.67, 12.00, 12.39, 12.80, 13.24, 13.71, 14.22, 14.77, 15.36, 16.00, 16.70, 17.45, 18.29, 19.20, 20.21,
-        21.33, 22.59, 24.00, 24.77, 25.60, 26.48, 27.43, 28.44, 29.54, 30.72, 32.00, 33.39, 34.91, 36.57, 38.40,
-        40.42, 42.67, 45.18, 48.00, 51.20, 54.86, 59.08, 64.00, 69.82, 76.80, 85.33};
+
+    constexpr std::array<float, 86> gains = {1.00 ,1.03 ,1.07 ,1.10 ,1.14 ,1.19 ,1.23 ,1.28 ,1.33 ,1.39 ,1.45 ,1.52,
+                                             1.60 ,1.68 ,1.78 ,1.88 ,2.00 ,2.13 ,2.29 ,2.46 ,2.67 ,2.91 ,3.00 ,3.10,
+                                             3.20 ,3.31 ,3.43 ,3.56 ,3.69 ,3.84 ,4.00 ,4.17 ,4.36 ,4.57 ,4.80 ,5.05,
+                                             5.33 ,5.65 ,6.00 ,6.40 ,6.86 ,7.38 ,8.00 ,8.73 ,9.60 ,10.67,12.00,12.39,
+                                             12.80,13.24,13.71,14.22,14.77,15.36,16.00,16.70,17.45,18.29,19.20,20.21,
+                                             21.33,22.59,24.00,24.77,25.60,26.48,27.43,28.44,29.54,30.72,32.00,33.39,
+                                             34.91,36.57,38.40,40.42,42.67,45.18,48.00,51.20,54.86,59.08,64.00,69.82,
+                                             76.80,85.33};
 
     const auto val = std::lower_bound(std::begin(gains), std::end(gains), gain);
 
@@ -197,11 +204,12 @@ float get_closet_aux_gain(float gain)
 
 float get_closest_stereo_gain(float gain)
 {
-    constexpr std::array<float, 36> gains{1.68421,  1.77778,  1.88235,  2.00000, 2.13333, 2.28572, 2.46154, 2.66667,
-                                          2.90909,  3.20000,  3.55556,  4.00000, 4.12903, 4.26667, 4.41379, 4.57144,
-                                          4.74074,  4.92308,  5.12000,  5.33333, 5.56522, 5.81818, 6.09524, 6.40000,
-                                          6.73684,  7.11111,  7.52941,  8.00000, 8.53333, 9.14286, 9.84616, 10.66667,
-                                          11.63636, 12.90000, 14.22222, 16.00000};
+    constexpr std::array<float, 36> gains{1.68421,  1.77778,  1.88235, 2.00000,  2.13333,  2.28572,  2.46154,
+                                          2.66667,  2.90909,  3.20000,  3.55556, 4.00000,  4.12903,  4.26667,
+                                          4.41379,  4.57144,  4.74074,  4.92308,  5.12000, 5.33333,  5.56522,
+                                          5.81818,  6.09524,  6.40000,  6.73684,  7.11111,  7.52941, 8.00000,
+                                          8.53333,  9.14286,  9.84616, 10.66667, 11.63636, 12.90000, 14.22222,
+                                          16.00000};
 
     const auto val = std::lower_bound(std::begin(gains), std::end(gains), gain);
 
@@ -219,9 +227,11 @@ float get_closest_stereo_gain(float gain)
     return (std::abs(*val - gain) < std::abs(*before - gain)) ? *val : *before;
 }
 
-tf2::Matrix3x3 to_rotation(const std::array<std::array<float, 3>, 3> &R)
+tf2::Matrix3x3 to_rotation(const std::array<std::array<float, 3>, 3> & R)
 {
-    return tf2::Matrix3x3{R[0][0], R[0][1], R[0][2], R[1][0], R[1][1], R[1][2], R[2][0], R[2][1], R[2][2]};
+    return tf2::Matrix3x3{R[0][0], R[0][1], R[0][2],
+                          R[1][0], R[1][1], R[1][2],
+                          R[2][0], R[2][1], R[2][2]};
 }
 
 lms::CameraCalibration scale_calibration(lms::CameraCalibration calibration, double x_scale, double y_scale)
@@ -287,33 +297,30 @@ sensor_msgs::msg::CameraInfo create_camera_info(const lms::CameraCalibration &ca
             info.distortion_model = sensor_msgs::distortion_models::RATIONAL_POLYNOMIAL;
             break;
         }
-        default:
-        {
-            break;
-        }
+        default: {break;}
     }
 
     //
     // We need to convert our floating point calibrations to doubles
 
-    for (const auto &e : cal.D)
+    for (const auto &e: cal.D)
     {
         info.d.push_back(e);
     }
 
-    for (size_t i = 0; i < info.k.size(); ++i)
+    for (size_t i = 0 ; i < info.k.size() ; ++i)
     {
-        info.k[i] = *(reinterpret_cast<const float *>(cal.K.data()) + i);
+        info.k[i] = *(reinterpret_cast<const float*>(cal.K.data()) + i);
     }
 
-    for (size_t i = 0; i < info.r.size(); ++i)
+    for (size_t i = 0 ; i < info.r.size() ; ++i)
     {
-        info.r[i] = *(reinterpret_cast<const float *>(cal.R.data()) + i);
+        info.r[i] = *(reinterpret_cast<const float*>(cal.R.data()) + i);
     }
 
-    for (size_t i = 0; i < info.p.size(); ++i)
+    for (size_t i = 0 ; i < info.p.size() ; ++i)
     {
-        info.p[i] = *(reinterpret_cast<const float *>(cal.P.data()) + i);
+        info.p[i] = *(reinterpret_cast<const float*>(cal.P.data()) + i);
     }
 
     return info;
@@ -332,7 +339,7 @@ void populate_image(const lms::Image &image,
     ros_image.height = image.height;
     ros_image.width = image.width;
 
-    switch (image.format)
+    switch(image.format)
     {
         case lms::Image::PixelFormat::MONO8:
         {
@@ -358,10 +365,7 @@ void populate_image(const lms::Image &image,
             ros_image.step = image.width * 4;
             break;
         }
-        default:
-        {
-            throw std::runtime_error("Invalid image format");
-        }
+        default: {throw std::runtime_error("Invalid image format");}
     };
 
     ros_image.is_bigendian = (htonl(1) == 1);
@@ -393,19 +397,19 @@ void publish_point_cloud(const lms::PointCloud<Color> &point_cloud,
     ros_point_cloud.fields.reserve(4);
     ros_point_cloud.fields.resize(3);
     ros_point_cloud.point_step = 0;
-    ros_point_cloud.fields[0].name = "x";
-    ros_point_cloud.fields[0].offset = 0;
-    ros_point_cloud.fields[0].count = 1;
+    ros_point_cloud.fields[0].name     = "x";
+    ros_point_cloud.fields[0].offset   = 0;
+    ros_point_cloud.fields[0].count    = 1;
     ros_point_cloud.fields[0].datatype = sensor_msgs::msg::PointField::FLOAT32;
     ros_point_cloud.point_step += sizeof(float);
-    ros_point_cloud.fields[1].name = "y";
-    ros_point_cloud.fields[1].offset = sizeof(float);
-    ros_point_cloud.fields[1].count = 1;
+    ros_point_cloud.fields[1].name     = "y";
+    ros_point_cloud.fields[1].offset   = sizeof(float);
+    ros_point_cloud.fields[1].count    = 1;
     ros_point_cloud.fields[1].datatype = sensor_msgs::msg::PointField::FLOAT32;
     ros_point_cloud.point_step += sizeof(float);
-    ros_point_cloud.fields[2].name = "z";
-    ros_point_cloud.fields[2].offset = 2 * sizeof(float);
-    ros_point_cloud.fields[2].count = 1;
+    ros_point_cloud.fields[2].name     = "z";
+    ros_point_cloud.fields[2].offset   = 2 * sizeof(float);
+    ros_point_cloud.fields[2].count    = 1;
     ros_point_cloud.fields[2].datatype = sensor_msgs::msg::PointField::FLOAT32;
     ros_point_cloud.point_step += sizeof(float);
 
@@ -424,7 +428,7 @@ void publish_point_cloud(const lms::PointCloud<Color> &point_cloud,
         // Unfortunately we need to iterate and write our points to the output buffer since we need to
         // pad color pixels with an extra 8 bits to align with the FLOAT32 boundary
         ros_point_cloud.data.resize(point_cloud.cloud.size() * (ros_point_cloud.point_step));
-        auto point_cloud_p = reinterpret_cast<float *>(ros_point_cloud.data.data());
+        auto point_cloud_p = reinterpret_cast<float*>(ros_point_cloud.data.data());
         for (size_t i = 0; i < point_cloud.cloud.size(); ++i)
         {
             point_cloud_p[i * num_fields + 0] = point_cloud.cloud[i].x;
@@ -436,7 +440,7 @@ void publish_point_cloud(const lms::PointCloud<Color> &point_cloud,
                                  (static_cast<uint32_t>(point_cloud.cloud[i].color[1]) << 8) |
                                  (static_cast<uint32_t>(point_cloud.cloud[i].color[0]));
 
-            auto color_p = reinterpret_cast<uint32_t *>(&point_cloud_p[i * num_fields + 3]);
+            auto color_p = reinterpret_cast<uint32_t*>(&point_cloud_p[i * num_fields + 3]);
             color_p[0] = rgb;
         }
     }
@@ -450,9 +454,7 @@ void publish_point_cloud(const lms::PointCloud<Color> &point_cloud,
         ros_point_cloud.point_step += sizeof(uint8_t);
 
         ros_point_cloud.data.resize(point_cloud.cloud.size() * sizeof(lms::Point<Color>));
-        memcpy(&ros_point_cloud.data[0],
-               reinterpret_cast<const uint8_t *>(point_cloud.cloud.data()),
-               ros_point_cloud.data.size());
+        memcpy(&ros_point_cloud.data[0], reinterpret_cast<const uint8_t*>(point_cloud.cloud.data()), ros_point_cloud.data.size());
     }
     else if constexpr (std::is_same_v<Color, uint16_t>)
     {
@@ -464,16 +466,12 @@ void publish_point_cloud(const lms::PointCloud<Color> &point_cloud,
         ros_point_cloud.point_step += sizeof(uint16_t);
 
         ros_point_cloud.data.resize(point_cloud.cloud.size() * sizeof(lms::Point<Color>));
-        memcpy(&ros_point_cloud.data[0],
-               reinterpret_cast<const uint8_t *>(point_cloud.cloud.data()),
-               ros_point_cloud.data.size());
+        memcpy(&ros_point_cloud.data[0], reinterpret_cast<const uint8_t*>(point_cloud.cloud.data()), ros_point_cloud.data.size());
     }
     else if constexpr (std::is_same_v<Color, void>)
     {
         ros_point_cloud.data.resize(point_cloud.cloud.size() * sizeof(lms::Point<Color>));
-        memcpy(&ros_point_cloud.data[0],
-               reinterpret_cast<const uint8_t *>(point_cloud.cloud.data()),
-               ros_point_cloud.data.size());
+        memcpy(&ros_point_cloud.data[0], reinterpret_cast<const uint8_t*>(point_cloud.cloud.data()), ros_point_cloud.data.size());
     }
 
     ros_point_cloud.width = point_cloud.cloud.size();
@@ -507,9 +505,9 @@ void publish_imu_sample(const lms::ImuSample &sample,
 
     if (sample.gyroscope)
     {
-        message.angular_velocity.x = sample.gyroscope->x * M_PI / 180.0;
-        message.angular_velocity.y = sample.gyroscope->y * M_PI / 180.0;
-        message.angular_velocity.z = sample.gyroscope->z * M_PI / 180.0;
+        message.angular_velocity.x = sample.gyroscope->x * M_PI/180.0;
+        message.angular_velocity.y = sample.gyroscope->y * M_PI/180.0;
+        message.angular_velocity.z = sample.gyroscope->z * M_PI/180.0;
     }
 
     publisher->publish(message);
@@ -539,14 +537,15 @@ multisense::MultiSenseConfig::ImageConfig update_param_config(multisense::MultiS
     }
     else if (config.manual_exposure)
     {
-        config.manual_exposure->exposure_time = exposure_step
-                                                    ? get_closest_exposure(params.manual_exposure.exposure_time,
-                                                                           exposure_step->offset,
-                                                                           exposure_step->delta)
-                                                    : std::chrono::microseconds{params.manual_exposure.exposure_time};
+        config.manual_exposure->exposure_time = exposure_step ?
+                                                get_closest_exposure(params.manual_exposure.exposure_time,
+                                                                     exposure_step->offset,
+                                                                     exposure_step->delta) :
+                                                std::chrono::microseconds{params.manual_exposure.exposure_time};
 
-        config.manual_exposure->gain = aux_camera ? get_closet_aux_gain(params.manual_exposure.gain)
-                                                  : get_closest_stereo_gain(params.manual_exposure.gain);
+        config.manual_exposure->gain = aux_camera ?
+                                       get_closet_aux_gain(params.manual_exposure.gain) :
+                                       get_closest_stereo_gain(params.manual_exposure.gain);
     }
 
     config.auto_white_balance_enabled = params.auto_white_balance_enabled;
@@ -574,19 +573,20 @@ multisense::MultiSenseConfig update_param_config(multisense::MultiSenseConfig co
 
     config.stereo_config.postfilter_strength = params.stereo.postfilter_strength;
 
-    config.image_config = update_param_config(
-        std::move(config.image_config),
-        params.image,
-        is_gen2_camera(camera_type) ? std::make_optional(ParameterStep{20.0, 10.0125}) : std::nullopt,
-        false);
+    config.image_config = update_param_config(std::move(config.image_config),
+                                              params.image,
+                                              is_gen2_camera(camera_type) ?
+                                                std::make_optional(ParameterStep{20.0, 10.0125}) : std::nullopt,
+                                              false);
 
     if (config.aux_config)
     {
-        config.aux_config->image_config = update_param_config(
-            std::move(config.aux_config->image_config),
-            params.aux.image,
-            is_gen2_camera(camera_type) ? std::make_optional(ParameterStep{20.0, 10.096875}) : std::nullopt,
-            true);
+        config.aux_config->image_config = update_param_config(std::move(config.aux_config->image_config),
+                                                              params.aux.image,
+                                                              is_gen2_camera(camera_type) ?
+                                                                std::make_optional(ParameterStep{20.0, 10.096875}) :
+                                                                std::nullopt,
+                                                              true);
 
         config.aux_config->sharpening_enabled = params.aux.sharpening_enabled;
         config.aux_config->sharpening_percentage = params.aux.sharpening_percentage;
@@ -650,7 +650,7 @@ multisense::MultiSenseConfig::MaxDisparities pixel_to_disparity(const uint32_t d
     throw std::runtime_error("unsupported disparity setting");
 }
 
-} // namespace
+} // anonymous
 
 //
 // Provide compiler with definition of the static members
@@ -695,27 +695,27 @@ constexpr char MultiSense::DISPARITY_CAMERA_INFO_TOPIC[];
 constexpr char MultiSense::COST_CAMERA_INFO_TOPIC[];
 constexpr char MultiSense::IMU_TOPIC[];
 
-MultiSense::MultiSense(const std::string &node_name,
-                       const rclcpp::NodeOptions &options,
-                       std::unique_ptr<multisense::Channel> channel,
-                       const std::string &tf_prefix,
-                       bool use_image_transport,
-                       bool use_sensor_qos,
-                       bool publish_static_tf)
-    : Node(node_name, options)
-    , channel_(std::move(channel))
-    , left_node_(create_sub_node(LEFT))
-    , right_node_(create_sub_node(RIGHT))
-    , aux_node_(create_sub_node(AUX))
-    , imu_node_(create_sub_node(IMU))
-    , frame_id_left_(tf_prefix + LEFT_CAMERA_FRAME)
-    , frame_id_right_(tf_prefix + RIGHT_CAMERA_FRAME)
-    , frame_id_aux_(tf_prefix + AUX_CAMERA_FRAME)
-    , frame_id_rectified_left_(tf_prefix + LEFT_RECTIFIED_FRAME)
-    , frame_id_rectified_right_(tf_prefix + RIGHT_RECTIFIED_FRAME)
-    , frame_id_rectified_aux_(tf_prefix + AUX_RECTIFIED_FRAME)
-    , frame_id_imu_(tf_prefix + IMU_FRAME)
-    , static_tf_broadcaster_(nullptr)
+MultiSense::MultiSense(const std::string& node_name,
+               const rclcpp::NodeOptions& options,
+               std::unique_ptr<multisense::Channel> channel,
+               const std::string& tf_prefix,
+               bool use_image_transport,
+               bool use_sensor_qos,
+               bool publish_static_tf):
+    Node(node_name, options),
+    channel_(std::move(channel)),
+    left_node_(create_sub_node(LEFT)),
+    right_node_(create_sub_node(RIGHT)),
+    aux_node_(create_sub_node(AUX)),
+    imu_node_(create_sub_node(IMU)),
+    frame_id_left_(tf_prefix + LEFT_CAMERA_FRAME),
+    frame_id_right_(tf_prefix + RIGHT_CAMERA_FRAME),
+    frame_id_aux_(tf_prefix + AUX_CAMERA_FRAME),
+    frame_id_rectified_left_(tf_prefix + LEFT_RECTIFIED_FRAME),
+    frame_id_rectified_right_(tf_prefix + RIGHT_RECTIFIED_FRAME),
+    frame_id_rectified_aux_(tf_prefix + AUX_RECTIFIED_FRAME),
+    frame_id_imu_(tf_prefix + IMU_FRAME),
+    static_tf_broadcaster_(nullptr)
 {
     if (!channel_)
     {
@@ -730,7 +730,8 @@ MultiSense::MultiSense(const std::string &node_name,
     info_ = channel_->get_info();
 
     has_aux_camera_ = info_.device.has_aux_camera();
-    const bool is_t6 = info_.device.hardware_revision == lms::MultiSenseInfo::DeviceInfo::HardwareRevision::STT6;
+    const bool is_t6 = info_.device.hardware_revision ==
+        lms::MultiSenseInfo::DeviceInfo::HardwareRevision::STT6;
 
     //
     // Topics published for all device types
@@ -766,8 +767,7 @@ MultiSense::MultiSense(const std::string &node_name,
     param_listener_ = std::make_shared<multisense::ParamListener>(get_node_parameters_interface());
     initialize_parameters(config, info_);
 
-    paramter_handle_ =
-        add_on_set_parameters_callback(std::bind(&MultiSense::parameter_callback, this, std::placeholders::_1));
+    paramter_handle_ = add_on_set_parameters_callback(std::bind(&MultiSense::parameter_callback, this, std::placeholders::_1));
     auto params = param_listener_->get_params();
 
     pointcloud_max_range_ = params.pointcloud_max_range;
@@ -781,18 +781,18 @@ MultiSense::MultiSense(const std::string &node_name,
     current_config_ = channel_->get_config();
 
     status_timer_ = create_wall_timer(1s,
-                                      [this]()
-                                      {
-                                          if (!shutdown_)
-                                          {
-                                              reconcile_streams();
-                                              if (const auto status = channel_->get_system_status(); status)
-                                              {
-                                                  publish_status(status.value());
-                                                  last_response_time_ns_ = this->now();
-                                              }
-                                          }
-                                      });
+            [this]()
+            {
+                if (!shutdown_)
+                {
+                    reconcile_streams();
+                    if (const auto status = channel_->get_system_status(); status)
+                    {
+                        publish_status(status.value());
+                        last_response_time_ns_ = this->now();
+                    }
+                }
+            });
 }
 
 void MultiSense::initialize_stereo_publishers(const multisense::MultiSenseConfig &config,
@@ -826,8 +826,10 @@ void MultiSense::initialize_stereo_publishers(const multisense::MultiSenseConfig
     using ds = lms::DataSource;
     const auto track = [this](const auto &publisher, const std::string &topic)
     {
-        register_stream_demand_for_topic(topic,
-                                         [publisher]() { return publisher ? publisher->get_subscription_count() : 0; });
+        register_stream_demand_for_topic(topic, [publisher]()
+        {
+            return publisher ? publisher->get_subscription_count() : 0;
+        });
     };
 
     left_mono_cam_pub_ = std::make_shared<ImagePublisher>(
@@ -912,8 +914,8 @@ void MultiSense::initialize_stereo_publishers(const multisense::MultiSenseConfig
         const auto aux_header = create_header(now, frame_id_aux_);
         const auto aux_rect_header = create_header(now, frame_id_rectified_aux_);
         const auto aux_cal = create_camera_info(calibration.aux.value(), aux_header, config.width, config.height);
-        const auto aux_rect_cal =
-            create_camera_info(calibration.aux.value(), aux_rect_header, config.width, config.height);
+        const auto aux_rect_cal = create_camera_info(
+            calibration.aux.value(), aux_rect_header, config.width, config.height);
 
         aux_mono_cam_pub_ = std::make_shared<ImagePublisher>(
             aux_node_,
@@ -972,8 +974,9 @@ void MultiSense::initialize_stereo_publishers(const multisense::MultiSenseConfig
         color_point_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
             COLOR_POINTCLOUD_TOPIC,
             qos,
-            create_publisher_options({ds::LEFT_DISPARITY_RAW, ds::AUX_RECTIFIED_RAW},
-                                     get_full_topic_name(aux_node_, COLOR_POINTCLOUD_TOPIC)));
+            create_publisher_options(
+                {ds::LEFT_DISPARITY_RAW, ds::AUX_RECTIFIED_RAW},
+                get_full_topic_name(aux_node_, COLOR_POINTCLOUD_TOPIC)));
         track(color_point_cloud_pub_, get_full_topic_name(aux_node_, COLOR_POINTCLOUD_TOPIC));
     }
 
@@ -986,14 +989,16 @@ void MultiSense::initialize_stereo_publishers(const multisense::MultiSenseConfig
     luma_point_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
         LUMA_POINTCLOUD_TOPIC,
         qos,
-        create_publisher_options({ds::LEFT_DISPARITY_RAW, ds::LEFT_RECTIFIED_RAW},
-                                 get_full_topic_name(left_node_, LUMA_POINTCLOUD_TOPIC)));
+        create_publisher_options(
+            {ds::LEFT_DISPARITY_RAW, ds::LEFT_RECTIFIED_RAW},
+            get_full_topic_name(left_node_, LUMA_POINTCLOUD_TOPIC)));
     track(luma_point_cloud_pub_, get_full_topic_name(left_node_, LUMA_POINTCLOUD_TOPIC));
 
     left_stereo_disparity_pub_ = left_node_->create_publisher<stereo_msgs::msg::DisparityImage>(
         DISPARITY_IMAGE_TOPIC,
         qos,
-        create_publisher_options({ds::LEFT_DISPARITY_RAW}, get_full_topic_name(left_node_, DISPARITY_IMAGE_TOPIC)));
+        create_publisher_options(
+            {ds::LEFT_DISPARITY_RAW}, get_full_topic_name(left_node_, DISPARITY_IMAGE_TOPIC)));
     track(left_stereo_disparity_pub_, get_full_topic_name(left_node_, DISPARITY_IMAGE_TOPIC));
 
     reconcile_streams();
@@ -1011,17 +1016,19 @@ void MultiSense::initialize_thermal_publisher(const std::string &tf_prefix,
     try
     {
         thermal_publisher_ = ThermalPublisher::create(
-            this,
-            *channel_,
-            tf_prefix,
-            qos,
-            use_image_transport,
+            this, *channel_, tf_prefix, qos, use_image_transport,
             [this](const std::vector<lms::DataSource> &sources, const std::string &topic)
-            { return create_publisher_options(sources, topic); },
+            {
+                return create_publisher_options(sources, topic);
+            },
             [this](const std::string &topic, std::function<size_t()> subscriber_count)
-            { register_stream_demand_for_topic(topic, std::move(subscriber_count)); },
+            {
+                register_stream_demand_for_topic(topic, std::move(subscriber_count));
+            },
             [this](const lms::secondary_application::thermal::FrameGroup &frame)
-            { return thermal_timestamp(frame.camera_timestamp, frame.ptp_locked); });
+            {
+                return thermal_timestamp(frame.camera_timestamp, frame.ptp_locked);
+            });
     }
     catch (const std::exception &error)
     {
@@ -1041,8 +1048,10 @@ void MultiSense::initialize_imu_publisher(const rclcpp::QoS &qos)
         IMU_TOPIC,
         qos,
         create_publisher_options({lms::DataSource::IMU}, get_full_topic_name(left_node_, IMU_TOPIC)));
-    register_stream_demand_for_topic(get_full_topic_name(left_node_, IMU_TOPIC),
-                                     [this]() { return imu_pub_ ? imu_pub_->get_subscription_count() : 0; });
+    register_stream_demand_for_topic(get_full_topic_name(left_node_, IMU_TOPIC), [this]()
+    {
+        return imu_pub_ ? imu_pub_->get_subscription_count() : 0;
+    });
     reconcile_streams();
 }
 
@@ -1055,13 +1064,15 @@ void MultiSense::start_processing_threads(bool enable_stereo_processing)
         procesing_threads_.emplace_back(std::thread(&MultiSense::point_cloud_publisher, this));
         procesing_threads_.emplace_back(std::thread(&MultiSense::color_publisher, this));
 
-        channel_->add_image_frame_callback([this](const auto &frame) { image_frame_notifier_.set_and_notify(frame); });
+        channel_->add_image_frame_callback(
+            [this](const auto &frame) { image_frame_notifier_.set_and_notify(frame); });
     }
 
     if (info_.imu)
     {
         procesing_threads_.emplace_back(std::thread(&MultiSense::imu_publisher, this));
-        channel_->add_imu_frame_callback([this](const auto &frame) { imu_frame_notifier_.set_and_notify(frame); });
+        channel_->add_imu_frame_callback(
+            [this](const auto &frame) { imu_frame_notifier_.set_and_notify(frame); });
     }
 }
 
@@ -1087,9 +1098,9 @@ MultiSense::~MultiSense()
 
 std::optional<std::chrono::nanoseconds> MultiSense::time_since_last_response() const
 {
-    return last_response_time_ns_
-               ? std::optional{std::chrono::nanoseconds{(now() - last_response_time_ns_.value()).nanoseconds()}}
-               : std::nullopt;
+    return last_response_time_ns_ ?
+        std::optional{std::chrono::nanoseconds{(now() - last_response_time_ns_.value()).nanoseconds()}} :
+        std::nullopt;
 }
 
 std::optional<rclcpp::Time> MultiSense::thermal_timestamp(const lms::TimeT camera_timestamp,
@@ -1118,8 +1129,8 @@ std::optional<rclcpp::Time> MultiSense::thermal_timestamp(const lms::TimeT camer
             {
                 return std::nullopt;
             }
-            const auto adjusted_time =
-                raw_time - (ptp_tai_to_utc_enabled_.load() && raw_time != 0s ? TAI_UTC_LEAP_SECOND_OFFSET : 0s);
+            const auto adjusted_time = raw_time -
+                (ptp_tai_to_utc_enabled_.load() && raw_time != 0s ? TAI_UTC_LEAP_SECOND_OFFSET : 0s);
             return std::make_optional(rclcpp::Time(adjusted_time.count()));
         }
     }
@@ -1132,18 +1143,16 @@ void MultiSense::image_publisher()
     const auto timeout = std::make_optional(std::chrono::milliseconds{500});
     while (!shutdown_)
     {
-        if (const auto image_frame = image_frame_notifier_.wait(timeout); image_frame)
+        if (const auto image_frame = image_frame_notifier_.wait(timeout) ; image_frame)
         {
             if (!is_time_valid(image_frame.value(), timestamp_source_))
             {
-                RCLCPP_WARN(get_logger(),
-                            "FrameId %ld has a negative or zero time. Skipping image publish",
-                            image_frame->frame_id);
+                RCLCPP_WARN(get_logger(), "FrameId %ld has a negative or zero time. Skipping image publish", image_frame->frame_id);
                 continue;
             }
 
-            const auto ros_time =
-                create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_, ptp_tai_to_utc_enabled_);
+            const auto ros_time = create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_,
+                                              ptp_tai_to_utc_enabled_);
 
             if (image_frame->stereo_histogram)
             {
@@ -1171,53 +1180,33 @@ void MultiSense::image_publisher()
                 {
                     case lms::DataSource::LEFT_MONO_RAW:
                     {
-                        if (subscription_count(left_mono_cam_pub_) == 0)
-                        {
-                            continue;
-                        }
+                        if (subscription_count(left_mono_cam_pub_) == 0) continue;
                         publish_image(image, left_mono_cam_pub_, left_mono_image_, frame_id_left_, ros_time);
                         break;
                     }
                     case lms::DataSource::RIGHT_MONO_RAW:
                     {
-                        if (subscription_count(right_mono_cam_pub_) == 0)
-                        {
-                            continue;
-                        }
+                        if (subscription_count(right_mono_cam_pub_) == 0) continue;
                         publish_image(image, right_mono_cam_pub_, right_mono_image_, frame_id_right_, ros_time);
                         break;
                     }
                     case lms::DataSource::LEFT_RECTIFIED_RAW:
                     {
-                        if (subscription_count(left_rect_cam_pub_) == 0)
-                        {
-                            continue;
-                        }
+                        if (subscription_count(left_rect_cam_pub_) == 0) continue;
                         publish_image(image, left_rect_cam_pub_, left_rect_image_, frame_id_rectified_left_, ros_time);
                         break;
                     }
                     case lms::DataSource::RIGHT_RECTIFIED_RAW:
                     {
-                        if (subscription_count(right_rect_cam_pub_) == 0)
-                        {
-                            continue;
-                        }
-                        publish_image(image,
-                                      right_rect_cam_pub_,
-                                      right_rect_image_,
-                                      frame_id_rectified_right_,
-                                      ros_time);
+                        if (subscription_count(right_rect_cam_pub_) == 0) continue;
+                        publish_image(image, right_rect_cam_pub_, right_rect_image_, frame_id_rectified_right_, ros_time);
                         break;
                     }
                     case lms::DataSource::LEFT_DISPARITY_RAW:
                     {
                         if (subscription_count(left_disparity_pub_) > 0)
                         {
-                            publish_image(image,
-                                          left_disparity_pub_,
-                                          left_disparity_image_,
-                                          frame_id_rectified_left_,
-                                          ros_time);
+                            publish_image(image, left_disparity_pub_, left_disparity_image_, frame_id_rectified_left_, ros_time);
                         }
 
                         if (subscription_count(left_stereo_disparity_pub_) > 0)
@@ -1227,7 +1216,7 @@ void MultiSense::image_publisher()
                             left_stereo_disparity_.t = -image_frame->calibration.right.rectified_translation()[0];
                             left_stereo_disparity_.min_disparity = 0.0f;
                             left_stereo_disparity_.max_disparity = 256.0f;
-                            left_stereo_disparity_.delta_d = 1.0f / 16.0f;
+                            left_stereo_disparity_.delta_d = 1.0f/16.0f;
 
                             left_stereo_disparity_pub_->publish(left_stereo_disparity_);
                         }
@@ -1235,19 +1224,13 @@ void MultiSense::image_publisher()
                     }
                     case lms::DataSource::AUX_LUMA_RAW:
                     {
-                        if (subscription_count(aux_mono_cam_pub_) == 0)
-                        {
-                            continue;
-                        }
+                        if (subscription_count(aux_mono_cam_pub_) == 0) continue;
                         publish_image(image, aux_mono_cam_pub_, aux_mono_image_, frame_id_aux_, ros_time);
                         break;
                     }
                     case lms::DataSource::AUX_LUMA_RECTIFIED_RAW:
                     {
-                        if (subscription_count(aux_rect_cam_pub_) == 0)
-                        {
-                            continue;
-                        }
+                        if (subscription_count(aux_rect_cam_pub_) == 0) continue;
                         publish_image(image, aux_rect_cam_pub_, aux_rect_image_, frame_id_rectified_aux_, ros_time);
                         break;
                     }
@@ -1260,44 +1243,23 @@ void MultiSense::image_publisher()
                     }
                     case lms::DataSource::AUX_RAW:
                     {
-                        if (subscription_count(aux_rgb_cam_pub_) == 0)
-                        {
-                            continue;
-                        }
+                        if (subscription_count(aux_rgb_cam_pub_) == 0) continue;
                         publish_image(image, aux_rgb_cam_pub_, aux_rgb_image_, frame_id_aux_, ros_time);
                         break;
                     }
                     case lms::DataSource::AUX_RECTIFIED_RAW:
                     {
-                        if (subscription_count(aux_rgb_rect_cam_pub_) == 0)
-                        {
-                            continue;
-                        }
-                        publish_image(image,
-                                      aux_rgb_rect_cam_pub_,
-                                      aux_rect_rgb_image_,
-                                      frame_id_rectified_aux_,
-                                      ros_time);
+                        if (subscription_count(aux_rgb_rect_cam_pub_) == 0) continue;
+                        publish_image(image, aux_rgb_rect_cam_pub_, aux_rect_rgb_image_, frame_id_rectified_aux_, ros_time);
                         break;
                     }
                     case lms::DataSource::COST_RAW:
                     {
-                        if (subscription_count(left_disparity_cost_pub_) == 0)
-                        {
-                            continue;
-                        }
-                        publish_image(image,
-                                      left_disparity_cost_pub_,
-                                      left_disparity_cost_image_,
-                                      frame_id_rectified_left_,
-                                      ros_time);
+                        if (subscription_count(left_disparity_cost_pub_) == 0) continue;
+                        publish_image(image, left_disparity_cost_pub_, left_disparity_cost_image_, frame_id_rectified_left_, ros_time);
                         break;
                     }
-                    default:
-                    {
-                        RCLCPP_ERROR(get_logger(), "MultiSense: unknown image source");
-                        continue;
-                    }
+                    default: { RCLCPP_ERROR(get_logger(), "MultiSense: unknown image source"); continue;}
                 }
             }
         }
@@ -1311,18 +1273,16 @@ void MultiSense::depth_publisher()
     const auto timeout = std::make_optional(std::chrono::milliseconds{500});
     while (!shutdown_)
     {
-        if (const auto image_frame = image_frame_notifier_.wait(timeout); image_frame)
+        if (const auto image_frame = image_frame_notifier_.wait(timeout) ; image_frame)
         {
             if (!is_time_valid(image_frame.value(), timestamp_source_))
             {
-                RCLCPP_WARN(get_logger(),
-                            "FrameId %ld has a negative or zero time. Skipping image publish",
-                            image_frame->frame_id);
+                RCLCPP_WARN(get_logger(), "FrameId %ld has a negative or zero time. Skipping image publish", image_frame->frame_id);
                 continue;
             }
 
-            const auto ros_time =
-                create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_, ptp_tai_to_utc_enabled_);
+            const auto ros_time = create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_,
+                                              ptp_tai_to_utc_enabled_);
 
             if (image_frame->has_image(disparity_source))
             {
@@ -1333,13 +1293,9 @@ void MultiSense::depth_publisher()
                                                                          disparity_source,
                                                                          false,
                                                                          std::numeric_limits<float>::quiet_NaN());
-                        depth_image)
+                                                                         depth_image)
                     {
-                        publish_image(depth_image.value(),
-                                      depth_cam_pub_,
-                                      depth_image_,
-                                      frame_id_rectified_left_,
-                                      ros_time);
+                        publish_image(depth_image.value(), depth_cam_pub_, depth_image_, frame_id_rectified_left_, ros_time);
                     }
                 }
 
@@ -1350,13 +1306,9 @@ void MultiSense::depth_publisher()
                                                                          disparity_source,
                                                                          false,
                                                                          0);
-                        depth_image)
+                                                                         depth_image)
                     {
-                        publish_image(depth_image.value(),
-                                      ni_depth_cam_pub_,
-                                      ni_depth_image_,
-                                      frame_id_rectified_left_,
-                                      ros_time);
+                        publish_image(depth_image.value(), ni_depth_cam_pub_, ni_depth_image_, frame_id_rectified_left_, ros_time);
                     }
                 }
 
@@ -1367,13 +1319,9 @@ void MultiSense::depth_publisher()
                                                                          disparity_source,
                                                                          true,
                                                                          std::numeric_limits<float>::quiet_NaN());
-                        depth_image)
+                                                                         depth_image)
                     {
-                        publish_image(depth_image.value(),
-                                      aux_depth_cam_pub_,
-                                      depth_image_,
-                                      frame_id_rectified_aux_,
-                                      ros_time);
+                        publish_image(depth_image.value(), aux_depth_cam_pub_, depth_image_, frame_id_rectified_aux_, ros_time);
                     }
                 }
 
@@ -1384,13 +1332,9 @@ void MultiSense::depth_publisher()
                                                                          disparity_source,
                                                                          true,
                                                                          0);
-                        depth_image)
+                                                                         depth_image)
                     {
-                        publish_image(depth_image.value(),
-                                      aux_ni_depth_cam_pub_,
-                                      ni_depth_image_,
-                                      frame_id_rectified_aux_,
-                                      ros_time);
+                        publish_image(depth_image.value(), aux_ni_depth_cam_pub_, ni_depth_image_, frame_id_rectified_aux_, ros_time);
                     }
                 }
             }
@@ -1405,26 +1349,25 @@ void MultiSense::point_cloud_publisher()
     const auto timeout = std::make_optional(std::chrono::milliseconds{500});
     while (!shutdown_)
     {
-        if (const auto image_frame = image_frame_notifier_.wait(timeout); image_frame)
+        if (const auto image_frame = image_frame_notifier_.wait(timeout) ; image_frame)
         {
             if (!is_time_valid(image_frame.value(), timestamp_source_))
             {
-                RCLCPP_WARN(get_logger(),
-                            "FrameId %ld has a negative or zero time. Skipping image publish",
-                            image_frame->frame_id);
+                RCLCPP_WARN(get_logger(), "FrameId %ld has a negative or zero time. Skipping image publish", image_frame->frame_id);
                 continue;
             }
 
-            const auto ros_time =
-                create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_, ptp_tai_to_utc_enabled_);
+            const auto ros_time = create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_,
+                                              ptp_tai_to_utc_enabled_);
 
             if (image_frame->has_image(disparity_source))
             {
                 if (subscription_count(point_cloud_pub_) > 0)
                 {
-                    if (const auto point_cloud =
-                            lms::create_pointcloud(image_frame.value(), pointcloud_max_range_, disparity_source);
-                        point_cloud)
+                    if (const auto point_cloud = lms::create_pointcloud(image_frame.value(),
+                                                                        pointcloud_max_range_,
+                                                                        disparity_source);
+                                                                        point_cloud)
                     {
                         publish_point_cloud(point_cloud.value(),
                                             ros_time,
@@ -1434,19 +1377,17 @@ void MultiSense::point_cloud_publisher()
                     }
                 }
 
-                if (subscription_count(luma_point_cloud_pub_) > 0 &&
-                    image_frame->has_image(lms::DataSource::LEFT_RECTIFIED_RAW))
+                if (subscription_count(luma_point_cloud_pub_) > 0 && image_frame->has_image(lms::DataSource::LEFT_RECTIFIED_RAW))
                 {
                     const auto color_format = image_frame->get_image(lms::DataSource::LEFT_RECTIFIED_RAW).format;
 
                     if (color_format == lms::Image::PixelFormat::MONO8)
                     {
-                        if (const auto point_cloud =
-                                lms::create_color_pointcloud<uint8_t>(image_frame.value(),
-                                                                      pointcloud_max_range_,
-                                                                      lms::DataSource::LEFT_RECTIFIED_RAW,
-                                                                      disparity_source);
-                            point_cloud)
+                        if (const auto point_cloud = lms::create_color_pointcloud<uint8_t>(image_frame.value(),
+                                                                                           pointcloud_max_range_,
+                                                                                           lms::DataSource::LEFT_RECTIFIED_RAW,
+                                                                                           disparity_source);
+                                                                                           point_cloud)
                         {
                             publish_point_cloud(point_cloud.value(),
                                                 ros_time,
@@ -1457,12 +1398,11 @@ void MultiSense::point_cloud_publisher()
                     }
                     else if (color_format == lms::Image::PixelFormat::MONO16)
                     {
-                        if (const auto point_cloud =
-                                lms::create_color_pointcloud<uint16_t>(image_frame.value(),
-                                                                       pointcloud_max_range_,
-                                                                       lms::DataSource::LEFT_RECTIFIED_RAW,
-                                                                       disparity_source);
-                            point_cloud)
+                        if (const auto point_cloud = lms::create_color_pointcloud<uint16_t>(image_frame.value(),
+                                                                                            pointcloud_max_range_,
+                                                                                            lms::DataSource::LEFT_RECTIFIED_RAW,
+                                                                                            disparity_source);
+                                                                                            point_cloud)
                         {
                             publish_point_cloud(point_cloud.value(),
                                                 ros_time,
@@ -1477,16 +1417,14 @@ void MultiSense::point_cloud_publisher()
                     image_frame->has_image(lms::DataSource::AUX_LUMA_RECTIFIED_RAW) &&
                     image_frame->has_image(lms::DataSource::AUX_CHROMA_RECTIFIED_RAW))
                 {
-                    const auto bgr_image =
-                        lms::create_bgr_image(image_frame.value(), lms::DataSource::AUX_RECTIFIED_RAW);
+                    const auto bgr_image = lms::create_bgr_image(image_frame.value(), lms::DataSource::AUX_RECTIFIED_RAW);
                     if (bgr_image)
                     {
-                        if (const auto point_cloud = lms::create_color_pointcloud<std::array<uint8_t, 3>>(
-                                image_frame->get_image(disparity_source),
-                                bgr_image,
-                                pointcloud_max_range_,
-                                image_frame->calibration);
-                            point_cloud)
+                        if (const auto point_cloud = lms::create_color_pointcloud<std::array<uint8_t, 3>>(image_frame->get_image(disparity_source),
+                                                                                                          bgr_image,
+                                                                                                          pointcloud_max_range_,
+                                                                                                          image_frame->calibration);
+                                                                                                          point_cloud)
                         {
                             publish_point_cloud(point_cloud.value(),
                                                 ros_time,
@@ -1506,18 +1444,16 @@ void MultiSense::color_publisher()
     const auto timeout = std::make_optional(std::chrono::milliseconds{500});
     while (!shutdown_)
     {
-        if (const auto image_frame = image_frame_notifier_.wait(timeout); image_frame)
+        if (const auto image_frame = image_frame_notifier_.wait(timeout) ; image_frame)
         {
             if (!is_time_valid(image_frame.value(), timestamp_source_))
             {
-                RCLCPP_WARN(get_logger(),
-                            "FrameId %ld has a negative or zero time. Skipping image publish",
-                            image_frame->frame_id);
+                RCLCPP_WARN(get_logger(), "FrameId %ld has a negative or zero time. Skipping image publish", image_frame->frame_id);
                 continue;
             }
 
-            const auto ros_time =
-                create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_, ptp_tai_to_utc_enabled_);
+            const auto ros_time = create_time(image_frame.value(), timestamp_source_, camera_host_time_offset_,
+                                              ptp_tai_to_utc_enabled_);
 
             if (subscription_count(aux_rgb_cam_pub_) > 0)
             {
@@ -1529,14 +1465,9 @@ void MultiSense::color_publisher()
 
             if (subscription_count(aux_rgb_rect_cam_pub_) > 0)
             {
-                if (auto bgr_image = lms::create_bgr_image(image_frame.value(), lms::DataSource::AUX_RECTIFIED_RAW);
-                    bgr_image)
+                if (auto bgr_image = lms::create_bgr_image(image_frame.value(), lms::DataSource::AUX_RECTIFIED_RAW); bgr_image)
                 {
-                    publish_image(bgr_image.value(),
-                                  aux_rgb_rect_cam_pub_,
-                                  aux_rect_rgb_image_,
-                                  frame_id_rectified_aux_,
-                                  ros_time);
+                    publish_image(bgr_image.value(), aux_rgb_rect_cam_pub_, aux_rect_rgb_image_, frame_id_rectified_aux_, ros_time);
                 }
             }
         }
@@ -1548,7 +1479,7 @@ void MultiSense::imu_publisher()
     const auto timeout = std::make_optional(std::chrono::milliseconds{500});
     while (!shutdown_)
     {
-        if (const auto imu_frame = imu_frame_notifier_.wait(timeout); imu_frame)
+        if (const auto imu_frame = imu_frame_notifier_.wait(timeout) ; imu_frame)
         {
             for (const auto &sample : imu_frame->samples)
             {
@@ -1558,8 +1489,8 @@ void MultiSense::imu_publisher()
                     continue;
                 }
 
-                const auto ros_time =
-                    create_time(sample, timestamp_source_, camera_host_time_offset_, ptp_tai_to_utc_enabled_);
+                const auto ros_time = create_time(sample, timestamp_source_, camera_host_time_offset_,
+                                                  ptp_tai_to_utc_enabled_);
 
                 publish_imu_sample(sample, imu_pub_, frame_id_imu_, ros_time);
             }
@@ -1587,12 +1518,17 @@ rclcpp::PublisherOptions MultiSense::create_publisher_options(const std::vector<
     }
 
     rclcpp::PublisherOptions options;
-    options.event_callbacks.matched_callback = [this](const auto &) { reconcile_streams(); };
+    options.event_callbacks.matched_callback =
+        [this](const auto &)
+        {
+            reconcile_streams();
+        };
 
     return options;
 }
 
-void MultiSense::register_stream_demand_for_topic(const std::string &topic, std::function<size_t()> subscriber_count)
+void MultiSense::register_stream_demand_for_topic(const std::string &topic,
+                                                  std::function<size_t()> subscriber_count)
 {
     std::lock_guard<std::mutex> lock{stream_mutex_};
     const auto sources = stream_sources_by_topic_.find(topic);
@@ -1619,8 +1555,9 @@ void MultiSense::reconcile_streams()
     topics.reserve(demands.size());
     for (const auto &demand : demands)
     {
-        topics.push_back(TopicStreamDemand<lms::DataSource>{demand.sources,
-                                                            demand.subscriber_count ? demand.subscriber_count() : 0});
+        topics.push_back(TopicStreamDemand<lms::DataSource>{
+            demand.sources,
+            demand.subscriber_count ? demand.subscriber_count() : 0});
     }
 
     std::lock_guard<std::mutex> lock{stream_mutex_};
@@ -1653,12 +1590,13 @@ void MultiSense::reconcile_streams()
         }
 
         auto retained = applied_streams_;
-        retained.erase(
-            std::remove_if(retained.begin(),
-                           retained.end(),
-                           [&update](const auto &source)
-                           { return std::find(update.stop.begin(), update.stop.end(), source) != update.stop.end(); }),
-            retained.end());
+        retained.erase(std::remove_if(retained.begin(), retained.end(),
+                                      [&update](const auto &source)
+                                      {
+                                          return std::find(update.stop.begin(), update.stop.end(), source) !=
+                                                 update.stop.end();
+                                      }),
+                       retained.end());
         applied_streams_ = std::move(retained);
     }
 
@@ -1724,12 +1662,12 @@ void MultiSense::publish_info(const lms::MultiSenseInfo &info)
 {
     multisense_msgs::msg::Info info_msg;
 
-    info_msg.device_name = info.device.camera_name;
-    info_msg.build_date = info.device.build_date;
-    info_msg.serial_number = info.device.serial_number;
+    info_msg.device_name     = info.device.camera_name;
+    info_msg.build_date      = info.device.build_date;
+    info_msg.serial_number   = info.device.serial_number;
     info_msg.device_revision = static_cast<int>(info.device.hardware_revision);
 
-    for (const auto &pcb : info.device.pcb_info)
+    for (const auto &pcb: info.device.pcb_info)
     {
         info_msg.pcb_serial_numbers.push_back(pcb.revision);
         info_msg.pcb_names.push_back(pcb.name);
@@ -1750,7 +1688,7 @@ void MultiSense::publish_info(const lms::MultiSenseInfo &info)
 
     info_msg.firmware_build_date = info.version.firmware_build_date;
     info_msg.firmware_version = static_cast<uint16_t>(info.version.firmware_version.major << 8) |
-                                static_cast<uint16_t>(info.version.firmware_version.minor);
+                                       static_cast<uint16_t>(info.version.firmware_version.minor);
     info_msg.bitstream_version = info.version.hardware_version;
 
     info_msg.ip_address = info.network.ip_address;
@@ -1793,15 +1731,11 @@ void MultiSense::publish_status(const multisense::MultiSenseStatus &status)
                 //
                 // Run a decayed average on our offset. Use doubles to handle interger overflow
 
-                const auto previous_camera_host_time_offset =
-                    std::chrono::duration<double>(camera_host_time_offset_.value());
-                const auto current_camera_host_time_offset =
-                    std::chrono::duration<double>(status.time->offset_to_host());
+                const auto previous_camera_host_time_offset = std::chrono::duration<double>(camera_host_time_offset_.value());
+                const auto current_camera_host_time_offset = std::chrono::duration<double>(status.time->offset_to_host());
 
-                const auto offset = std::chrono::duration<double>(
-                    ((time_offset_buffer_size_ - 1) * previous_camera_host_time_offset.count() +
-                     current_camera_host_time_offset.count()) /
-                    time_offset_buffer_size_);
+                const auto offset = std::chrono::duration<double>(((time_offset_buffer_size_ - 1) * previous_camera_host_time_offset.count() +
+                                     current_camera_host_time_offset.count()) / time_offset_buffer_size_);
 
                 camera_host_time_offset_ = std::chrono::duration_cast<std::chrono::nanoseconds>(offset);
             }
@@ -1845,14 +1779,13 @@ void MultiSense::publish_status(const multisense::MultiSenseStatus &status)
     status_pub_->publish(std::make_unique<multisense_msgs::msg::Status>(std::move(output)));
 }
 
-void MultiSense::initialize_parameters(const multisense::MultiSenseConfig &config,
-                                       const multisense::MultiSenseInfo &info)
+void MultiSense::initialize_parameters(const multisense::MultiSenseConfig &config, const multisense::MultiSenseInfo& info)
 {
     //
     // Sensor resolution
 
     std::string valid_resolutions = "valid_resolutions [width, height, max disparity value]\n";
-    for (const auto &device_mode : info.operating_modes)
+    for (const auto& device_mode : info.operating_modes)
     {
         valid_resolutions += "[";
         valid_resolutions += std::to_string(device_mode.width) + ", ";
@@ -1862,8 +1795,8 @@ void MultiSense::initialize_parameters(const multisense::MultiSenseConfig &confi
 
     rcl_interfaces::msg::ParameterDescriptor sensor_resolution_desc;
     sensor_resolution_desc.set__name("sensor_resolution")
-        .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER_ARRAY)
-        .set__description(valid_resolutions);
+                          .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER_ARRAY)
+                          .set__description(valid_resolutions);
 
     declare_parameter("sensor_resolution",
                       std::vector<int64_t>{config.width, config.height, disparity_pixels(config.disparities)},
@@ -1882,7 +1815,9 @@ void MultiSense::initialize_parameters(const multisense::MultiSenseConfig &confi
         }
         if (info.imu->gyroscope && config.imu_config && config.imu_config->gyroscope)
         {
-            create_imu_parameters(info.imu->gyroscope.value(), config.imu_config->gyroscope.value(), "imu.gyroscope");
+            create_imu_parameters(info.imu->gyroscope.value(),
+                                  config.imu_config->gyroscope.value(),
+                                  "imu.gyroscope");
         }
         if (info.imu->magnetometer && config.imu_config && config.imu_config->magnetometer)
         {
@@ -1906,9 +1841,8 @@ void MultiSense::initialize_parameters(const multisense::MultiSenseConfig &confi
 
     if (!info.device.has_aux_camera())
     {
-        set_parameters(
-            std::vector<rclcpp::Parameter>{rclcpp::Parameter{"aux.image.auto_exposure_enabled", false},
-                                           rclcpp::Parameter{"aux.image.auto_white_balance_enabled", false}});
+        set_parameters(std::vector<rclcpp::Parameter>{rclcpp::Parameter{"aux.image.auto_exposure_enabled", false},
+                                                      rclcpp::Parameter{"aux.image.auto_white_balance_enabled", false}});
     }
 }
 
@@ -1916,67 +1850,75 @@ void MultiSense::create_imu_parameters(const multisense::MultiSenseInfo::ImuInfo
                                        const multisense::MultiSenseConfig::ImuConfig::OperatingMode &operating_mode,
                                        const std::string &parameter_base)
 {
-    //
-    // Rate
+        //
+        // Rate
 
-    std::stringstream rate_description;
-    rate_description << std::fixed << std::setprecision(2);
-    rate_description << "valid rates\n";
-    int current_rate = 0;
-    size_t rate_i = 0;
-    for (const auto &rate : imu_source.rates)
-    {
-        rate_description << rate_i << ": " << rate.sample_rate << "Hz " << rate.bandwith_cutoff << "Hz cuttoff\n";
-
-        if (rate == operating_mode.rate)
+        std::stringstream rate_description;
+        rate_description << std::fixed << std::setprecision(2);
+        rate_description << "valid rates\n";
+        int current_rate = 0;
+        size_t rate_i = 0;
+        for (const auto &rate : imu_source.rates)
         {
-            current_rate = rate_i;
+            rate_description << rate_i << ": " <<
+                                 rate.sample_rate << "Hz " <<
+                                 rate.bandwith_cutoff << "Hz cuttoff\n";
+
+            if (rate == operating_mode.rate)
+            {
+                current_rate = rate_i;
+            }
+
+            ++rate_i;
         }
 
-        ++rate_i;
-    }
+        rcl_interfaces::msg::IntegerRange rate_range;
+        rate_range.set__from_value(0)
+                        .set__to_value(rate_i-1)
+                        .set__step(1);
 
-    rcl_interfaces::msg::IntegerRange rate_range;
-    rate_range.set__from_value(0).set__to_value(rate_i - 1).set__step(1);
+        rcl_interfaces::msg::ParameterDescriptor rate_desc;
+        rate_desc.set__name(parameter_base + ".rate")
+                          .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
+                          .set__description(rate_description.str())
+                          .set__integer_range({rate_range});
 
-    rcl_interfaces::msg::ParameterDescriptor rate_desc;
-    rate_desc.set__name(parameter_base + ".rate")
-        .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-        .set__description(rate_description.str())
-        .set__integer_range({rate_range});
+        declare_parameter(parameter_base + ".rate", current_rate, rate_desc);
 
-    declare_parameter(parameter_base + ".rate", current_rate, rate_desc);
+        //
+        // Range
 
-    //
-    // Range
-
-    std::stringstream range_description;
-    range_description << std::fixed << std::setprecision(4);
-    range_description << "valid ranges\n";
-    int current_range = 0;
-    size_t range_i = 0;
-    for (const auto &range : imu_source.ranges)
-    {
-        range_description << range_i << ": range " << range.range << " resolution " << range.resolution << "\n";
-
-        if (range == operating_mode.range)
+        std::stringstream range_description;
+        range_description << std::fixed << std::setprecision(4);
+        range_description << "valid ranges\n";
+        int current_range = 0;
+        size_t range_i = 0;
+        for (const auto &range : imu_source.ranges)
         {
-            current_range = range_i;
+            range_description << range_i << ": range " <<
+                                 range.range << " resolution " <<
+                                 range.resolution << "\n";
+
+            if (range == operating_mode.range)
+            {
+                current_range = range_i;
+            }
+
+            ++range_i;
         }
 
-        ++range_i;
-    }
+        rcl_interfaces::msg::IntegerRange range_range;
+        range_range.set__from_value(0)
+                        .set__to_value(range_i-1)
+                        .set__step(1);
 
-    rcl_interfaces::msg::IntegerRange range_range;
-    range_range.set__from_value(0).set__to_value(range_i - 1).set__step(1);
+        rcl_interfaces::msg::ParameterDescriptor range_desc;
+        range_desc.set__name(parameter_base + "range")
+                          .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
+                          .set__description(range_description.str())
+                          .set__integer_range({range_range});
 
-    rcl_interfaces::msg::ParameterDescriptor range_desc;
-    range_desc.set__name(parameter_base + "range")
-        .set__type(rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-        .set__description(range_description.str())
-        .set__integer_range({range_range});
-
-    declare_parameter(parameter_base + ".range", current_range, range_desc);
+        declare_parameter(parameter_base + ".range", current_range, range_desc);
 }
 
 multisense::MultiSenseConfig MultiSense::update_config(multisense::MultiSenseConfig config)
@@ -2003,34 +1945,27 @@ multisense::MultiSenseConfig MultiSense::update_config(multisense::MultiSenseCon
     {
         if (config.imu_config->accelerometer)
         {
-            config.imu_config->accelerometer->rate =
-                info_.imu->accelerometer->rates[get_parameter("imu.accelerometer.rate").as_int()];
-            config.imu_config->accelerometer->range =
-                info_.imu->accelerometer->ranges[get_parameter("imu.accelerometer.range").as_int()];
+            config.imu_config->accelerometer->rate = info_.imu->accelerometer->rates[get_parameter("imu.accelerometer.rate").as_int()];
+            config.imu_config->accelerometer->range = info_.imu->accelerometer->ranges[get_parameter("imu.accelerometer.range").as_int()];
         }
 
         if (config.imu_config->gyroscope)
         {
-            config.imu_config->gyroscope->rate =
-                info_.imu->gyroscope->rates[get_parameter("imu.gyroscope.rate").as_int()];
-            config.imu_config->gyroscope->range =
-                info_.imu->gyroscope->ranges[get_parameter("imu.gyroscope.range").as_int()];
+            config.imu_config->gyroscope->rate = info_.imu->gyroscope->rates[get_parameter("imu.gyroscope.rate").as_int()];
+            config.imu_config->gyroscope->range = info_.imu->gyroscope->ranges[get_parameter("imu.gyroscope.range").as_int()];
         }
 
         if (config.imu_config->magnetometer)
         {
-            config.imu_config->magnetometer->rate =
-                info_.imu->magnetometer->rates[get_parameter("imu.magnetometer.rate").as_int()];
-            config.imu_config->magnetometer->range =
-                info_.imu->magnetometer->ranges[get_parameter("imu.magnetometer.range").as_int()];
+            config.imu_config->magnetometer->rate = info_.imu->magnetometer->rates[get_parameter("imu.magnetometer.rate").as_int()];
+            config.imu_config->magnetometer->range = info_.imu->magnetometer->ranges[get_parameter("imu.magnetometer.range").as_int()];
         }
     }
 
     return config;
 }
 
-rcl_interfaces::msg::SetParametersResult MultiSense::parameter_callback(
-    const std::vector<rclcpp::Parameter> &parameters)
+rcl_interfaces::msg::SetParametersResult MultiSense::parameter_callback(const std::vector<rclcpp::Parameter>& parameters)
 {
     rcl_interfaces::msg::SetParametersResult result;
     result.set__successful(true);
@@ -2080,8 +2015,8 @@ rcl_interfaces::msg::SetParametersResult MultiSense::parameter_callback(
 
             if (value.size() != 3)
             {
-                return result.set__successful(false).set__reason(
-                    "MultiSense: Invalid sensor resolution. Must be [width, height, max disparity]");
+                return result.set__successful(false)
+                             .set__reason("MultiSense: Invalid sensor resolution. Must be [width, height, max disparity]");
             }
         }
     }
@@ -2123,4 +2058,4 @@ rcl_interfaces::msg::SetParametersResult MultiSense::parameter_callback(
     return result;
 }
 
-} // namespace multisense_ros
+} // namespace

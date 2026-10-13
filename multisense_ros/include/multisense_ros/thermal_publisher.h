@@ -11,16 +11,6 @@
 
 #pragma once
 
-#include "multisense_ros/publisher_utilities.h"
-
-#include <sensor_msgs/msg/camera_info.hpp>
-#include <sensor_msgs/msg/image.hpp>
-
-#include <MultiSense/MultiSenseChannel.hh>
-#include <MultiSense/MultiSenseSecondaryApplication.hh>
-#include <multisense_ros/thermal_parameters.hpp>
-#include <rclcpp/rclcpp.hpp>
-
 #include <array>
 #include <condition_variable>
 #include <functional>
@@ -31,7 +21,18 @@
 #include <thread>
 #include <vector>
 
-namespace multisense_ros {
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/msg/image.hpp>
+
+#include <MultiSense/MultiSenseChannel.hh>
+#include <MultiSense/MultiSenseSecondaryApplication.hh>
+
+#include "multisense_ros/publisher_utilities.h"
+#include <multisense_ros/thermal_parameters.hpp>
+
+namespace multisense_ros
+{
 
 ///
 /// @brief Publishes the images produced by the STT6 thermal secondary application.
@@ -44,19 +45,20 @@ class ThermalPublisher : public std::enable_shared_from_this<ThermalPublisher>
 {
 public:
     using FrameGroup = multisense::secondary_application::thermal::FrameGroup;
-    using PublisherOptionsFactory =
-        std::function<rclcpp::PublisherOptions(const std::vector<multisense::DataSource> &, const std::string &)>;
+    using PublisherOptionsFactory = std::function<rclcpp::PublisherOptions(
+        const std::vector<multisense::DataSource> &, const std::string &)>;
     using StreamDemandBinder = std::function<void(const std::string &, std::function<size_t()>)>;
     using TimestampFactory = std::function<std::optional<rclcpp::Time>(const FrameGroup &)>;
 
-    static std::shared_ptr<ThermalPublisher> create(rclcpp::Node *node,
-                                                    multisense::Channel &channel,
-                                                    const std::string &tf_prefix,
-                                                    const rclcpp::QoS &qos,
-                                                    bool use_image_transport,
-                                                    PublisherOptionsFactory publisher_options_factory,
-                                                    StreamDemandBinder stream_demand_binder,
-                                                    TimestampFactory timestamp_factory);
+    static std::shared_ptr<ThermalPublisher> create(
+        rclcpp::Node *node,
+        multisense::Channel &channel,
+        const std::string &tf_prefix,
+        const rclcpp::QoS &qos,
+        bool use_image_transport,
+        PublisherOptionsFactory publisher_options_factory,
+        StreamDemandBinder stream_demand_binder,
+        TimestampFactory timestamp_factory);
 
     ~ThermalPublisher();
 

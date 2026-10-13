@@ -33,25 +33,6 @@
 
 #pragma once
 
-#include "multisense_ros/publisher_utilities.h"
-#include "multisense_ros/stream_demand.h"
-
-#include <multisense_msgs/msg/histogram.hpp>
-#include <multisense_msgs/msg/info.hpp>
-#include <multisense_msgs/msg/status.hpp>
-#include <sensor_msgs/distortion_models.hpp>
-#include <sensor_msgs/msg/camera_info.hpp>
-#include <sensor_msgs/msg/imu.hpp>
-#include <sensor_msgs/msg/point_cloud2.hpp>
-#include <std_msgs/msg/string.hpp>
-#include <stereo_msgs/msg/disparity_image.hpp>
-
-#include <MultiSense/MultiSenseChannel.hh>
-#include <image_transport/image_transport.hpp>
-#include <multisense_ros/multisense_parameters.hpp>
-#include <rclcpp/rclcpp.hpp>
-#include <tf2_ros/static_transform_broadcaster.h>
-
 #include <condition_variable>
 #include <cstdint>
 #include <functional>
@@ -59,6 +40,27 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include <rclcpp/rclcpp.hpp>
+
+#include <image_transport/image_transport.hpp>
+#include <sensor_msgs/distortion_models.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/msg/imu.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <std_msgs/msg/string.hpp>
+#include <stereo_msgs/msg/disparity_image.hpp>
+#include <tf2_ros/static_transform_broadcaster.h>
+
+#include <multisense_msgs/msg/histogram.hpp>
+#include <multisense_msgs/msg/info.hpp>
+#include <multisense_msgs/msg/status.hpp>
+
+#include "multisense_ros/publisher_utilities.h"
+#include "multisense_ros/stream_demand.h"
+#include <multisense_ros/multisense_parameters.hpp>
+
+#include <MultiSense/MultiSenseChannel.hh>
 
 namespace multisense_ros {
 
@@ -75,6 +77,7 @@ template <typename T>
 class FrameNotifier
 {
 public:
+
     FrameNotifier() = default;
 
     ~FrameNotifier()
@@ -101,7 +104,7 @@ public:
     /// @brief Wait for the notifier to be valid. If the timeout is invalid, will wait forever
     ///
     template <class Rep, class Period>
-    std::optional<T> wait(const std::optional<std::chrono::duration<Rep, Period>> &timeout)
+    std::optional<T> wait(const std::optional<std::chrono::duration<Rep, Period>>& timeout)
     {
         std::unique_lock<std::mutex> lock(mutex_);
 
@@ -129,6 +132,7 @@ public:
     }
 
 private:
+
     std::mutex mutex_;
     std::condition_variable cv_;
     std::optional<T> frame_;
@@ -137,19 +141,20 @@ private:
 class MultiSense : public rclcpp::Node
 {
 public:
-    MultiSense(const std::string &node_name,
-               const rclcpp::NodeOptions &options,
-               std::unique_ptr<multisense::Channel> channel,
-               const std::string &tf_prefix,
-               bool use_image_transport,
-               bool use_sensor_qos,
-               bool publish_static_tf);
+    MultiSense(const std::string& node_name,
+           const rclcpp::NodeOptions& options,
+           std::unique_ptr<multisense::Channel> channel,
+           const std::string& tf_prefix,
+           bool use_image_transport,
+           bool use_sensor_qos,
+           bool publish_static_tf);
 
     ~MultiSense();
 
     std::optional<std::chrono::nanoseconds> time_since_last_response() const;
 
 private:
+
     //
     // Node names
 
@@ -208,7 +213,9 @@ private:
     //
     // Hardware-specific publisher and processing setup
 
-    void initialize_thermal_publisher(const std::string &tf_prefix, const rclcpp::QoS &qos, bool use_image_transport);
+    void initialize_thermal_publisher(const std::string &tf_prefix,
+                                      const rclcpp::QoS &qos,
+                                      bool use_image_transport);
     void initialize_stereo_publishers(const multisense::MultiSenseConfig &config,
                                       const rclcpp::QoS &qos,
                                       bool use_image_transport,
@@ -274,13 +281,14 @@ private:
 
     void imu_publisher();
 
-    std::optional<rclcpp::Time> thermal_timestamp(multisense::TimeT camera_timestamp, bool ptp_locked) const;
+    std::optional<rclcpp::Time> thermal_timestamp(multisense::TimeT camera_timestamp,
+                                                  bool ptp_locked) const;
 
     //
     // Helper function to setup the nodes configuration parameters. This setups parameters which were were unable
     // to configure statically via the generate__parameter_library
 
-    void initialize_parameters(const multisense::MultiSenseConfig &config, const multisense::MultiSenseInfo &info);
+    void initialize_parameters(const multisense::MultiSenseConfig &config, const multisense::MultiSenseInfo& info);
 
     //
     // Helper function to initialize IMU rate/range parameters
@@ -300,7 +308,7 @@ private:
     OnSetParametersCallbackHandle::SharedPtr paramter_handle_ = nullptr;
     std::shared_ptr<multisense::ParamListener> param_listener_ = nullptr;
 
-    rcl_interfaces::msg::SetParametersResult parameter_callback(const std::vector<rclcpp::Parameter> &parameters);
+    rcl_interfaces::msg::SetParametersResult parameter_callback(const std::vector<rclcpp::Parameter>& parameters);
 
     std::atomic_bool shutdown_ = false;
 
@@ -360,26 +368,26 @@ private:
     //
     // Store outgoing messages to avoid repeated allocations
 
-    sensor_msgs::msg::Image left_mono_image_{};
-    sensor_msgs::msg::Image right_mono_image_{};
-    sensor_msgs::msg::Image left_rect_image_{};
-    sensor_msgs::msg::Image right_rect_image_{};
-    sensor_msgs::msg::Image depth_image_{};
-    sensor_msgs::msg::Image ni_depth_image_{};
-    sensor_msgs::msg::PointCloud2 point_cloud_{};
-    sensor_msgs::msg::PointCloud2 luma_point_cloud_{};
-    sensor_msgs::msg::PointCloud2 color_point_cloud_{};
-    sensor_msgs::msg::PointCloud2 luma_organized_point_cloud_{};
-    sensor_msgs::msg::PointCloud2 color_organized_point_cloud_{};
+    sensor_msgs::msg::Image         left_mono_image_{};
+    sensor_msgs::msg::Image         right_mono_image_{};
+    sensor_msgs::msg::Image         left_rect_image_{};
+    sensor_msgs::msg::Image         right_rect_image_{};
+    sensor_msgs::msg::Image         depth_image_{};
+    sensor_msgs::msg::Image         ni_depth_image_{};
+    sensor_msgs::msg::PointCloud2   point_cloud_{};
+    sensor_msgs::msg::PointCloud2   luma_point_cloud_{};
+    sensor_msgs::msg::PointCloud2   color_point_cloud_{};
+    sensor_msgs::msg::PointCloud2   luma_organized_point_cloud_{};
+    sensor_msgs::msg::PointCloud2   color_organized_point_cloud_{};
 
-    sensor_msgs::msg::Image aux_mono_image_{};
-    sensor_msgs::msg::Image aux_rgb_image_{};
-    sensor_msgs::msg::Image aux_rect_image_{};
-    sensor_msgs::msg::Image aux_rect_rgb_image_{};
+    sensor_msgs::msg::Image         aux_mono_image_{};
+    sensor_msgs::msg::Image         aux_rgb_image_{};
+    sensor_msgs::msg::Image         aux_rect_image_{};
+    sensor_msgs::msg::Image         aux_rect_rgb_image_{};
 
-    sensor_msgs::msg::Image left_disparity_image_{};
-    sensor_msgs::msg::Image left_disparity_cost_image_{};
-    sensor_msgs::msg::Image right_disparity_image_{};
+    sensor_msgs::msg::Image         left_disparity_image_{};
+    sensor_msgs::msg::Image         left_disparity_cost_image_{};
+    sensor_msgs::msg::Image         right_disparity_image_{};
 
     stereo_msgs::msg::DisparityImage left_stereo_disparity_{};
 
@@ -443,7 +451,7 @@ private:
     //
     // Handle stamping messages with different time sources
 
-    std::atomic<TimestampSource> timestamp_source_{TimestampSource::SYSTEM};
+    std::atomic<TimestampSource> timestamp_source_ {TimestampSource::SYSTEM};
     std::atomic_bool ptp_tai_to_utc_enabled_ = false;
 
     size_t time_offset_buffer_size_ = 8;
@@ -452,4 +460,4 @@ private:
     std::optional<rclcpp::Time> last_response_time_ns_{std::nullopt};
 };
 
-} // namespace multisense_ros
+}// namespace
