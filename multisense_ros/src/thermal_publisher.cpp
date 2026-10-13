@@ -9,23 +9,21 @@
  * All rights reserved.
  **/
 
-#include <algorithm>
-#include <arpa/inet.h>
-#include <cstring>
-#include <stdexcept>
-#include <utility>
+#include "multisense_ros/thermal_publisher.h"
 
 #include <sensor_msgs/distortion_models.hpp>
 #include <sensor_msgs/image_encodings.hpp>
 
 #include <MultiSense/MultiSenseUtilities.hh>
+#include <arpa/inet.h>
 
-#include "multisense_ros/thermal_publisher.h"
+#include <algorithm>
+#include <cstring>
+#include <stdexcept>
+#include <utility>
 
-namespace multisense_ros
-{
-namespace
-{
+namespace multisense_ros {
+namespace {
 
 namespace thermal = multisense::secondary_application::thermal;
 
@@ -68,7 +66,10 @@ uint16_t post_processing_mask(const multisense_thermal::Params::Thermal::PostPro
 class ThermalStreamGuard
 {
 public:
-    explicit ThermalStreamGuard(multisense::Channel &channel) : channel_(channel) {}
+    explicit ThermalStreamGuard(multisense::Channel &channel) : channel_(channel)
+    {
+    }
+
     ~ThermalStreamGuard()
     {
         channel_.stop_streams({multisense::DataSource::THERMAL});
@@ -162,18 +163,23 @@ bool populate_image(const multisense::Image &input,
 
 } // namespace
 
-std::shared_ptr<ThermalPublisher> ThermalPublisher::create(
-    rclcpp::Node *node,
-    multisense::Channel &channel,
-    const std::string &tf_prefix,
-    const rclcpp::QoS &qos,
-    const bool use_image_transport,
-    PublisherOptionsFactory publisher_options_factory,
-    TimestampFactory timestamp_factory)
+std::shared_ptr<ThermalPublisher> ThermalPublisher::create(rclcpp::Node *node,
+                                                           multisense::Channel &channel,
+                                                           const std::string &tf_prefix,
+                                                           const rclcpp::QoS &qos,
+                                                           const bool use_image_transport,
+                                                           PublisherOptionsFactory publisher_options_factory,
+                                                           StreamDemandBinder stream_demand_binder,
+                                                           TimestampFactory timestamp_factory)
 {
-    auto output = std::shared_ptr<ThermalPublisher>(new ThermalPublisher(
-        node, channel, tf_prefix, qos, use_image_transport,
-        std::move(publisher_options_factory), std::move(timestamp_factory)));
+    auto output = std::shared_ptr<ThermalPublisher>(new ThermalPublisher(node,
+                                                                         channel,
+                                                                         tf_prefix,
+                                                                         qos,
+                                                                         use_image_transport,
+                                                                         std::move(publisher_options_factory),
+                                                                         std::move(stream_demand_binder),
+                                                                         std::move(timestamp_factory)));
     output->initialize();
 
     const std::weak_ptr<ThermalPublisher> weak_output = output;
@@ -196,14 +202,16 @@ ThermalPublisher::ThermalPublisher(rclcpp::Node *node,
                                    rclcpp::QoS qos,
                                    const bool use_image_transport,
                                    PublisherOptionsFactory publisher_options_factory,
+                                   StreamDemandBinder stream_demand_binder,
                                    TimestampFactory timestamp_factory)
-    : node_(node),
-      channel_(channel),
-      tf_prefix_(std::move(tf_prefix)),
-      qos_(std::move(qos)),
-      use_image_transport_(use_image_transport),
-      publisher_options_factory_(std::move(publisher_options_factory)),
-      timestamp_factory_(std::move(timestamp_factory))
+    : node_(node)
+    , channel_(channel)
+    , tf_prefix_(std::move(tf_prefix))
+    , qos_(std::move(qos))
+    , use_image_transport_(use_image_transport)
+    , publisher_options_factory_(std::move(publisher_options_factory))
+    , stream_demand_binder_(std::move(stream_demand_binder))
+    , timestamp_factory_(std::move(timestamp_factory))
 {
     if (!node_ || !publisher_options_factory_ || !timestamp_factory_)
     {
@@ -272,8 +280,7 @@ void ThermalPublisher::initialize()
         config.post_proc_mask = post_processing_mask(parameters.thermal.post_processing);
         if (const auto status = thermal::send_config(channel_, config); status != multisense::Status::OK)
         {
-            throw std::runtime_error("Unable to apply the thermal configuration: " +
-                                     multisense::to_string(status));
+            throw std::runtime_error("Unable to apply the thermal configuration: " + multisense::to_string(status));
         }
 
         for (size_t id = 0; id < MAX_IMAGERS; ++id)
@@ -307,13 +314,20 @@ void ThermalPublisher::initialize()
                         id);
         }
 
-        auto camera_info = create_camera_info(calibration, config.width, config.height,
-                                              frame_id, node_->now());
-        auto publisher = std::make_shared<ImagePublisher>(
-            node_, topic, camera_info, qos_,
-            publisher_options_factory_({multisense::DataSource::THERMAL},
-                                       get_full_topic_name(node_, topic)),
-            use_image_transport_);
+        auto camera_info = create_camera_info(calibration, config.width, config.height, frame_id, node_->now());
+        const auto topic_name = get_full_topic_name(node_, topic);
+        auto publisher =
+            std::make_shared<ImagePublisher>(node_,
+                                             topic,
+                                             camera_info,
+                                             qos_,
+                                             publisher_options_factory_({multisense::DataSource::THERMAL}, topic_name),
+                                             use_image_transport_);
+        if (stream_demand_binder_)
+        {
+            stream_demand_binder_(topic_name,
+                                  [publisher]() { return publisher ? publisher->get_subscription_count() : 0; });
+        }
 
         ImagerPublisher imager;
         imager.publisher = std::move(publisher);
@@ -324,9 +338,11 @@ void ThermalPublisher::initialize()
 
     RCLCPP_INFO(node_->get_logger(),
                 "Configured STT6 thermal output: %ux%u mono%u %s, enable mask 0x%02x, correction mask 0x%03x",
-                static_cast<unsigned>(config.width), static_cast<unsigned>(config.height),
+                static_cast<unsigned>(config.width),
+                static_cast<unsigned>(config.height),
                 static_cast<unsigned>(config.bits_per_pixel),
-                config.rectified ? "rectified" : "raw", config.imager_enable_mask,
+                config.rectified ? "rectified" : "raw",
+                config.imager_enable_mask,
                 static_cast<unsigned>(config.post_proc_mask.value_or(0)));
 }
 
@@ -340,8 +356,7 @@ void ThermalPublisher::handle_packet(const multisense::SecondaryApplicationData 
     auto frame = thermal::deserialize_frame_group(packet.payload);
     if (!frame)
     {
-        RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
-                             "Ignoring an invalid thermal frame group");
+        RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000, "Ignoring an invalid thermal frame group");
         return;
     }
 
@@ -375,7 +390,9 @@ void ThermalPublisher::run()
         const auto stamp = timestamp_factory_(frame.value());
         if (!stamp)
         {
-            RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
+            RCLCPP_WARN_THROTTLE(node_->get_logger(),
+                                 *node_->get_clock(),
+                                 5000,
                                  "Thermal frame has no valid timestamp for the configured time source");
             continue;
         }
@@ -385,8 +402,11 @@ void ThermalPublisher::run()
             const size_t id = thermal_image.imager_id;
             if (id >= imagers_.size() || !imagers_[id])
             {
-                RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
-                                     "Ignoring thermal image from disabled or invalid imager %zu", id);
+                RCLCPP_WARN_THROTTLE(node_->get_logger(),
+                                     *node_->get_clock(),
+                                     5000,
+                                     "Ignoring thermal image from disabled or invalid imager %zu",
+                                     id);
                 continue;
             }
 
@@ -399,17 +419,19 @@ void ThermalPublisher::run()
             auto image = std::make_unique<sensor_msgs::msg::Image>();
             if (!populate_image(thermal_image.image, imager.frame_id, stamp.value(), *image))
             {
-                RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
-                                     "Ignoring invalid thermal image from imager %zu", id);
+                RCLCPP_WARN_THROTTLE(node_->get_logger(),
+                                     *node_->get_clock(),
+                                     5000,
+                                     "Ignoring invalid thermal image from imager %zu",
+                                     id);
                 continue;
             }
 
             imager.camera_info.header = image->header;
             imager.camera_info.width = image->width;
             imager.camera_info.height = image->height;
-            imager.publisher->publish(
-                std::move(image),
-                std::make_unique<sensor_msgs::msg::CameraInfo>(imager.camera_info));
+            imager.publisher->publish(std::move(image),
+                                      std::make_unique<sensor_msgs::msg::CameraInfo>(imager.camera_info));
         }
     }
 }
