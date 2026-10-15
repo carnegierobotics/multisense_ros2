@@ -88,9 +88,9 @@ jobs:
             -DBUILD_SIMD=${{ matrix.build_simd }}
           cmake --build build/simd --target color_conversion_test --parallel 2
       - name: Run color conversion tests
-        env:
-          GTEST_OUTPUT: xml:${{ github.workspace }}/build/simd/color_conversion.xml
         run: |
+          # Resolve the report path inside the job container.
+          export GTEST_OUTPUT="xml:${PWD}/build/simd/color_conversion.xml"
           ctest --test-dir build/simd --output-on-failure --no-tests=error \
             -R '^color_conversion_test$'
       # GTest reports skipped comparisons as successful CTest runs. Require the
