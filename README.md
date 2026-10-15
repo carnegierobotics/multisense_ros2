@@ -37,11 +37,11 @@ colcon build
 source install/setup.bash
 ```
 
-SIMD color conversion is enabled by default. To disable it, pass the
+SIMD color conversion is disabled by default. To enable it, pass the
 `BUILD_SIMD` CMake option through colcon:
 
 ```bash
-colcon build --cmake-args -DBUILD_SIMD=OFF
+colcon build --cmake-args -DBUILD_SIMD=ON
 ```
 
 ## Launch
