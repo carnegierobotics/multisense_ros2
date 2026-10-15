@@ -53,3 +53,65 @@ jobs:
           push: false
           build-args: |
             ros_codename=${{ matrix.ros_distro }}
+
+  simd:
+    name: Color conversion (BUILD_SIMD=${{ matrix.build_simd }})
+    runs-on: ubuntu-24.04
+    container: ubuntu:24.04
+    timeout-minutes: 15
+    concurrency:
+      group: ${{ github.ref_name }}-simd-${{ matrix.build_simd }}
+      cancel-in-progress: ${{ github.ref_name != 'master' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        build_simd: ['ON', 'OFF']
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install build and test dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential ca-certificates cmake git libgtest-dev python3
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Build color conversion tests
+        run: |
+          cmake -S multisense_lib/LibMultiSense -B build/simd \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_LEGACY_API=OFF \
+            -DMULTISENSE_BUILD_UTILITIES=OFF \
+            -DBUILD_TESTS=ON \
+            -DBUILD_SIMD=${{ matrix.build_simd }}
+          cmake --build build/simd --target color_conversion_test --parallel 2
+      - name: Run color conversion tests
+        env:
+          GTEST_OUTPUT: xml:${{ github.workspace }}/build/simd/color_conversion.xml
+        run: |
+          ctest --test-dir build/simd --output-on-failure --no-tests=error \
+            -R '^color_conversion_test$'
+      # GTest reports skipped comparisons as successful CTest runs. Require the
+      # exhaustive comparison to execute on the SIMD-enabled runner.
+      - name: Require AVX2 comparison to run
+        if: matrix.build_simd == 'ON'
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+
+          report = ET.parse("build/simd/color_conversion.xml")
+          cases = report.findall(
+              ".//testcase[@classname='color_conversion']"
+              "[@name='all_y_cb_cr_combinations']"
+          )
+          if len(cases) != 1:
+              raise SystemExit("The exhaustive AVX2 comparison is missing from the test report")
+          case = cases[0]
+          if case.get("status") != "run" or any(
+              case.find(tag) is not None for tag in ("skipped", "failure", "error")
+          ):
+              raise SystemExit("The exhaustive AVX2 comparison must run and pass; check SIMD build and CPU support")
+          print("The exhaustive AVX2 comparison ran and passed")
+          PY
