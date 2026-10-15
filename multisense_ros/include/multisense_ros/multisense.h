@@ -34,7 +34,12 @@
 #pragma once
 
 #include <condition_variable>
+#include <cstdint>
+#include <functional>
+#include <memory>
 #include <mutex>
+#include <string>
+#include <vector>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -52,6 +57,7 @@
 #include <multisense_msgs/msg/status.hpp>
 
 #include "multisense_ros/publisher_utilities.h"
+#include "multisense_ros/publisher_streams.h"
 #include <multisense_ros/multisense_parameters.hpp>
 
 #include <MultiSense/MultiSenseChannel.hh>
@@ -202,8 +208,6 @@ private:
     //
     // Device stream control
 
-    size_t num_subscribers(rclcpp::Node::SharedPtr &node, const std::string &topic);
-    size_t num_subscribers(rclcpp::Node* node, const std::string &topic);
     void stop();
 
     //
@@ -220,10 +224,29 @@ private:
     void start_processing_threads(bool enable_stereo_processing);
 
     //
-    // Create publisher options which enable disable sources on active subscriptions
+    // Match events trigger reconciliation; each publisher directly registers its required sources.
 
-    rclcpp::PublisherOptions create_publisher_options(const std::vector<multisense::DataSource> &sources,
-                                                      const std::string &topic);
+    rclcpp::PublisherOptions create_publisher_options();
+
+    template <typename Publisher>
+    void register_publisher_streams(const std::shared_ptr<Publisher> &publisher,
+                                    const std::vector<multisense::DataSource> &sources)
+    {
+        //
+        // Use a weak pointer so failed thermal setup releases its publishers.
+        //
+        const std::weak_ptr<Publisher> weak_publisher = publisher;
+        const auto subscriber_count = [weak_publisher]()
+        {
+            const auto current = weak_publisher.lock();
+            return current ? current->get_subscription_count() : 0;
+        };
+
+        std::lock_guard<std::mutex> lock{stream_mutex_};
+        publisher_streams_.push_back({sources, subscriber_count});
+    }
+
+    void reconcile_streams();
 
     //
     // Publish static transforms for convenience
@@ -407,11 +430,11 @@ private:
     double pointcloud_max_range_ = 50.0;
 
     //
-    // Active streams
+    // Publishers define demand; applied_streams_ records only successful hardware changes.
 
     std::mutex stream_mutex_{};
-    std::map<multisense::DataSource, int> active_streams_{};
-    std::unordered_map<std::string, int> active_topics_{};
+    std::vector<PublisherStreams> publisher_streams_{};
+    StreamSet applied_streams_{};
 
     //
     // Has a 3rd aux color camera

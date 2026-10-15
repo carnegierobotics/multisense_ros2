@@ -169,11 +169,13 @@ std::shared_ptr<ThermalPublisher> ThermalPublisher::create(
     const rclcpp::QoS &qos,
     const bool use_image_transport,
     PublisherOptionsFactory publisher_options_factory,
+    PublisherRegistrar publisher_registrar,
     TimestampFactory timestamp_factory)
 {
     auto output = std::shared_ptr<ThermalPublisher>(new ThermalPublisher(
         node, channel, tf_prefix, qos, use_image_transport,
-        std::move(publisher_options_factory), std::move(timestamp_factory)));
+        std::move(publisher_options_factory), std::move(publisher_registrar),
+        std::move(timestamp_factory)));
     output->initialize();
 
     const std::weak_ptr<ThermalPublisher> weak_output = output;
@@ -196,6 +198,7 @@ ThermalPublisher::ThermalPublisher(rclcpp::Node *node,
                                    rclcpp::QoS qos,
                                    const bool use_image_transport,
                                    PublisherOptionsFactory publisher_options_factory,
+                                   PublisherRegistrar publisher_registrar,
                                    TimestampFactory timestamp_factory)
     : node_(node),
       channel_(channel),
@@ -203,9 +206,10 @@ ThermalPublisher::ThermalPublisher(rclcpp::Node *node,
       qos_(std::move(qos)),
       use_image_transport_(use_image_transport),
       publisher_options_factory_(std::move(publisher_options_factory)),
+      publisher_registrar_(std::move(publisher_registrar)),
       timestamp_factory_(std::move(timestamp_factory))
 {
-    if (!node_ || !publisher_options_factory_ || !timestamp_factory_)
+    if (!node_ || !publisher_options_factory_ || !publisher_registrar_ || !timestamp_factory_)
     {
         throw std::invalid_argument("Invalid thermal publisher dependency");
     }
@@ -241,6 +245,7 @@ void ThermalPublisher::shutdown()
     }
     parameter_listener_.reset();
     publisher_options_factory_ = {};
+    publisher_registrar_ = {};
     timestamp_factory_ = {};
 }
 
@@ -311,9 +316,9 @@ void ThermalPublisher::initialize()
                                               frame_id, node_->now());
         auto publisher = std::make_shared<ImagePublisher>(
             node_, topic, camera_info, qos_,
-            publisher_options_factory_({multisense::DataSource::THERMAL},
-                                       get_full_topic_name(node_, topic)),
+            publisher_options_factory_(),
             use_image_transport_);
+        publisher_registrar_(publisher);
 
         ImagerPublisher imager;
         imager.publisher = std::move(publisher);

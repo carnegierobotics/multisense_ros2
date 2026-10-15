@@ -53,6 +53,8 @@ ros2 launch multisense_ros multisense_launch.py -s
 
 The MultiSense ROS2 driver publishes data under several namespaces. By default, the main namespace is `/multisense`. Topics are only published when there are active subscribers to conserve network bandwidth.
 
+Hardware streams are enabled while any subscribed publisher needs them, using current publisher subscriber counts, including intra-process and image-transport subscribers. Subscription changes trigger a demand check, and a one-second check recovers from missed match events. Shared streams remain active until their last subscriber leaves.
+
 ### Main Node (`/multisense`)
 
 - `histogram` (`multisense_msgs/msg/Histogram`): A 256-bin histogram of image intensities from the left camera, can be used for auto-exposure calculations or image analysis. This is computed onboard the MultiSense
