@@ -27,6 +27,7 @@ find_package(nlohmann_json 3.9 REQUIRED)
 set(BUILD_LEGACY_API OFF CACHE BOOL "Build the new API" FORCE)
 set(BUILD_OPENCV ON CACHE BOOL "Build with OpenCV" FORCE)
 set(BUILD_JSON_SERIALIZATION ON CACHE BOOL "Build with JSON" FORCE)
+option(BUILD_SIMD "Enable runtime-selected SIMD color conversion in LibMultiSense" ON)
 add_subdirectory(LibMultiSense)
 
 
