@@ -751,7 +751,6 @@ MultiSense::MultiSense(const std::string& node_name,
     if (is_t6)
     {
         initialize_thermal_publisher(tf_prefix, qos, use_image_transport);
-        reconcile_streams();
     }
     else
     {
@@ -779,7 +778,11 @@ MultiSense::MultiSense(const std::string& node_name,
     }
 
     current_config_ = channel_->get_config();
+    reconcile_streams();
 
+    //
+    // Periodic demand checks recover from missed match events and retry failed commands.
+    //
     status_timer_ = create_wall_timer(1s,
             [this]()
             {
@@ -824,85 +827,78 @@ void MultiSense::initialize_stereo_publishers(const multisense::MultiSenseConfig
     const auto right_rect_cal = create_camera_info(calibration.right, right_rect_header, config.width, config.height);
 
     using ds = lms::DataSource;
-    const auto track = [this](const auto &publisher, const std::string &topic)
-    {
-        register_stream_demand_for_topic(topic, [publisher]()
-        {
-            return publisher ? publisher->get_subscription_count() : 0;
-        });
-    };
 
     left_mono_cam_pub_ = std::make_shared<ImagePublisher>(
         left_node_,
         MONO_TOPIC,
         left_cal,
         qos,
-        create_publisher_options({ds::LEFT_MONO_RAW}, get_full_topic_name(left_node_, MONO_TOPIC)),
+        create_publisher_options(),
         use_image_transport);
-    track(left_mono_cam_pub_, get_full_topic_name(left_node_, MONO_TOPIC));
+    register_publisher_streams(left_mono_cam_pub_, {ds::LEFT_MONO_RAW});
 
     right_mono_cam_pub_ = std::make_shared<ImagePublisher>(
         right_node_,
         MONO_TOPIC,
         right_cal,
         qos,
-        create_publisher_options({ds::RIGHT_MONO_RAW}, get_full_topic_name(right_node_, MONO_TOPIC)),
+        create_publisher_options(),
         use_image_transport);
-    track(right_mono_cam_pub_, get_full_topic_name(right_node_, MONO_TOPIC));
+    register_publisher_streams(right_mono_cam_pub_, {ds::RIGHT_MONO_RAW});
 
     left_rect_cam_pub_ = std::make_shared<ImagePublisher>(
         left_node_,
         RECT_TOPIC,
         left_rect_cal,
         qos,
-        create_publisher_options({ds::LEFT_RECTIFIED_RAW}, get_full_topic_name(left_node_, RECT_TOPIC)),
+        create_publisher_options(),
         use_image_transport);
-    track(left_rect_cam_pub_, get_full_topic_name(left_node_, RECT_TOPIC));
+    register_publisher_streams(left_rect_cam_pub_, {ds::LEFT_RECTIFIED_RAW});
 
     right_rect_cam_pub_ = std::make_shared<ImagePublisher>(
         right_node_,
         RECT_TOPIC,
         right_rect_cal,
         qos,
-        create_publisher_options({ds::RIGHT_RECTIFIED_RAW}, get_full_topic_name(right_node_, RECT_TOPIC)),
+        create_publisher_options(),
         use_image_transport);
-    track(right_rect_cam_pub_, get_full_topic_name(right_node_, RECT_TOPIC));
+    register_publisher_streams(right_rect_cam_pub_, {ds::RIGHT_RECTIFIED_RAW});
 
     depth_cam_pub_ = std::make_shared<ImagePublisher>(
         left_node_,
         DEPTH_TOPIC,
         left_rect_cal,
         qos,
-        create_publisher_options({ds::LEFT_DISPARITY_RAW}, get_full_topic_name(left_node_, DEPTH_TOPIC)),
+        create_publisher_options(),
         use_image_transport);
-    track(depth_cam_pub_, get_full_topic_name(left_node_, DEPTH_TOPIC));
+    register_publisher_streams(depth_cam_pub_, {ds::LEFT_DISPARITY_RAW});
 
     ni_depth_cam_pub_ = std::make_shared<ImagePublisher>(
         left_node_,
         OPENNI_DEPTH_TOPIC,
         left_rect_cal,
         qos,
-        create_publisher_options({ds::LEFT_DISPARITY_RAW}, get_full_topic_name(left_node_, OPENNI_DEPTH_TOPIC)),
+        create_publisher_options(),
         use_image_transport);
-    track(ni_depth_cam_pub_, get_full_topic_name(left_node_, OPENNI_DEPTH_TOPIC));
+    register_publisher_streams(ni_depth_cam_pub_, {ds::LEFT_DISPARITY_RAW});
 
     left_disparity_pub_ = std::make_shared<ImagePublisher>(
         left_node_,
         DISPARITY_TOPIC,
         left_rect_cal,
         qos,
-        create_publisher_options({ds::LEFT_DISPARITY_RAW}, get_full_topic_name(left_node_, DISPARITY_TOPIC)),
+        create_publisher_options(),
         use_image_transport);
-    track(left_disparity_pub_, get_full_topic_name(left_node_, DISPARITY_TOPIC));
+    register_publisher_streams(left_disparity_pub_, {ds::LEFT_DISPARITY_RAW});
 
     left_disparity_cost_pub_ = std::make_shared<ImagePublisher>(
         left_node_,
         COST_TOPIC,
         left_rect_cal,
         qos,
-        create_publisher_options({ds::COST_RAW}, get_full_topic_name(left_node_, COST_TOPIC)),
+        create_publisher_options(),
         use_image_transport);
-    track(left_disparity_cost_pub_, get_full_topic_name(left_node_, COST_TOPIC));
+    register_publisher_streams(left_disparity_cost_pub_, {ds::COST_RAW});
 
     if (has_aux_camera_)
     {
@@ -922,86 +918,79 @@ void MultiSense::initialize_stereo_publishers(const multisense::MultiSenseConfig
             MONO_TOPIC,
             aux_cal,
             qos,
-            create_publisher_options({ds::AUX_LUMA_RAW}, get_full_topic_name(aux_node_, MONO_TOPIC)),
+            create_publisher_options(),
             use_image_transport);
-        track(aux_mono_cam_pub_, get_full_topic_name(aux_node_, MONO_TOPIC));
+        register_publisher_streams(aux_mono_cam_pub_, {ds::AUX_LUMA_RAW});
 
         aux_rgb_cam_pub_ = std::make_shared<ImagePublisher>(
             aux_node_,
             COLOR_TOPIC,
             aux_cal,
             qos,
-            create_publisher_options({ds::AUX_RAW}, get_full_topic_name(aux_node_, COLOR_TOPIC)),
+            create_publisher_options(),
             use_image_transport);
-        track(aux_rgb_cam_pub_, get_full_topic_name(aux_node_, COLOR_TOPIC));
+        register_publisher_streams(aux_rgb_cam_pub_, {ds::AUX_RAW});
 
         aux_rect_cam_pub_ = std::make_shared<ImagePublisher>(
             aux_node_,
             RECT_TOPIC,
             aux_rect_cal,
             qos,
-            create_publisher_options({ds::AUX_LUMA_RECTIFIED_RAW}, get_full_topic_name(aux_node_, RECT_TOPIC)),
+            create_publisher_options(),
             use_image_transport);
-        track(aux_rect_cam_pub_, get_full_topic_name(aux_node_, RECT_TOPIC));
+        register_publisher_streams(aux_rect_cam_pub_, {ds::AUX_LUMA_RECTIFIED_RAW});
 
         aux_rgb_rect_cam_pub_ = std::make_shared<ImagePublisher>(
             aux_node_,
             RECT_COLOR_TOPIC,
             aux_rect_cal,
             qos,
-            create_publisher_options({ds::AUX_RECTIFIED_RAW}, get_full_topic_name(aux_node_, RECT_COLOR_TOPIC)),
+            create_publisher_options(),
             use_image_transport);
-        track(aux_rgb_rect_cam_pub_, get_full_topic_name(aux_node_, RECT_COLOR_TOPIC));
+        register_publisher_streams(aux_rgb_rect_cam_pub_, {ds::AUX_RECTIFIED_RAW});
 
         aux_depth_cam_pub_ = std::make_shared<ImagePublisher>(
             aux_node_,
             DEPTH_TOPIC,
             aux_rect_cal,
             qos,
-            create_publisher_options({ds::LEFT_DISPARITY_RAW}, get_full_topic_name(aux_node_, DEPTH_TOPIC)),
+            create_publisher_options(),
             use_image_transport);
-        track(aux_depth_cam_pub_, get_full_topic_name(aux_node_, DEPTH_TOPIC));
+        register_publisher_streams(aux_depth_cam_pub_, {ds::LEFT_DISPARITY_RAW});
 
         aux_ni_depth_cam_pub_ = std::make_shared<ImagePublisher>(
             aux_node_,
             OPENNI_DEPTH_TOPIC,
             aux_rect_cal,
             qos,
-            create_publisher_options({ds::LEFT_DISPARITY_RAW}, get_full_topic_name(aux_node_, OPENNI_DEPTH_TOPIC)),
+            create_publisher_options(),
             use_image_transport);
-        track(aux_ni_depth_cam_pub_, get_full_topic_name(aux_node_, OPENNI_DEPTH_TOPIC));
+        register_publisher_streams(aux_ni_depth_cam_pub_, {ds::LEFT_DISPARITY_RAW});
 
         color_point_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
             COLOR_POINTCLOUD_TOPIC,
             qos,
-            create_publisher_options(
-                {ds::LEFT_DISPARITY_RAW, ds::AUX_RECTIFIED_RAW},
-                get_full_topic_name(aux_node_, COLOR_POINTCLOUD_TOPIC)));
-        track(color_point_cloud_pub_, get_full_topic_name(aux_node_, COLOR_POINTCLOUD_TOPIC));
+            create_publisher_options());
+        register_publisher_streams(color_point_cloud_pub_, {ds::LEFT_DISPARITY_RAW, ds::AUX_RECTIFIED_RAW});
     }
 
     point_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
         POINTCLOUD_TOPIC,
         qos,
-        create_publisher_options({ds::LEFT_DISPARITY_RAW}, get_full_topic_name(left_node_, POINTCLOUD_TOPIC)));
-    track(point_cloud_pub_, get_full_topic_name(left_node_, POINTCLOUD_TOPIC));
+        create_publisher_options());
+    register_publisher_streams(point_cloud_pub_, {ds::LEFT_DISPARITY_RAW});
 
     luma_point_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
         LUMA_POINTCLOUD_TOPIC,
         qos,
-        create_publisher_options(
-            {ds::LEFT_DISPARITY_RAW, ds::LEFT_RECTIFIED_RAW},
-            get_full_topic_name(left_node_, LUMA_POINTCLOUD_TOPIC)));
-    track(luma_point_cloud_pub_, get_full_topic_name(left_node_, LUMA_POINTCLOUD_TOPIC));
+        create_publisher_options());
+    register_publisher_streams(luma_point_cloud_pub_, {ds::LEFT_DISPARITY_RAW, ds::LEFT_RECTIFIED_RAW});
 
     left_stereo_disparity_pub_ = left_node_->create_publisher<stereo_msgs::msg::DisparityImage>(
         DISPARITY_IMAGE_TOPIC,
         qos,
-        create_publisher_options(
-            {ds::LEFT_DISPARITY_RAW}, get_full_topic_name(left_node_, DISPARITY_IMAGE_TOPIC)));
-    track(left_stereo_disparity_pub_, get_full_topic_name(left_node_, DISPARITY_IMAGE_TOPIC));
-
-    reconcile_streams();
+        create_publisher_options());
+    register_publisher_streams(left_stereo_disparity_pub_, {ds::LEFT_DISPARITY_RAW});
 
     if (publish_static_tf)
     {
@@ -1017,13 +1006,13 @@ void MultiSense::initialize_thermal_publisher(const std::string &tf_prefix,
     {
         thermal_publisher_ = ThermalPublisher::create(
             this, *channel_, tf_prefix, qos, use_image_transport,
-            [this](const std::vector<lms::DataSource> &sources, const std::string &topic)
+            [this]()
             {
-                return create_publisher_options(sources, topic);
+                return create_publisher_options();
             },
-            [this](const std::string &topic, std::function<size_t()> subscriber_count)
+            [this](const std::shared_ptr<ImagePublisher> &publisher)
             {
-                register_stream_demand_for_topic(topic, std::move(subscriber_count));
+                register_publisher_streams(publisher, {lms::DataSource::THERMAL});
             },
             [this](const lms::secondary_application::thermal::FrameGroup &frame)
             {
@@ -1047,12 +1036,8 @@ void MultiSense::initialize_imu_publisher(const rclcpp::QoS &qos)
     imu_pub_ = imu_node_->create_publisher<sensor_msgs::msg::Imu>(
         IMU_TOPIC,
         qos,
-        create_publisher_options({lms::DataSource::IMU}, get_full_topic_name(left_node_, IMU_TOPIC)));
-    register_stream_demand_for_topic(get_full_topic_name(left_node_, IMU_TOPIC), [this]()
-    {
-        return imu_pub_ ? imu_pub_->get_subscription_count() : 0;
-    });
-    reconcile_streams();
+        create_publisher_options());
+    register_publisher_streams(imu_pub_, {lms::DataSource::IMU});
 }
 
 void MultiSense::start_processing_threads(bool enable_stereo_processing)
@@ -1500,23 +1485,18 @@ void MultiSense::imu_publisher()
 
 void MultiSense::stop()
 {
+    std::lock_guard<std::mutex> lock{stream_mutex_};
     if (const auto status = channel_->stop_streams({lms::DataSource::ALL}); status != lms::Status::OK)
     {
         RCLCPP_ERROR(get_logger(), "MultiSense: failed to stop all streams: %s", lms::to_string(status).c_str());
+        return;
     }
 
-    std::lock_guard<std::mutex> lock{stream_mutex_};
     applied_streams_.clear();
 }
 
-rclcpp::PublisherOptions MultiSense::create_publisher_options(const std::vector<multisense::DataSource> &sources,
-                                                              const std::string &topic)
+rclcpp::PublisherOptions MultiSense::create_publisher_options()
 {
-    {
-        std::lock_guard<std::mutex> lock{stream_mutex_};
-        stream_sources_by_topic_[topic] = sources;
-    }
-
     rclcpp::PublisherOptions options;
     options.event_callbacks.matched_callback =
         [this](const auto &)
@@ -1527,89 +1507,57 @@ rclcpp::PublisherOptions MultiSense::create_publisher_options(const std::vector<
     return options;
 }
 
-void MultiSense::register_stream_demand_for_topic(const std::string &topic,
-                                                  std::function<size_t()> subscriber_count)
-{
-    std::lock_guard<std::mutex> lock{stream_mutex_};
-    const auto sources = stream_sources_by_topic_.find(topic);
-    if (sources == stream_sources_by_topic_.end())
-    {
-        RCLCPP_ERROR(get_logger(), "No hardware sources registered for %s", topic.c_str());
-        return;
-    }
-
-    stream_demands_.push_back(StreamDemand{sources->second, std::move(subscriber_count)});
-}
-
 void MultiSense::reconcile_streams()
 {
-    std::vector<StreamDemand> demands;
-    uint64_t ticket = 0;
-    {
-        std::lock_guard<std::mutex> lock{stream_mutex_};
-        demands = stream_demands_;
-        ticket = ++stream_reconcile_ticket_;
-    }
-
-    std::vector<TopicStreamDemand<lms::DataSource>> topics;
-    topics.reserve(demands.size());
-    for (const auto &demand : demands)
-    {
-        topics.push_back(TopicStreamDemand<lms::DataSource>{
-            demand.sources,
-            demand.subscriber_count ? demand.subscriber_count() : 0});
-    }
-
+    //
+    // Serialize subscriber sampling and hardware changes.
+    //
     std::lock_guard<std::mutex> lock{stream_mutex_};
-    if (ticket != stream_reconcile_ticket_)
+    if (shutdown_ || !rclcpp::ok(get_node_base_interface()->get_context()))
     {
         return;
     }
 
-    const auto update = reconcile_stream_demand(topics, applied_streams_);
-    if (update.stop.empty() && update.start.empty())
-    {
-        return;
-    }
+    const auto required = required_streams(publisher_streams_);
+    const auto to_stop = stream_difference(applied_streams_, required);
+    const auto to_start = stream_difference(required, applied_streams_);
 
-    for (const auto &stream : update.stop)
+    for (const auto &stream : to_stop)
     {
         RCLCPP_DEBUG(get_logger(), "Stopping stream: %s", lms::to_string(stream).c_str());
     }
-    for (const auto &stream : update.start)
+    for (const auto &stream : to_start)
     {
         RCLCPP_DEBUG(get_logger(), "Starting stream: %s", lms::to_string(stream).c_str());
     }
 
-    if (!update.stop.empty())
+    //
+    // Empty stop lists mean "stop everything" to LibMultiSense, so skip empty commands.
+    // Record each successful change so failed commands can be retried by the timer.
+    //
+    if (!to_stop.empty())
     {
-        if (const auto status = channel_->stop_streams(update.stop); status != lms::Status::OK)
+        if (const auto status = channel_->stop_streams(to_stop); status != lms::Status::OK)
         {
-            RCLCPP_ERROR(get_logger(), "Unable to stop streams");
+            RCLCPP_ERROR(get_logger(), "Unable to stop streams: %s", lms::to_string(status).c_str());
             return;
         }
 
-        auto retained = applied_streams_;
-        retained.erase(std::remove_if(retained.begin(), retained.end(),
-                                      [&update](const auto &source)
-                                      {
-                                          return std::find(update.stop.begin(), update.stop.end(), source) !=
-                                                 update.stop.end();
-                                      }),
-                       retained.end());
-        applied_streams_ = std::move(retained);
-    }
-
-    if (!update.start.empty())
-    {
-        if (const auto status = channel_->start_streams(update.start); status != lms::Status::OK)
+        for (const auto stream : to_stop)
         {
-            RCLCPP_ERROR(get_logger(), "Unable to modify active streams");
-            return;
+            applied_streams_.erase(stream);
         }
     }
 
-    applied_streams_ = update.active;
+    if (!to_start.empty())
+    {
+        if (const auto status = channel_->start_streams(to_start); status != lms::Status::OK)
+        {
+            RCLCPP_ERROR(get_logger(), "Unable to start streams: %s", lms::to_string(status).c_str());
+            return;
+        }
+        applied_streams_.insert(to_start.begin(), to_start.end());
+    }
 }
 
 void MultiSense::publish_static_tf(const multisense::StereoCalibration &stereo_calibration)

@@ -135,4 +135,10 @@ ament_export_dependencies(
   tf2_geometry_msgs
 )
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(publisher_streams_test test/publisher_streams_test.cpp)
+  target_link_libraries(publisher_streams_test MultiSense)
+endif()
+
 ament_package()

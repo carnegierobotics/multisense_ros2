@@ -36,9 +36,9 @@
 #include <condition_variable>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include <rclcpp/rclcpp.hpp>
@@ -57,7 +57,7 @@
 #include <multisense_msgs/msg/status.hpp>
 
 #include "multisense_ros/publisher_utilities.h"
-#include "multisense_ros/stream_demand.h"
+#include "multisense_ros/publisher_streams.h"
 #include <multisense_ros/multisense_parameters.hpp>
 
 #include <MultiSense/MultiSenseChannel.hh>
@@ -224,11 +224,28 @@ private:
     void start_processing_threads(bool enable_stereo_processing);
 
     //
-    // Create publisher options which reconcile hardware streams from current subscribers
+    // Match events trigger reconciliation; each publisher directly registers its required sources.
 
-    rclcpp::PublisherOptions create_publisher_options(const std::vector<multisense::DataSource> &sources,
-                                                      const std::string &topic);
-    void register_stream_demand_for_topic(const std::string &topic, std::function<size_t()> subscriber_count);
+    rclcpp::PublisherOptions create_publisher_options();
+
+    template <typename Publisher>
+    void register_publisher_streams(const std::shared_ptr<Publisher> &publisher,
+                                    const std::vector<multisense::DataSource> &sources)
+    {
+        //
+        // Use a weak pointer so failed thermal setup releases its publishers.
+        //
+        const std::weak_ptr<Publisher> weak_publisher = publisher;
+        const auto subscriber_count = [weak_publisher]()
+        {
+            const auto current = weak_publisher.lock();
+            return current ? current->get_subscription_count() : 0;
+        };
+
+        std::lock_guard<std::mutex> lock{stream_mutex_};
+        publisher_streams_.push_back({sources, subscriber_count});
+    }
+
     void reconcile_streams();
 
     //
@@ -413,19 +430,11 @@ private:
     double pointcloud_max_range_ = 50.0;
 
     //
-    // Hardware streams currently demanded by publisher subscriber counts
-
-    struct StreamDemand
-    {
-        std::vector<multisense::DataSource> sources;
-        std::function<size_t()> subscriber_count;
-    };
+    // Publishers define demand; applied_streams_ records only successful hardware changes.
 
     std::mutex stream_mutex_{};
-    std::unordered_map<std::string, std::vector<multisense::DataSource>> stream_sources_by_topic_{};
-    std::vector<StreamDemand> stream_demands_{};
-    std::vector<multisense::DataSource> applied_streams_{};
-    uint64_t stream_reconcile_ticket_ = 0;
+    std::vector<PublisherStreams> publisher_streams_{};
+    StreamSet applied_streams_{};
 
     //
     // Has a 3rd aux color camera

@@ -45,9 +45,8 @@ class ThermalPublisher : public std::enable_shared_from_this<ThermalPublisher>
 {
 public:
     using FrameGroup = multisense::secondary_application::thermal::FrameGroup;
-    using PublisherOptionsFactory = std::function<rclcpp::PublisherOptions(
-        const std::vector<multisense::DataSource> &, const std::string &)>;
-    using StreamDemandBinder = std::function<void(const std::string &, std::function<size_t()>)>;
+    using PublisherOptionsFactory = std::function<rclcpp::PublisherOptions()>;
+    using PublisherRegistrar = std::function<void(const std::shared_ptr<ImagePublisher> &)>;
     using TimestampFactory = std::function<std::optional<rclcpp::Time>(const FrameGroup &)>;
 
     static std::shared_ptr<ThermalPublisher> create(
@@ -57,7 +56,7 @@ public:
         const rclcpp::QoS &qos,
         bool use_image_transport,
         PublisherOptionsFactory publisher_options_factory,
-        StreamDemandBinder stream_demand_binder,
+        PublisherRegistrar publisher_registrar,
         TimestampFactory timestamp_factory);
 
     ~ThermalPublisher();
@@ -83,7 +82,7 @@ private:
                      rclcpp::QoS qos,
                      bool use_image_transport,
                      PublisherOptionsFactory publisher_options_factory,
-                     StreamDemandBinder stream_demand_binder,
+                     PublisherRegistrar publisher_registrar,
                      TimestampFactory timestamp_factory);
 
     void initialize();
@@ -96,7 +95,7 @@ private:
     rclcpp::QoS qos_;
     bool use_image_transport_;
     PublisherOptionsFactory publisher_options_factory_;
-    StreamDemandBinder stream_demand_binder_;
+    PublisherRegistrar publisher_registrar_;
     TimestampFactory timestamp_factory_;
 
     std::shared_ptr<multisense_thermal::ParamListener> parameter_listener_;
