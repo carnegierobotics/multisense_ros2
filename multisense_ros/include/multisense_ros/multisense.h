@@ -362,26 +362,11 @@ private:
     //
     // Store outgoing messages to avoid repeated allocations
 
-    sensor_msgs::msg::Image         left_mono_image_{};
-    sensor_msgs::msg::Image         right_mono_image_{};
-    sensor_msgs::msg::Image         left_rect_image_{};
-    sensor_msgs::msg::Image         right_rect_image_{};
-    sensor_msgs::msg::Image         depth_image_{};
-    sensor_msgs::msg::Image         ni_depth_image_{};
     sensor_msgs::msg::PointCloud2   point_cloud_{};
     sensor_msgs::msg::PointCloud2   luma_point_cloud_{};
     sensor_msgs::msg::PointCloud2   color_point_cloud_{};
     sensor_msgs::msg::PointCloud2   luma_organized_point_cloud_{};
     sensor_msgs::msg::PointCloud2   color_organized_point_cloud_{};
-
-    sensor_msgs::msg::Image         aux_mono_image_{};
-    sensor_msgs::msg::Image         aux_rgb_image_{};
-    sensor_msgs::msg::Image         aux_rect_image_{};
-    sensor_msgs::msg::Image         aux_rect_rgb_image_{};
-
-    sensor_msgs::msg::Image         left_disparity_image_{};
-    sensor_msgs::msg::Image         left_disparity_cost_image_{};
-    sensor_msgs::msg::Image         right_disparity_image_{};
 
     stereo_msgs::msg::DisparityImage left_stereo_disparity_{};
 
