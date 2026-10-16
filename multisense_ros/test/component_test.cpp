@@ -1,5 +1,13 @@
-// Copyright 2026 Carnegie Robotics, LLC
-// SPDX-License-Identifier: BSD-3-Clause
+/**
+ * @file component_test.cpp
+ *
+ * Copyright 2026
+ * Carnegie Robotics, LLC
+ * 4501 Hatfield Street, Pittsburgh, PA 15201
+ * http://www.carnegierobotics.com
+ *
+ * All rights reserved.
+ **/
 
 #include <memory>
 #include <stdexcept>
