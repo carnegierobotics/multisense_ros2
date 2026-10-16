@@ -56,6 +56,56 @@ For the full set of launch arguments use
 ros2 launch multisense_ros multisense_launch.py -s
 ```
 
+### Composable node
+
+The driver builds both the standalone `ros_driver` and a loadable
+[ROS 2 component](https://docs.ros.org/en/jazzy/p/composition/index.html).
+The standalone driver remains the default. To use the component:
+
+```bash
+ros2 launch multisense_ros multisense_launch.py use_composition:=true
+```
+
+This starts a component container and loads `multisense_ros::MultiSense` as
+`/multisense/sensor`. The usual launch arguments, including `ip_address`, `mtu`,
+`namespace`, `params_file`, and `publish_static_tf`, also apply. Intra-process
+communication is enabled in this mode; disable it with
+`use_intra_process_comms:=false`.
+
+To load the driver into an existing container, use a `ComposableNode` description
+in your application's launch file:
+
+```python
+from launch_ros.actions import LoadComposableNodes
+from launch_ros.descriptions import ComposableNode
+
+load_multisense = LoadComposableNodes(
+    target_container='/my_container',
+    composable_node_descriptions=[ComposableNode(
+        package='multisense_ros',
+        plugin='multisense_ros::MultiSense',
+        name='sensor',
+        namespace='multisense',
+        parameters=[{
+            'sensor_ip': '10.66.171.21',
+            'sensor_mtu': 1500,
+            'tf_prefix': 'multisense',
+        }],
+        extra_arguments=[{'use_intra_process_comms': True}],
+    )],
+)
+# Add load_multisense to your LaunchDescription.
+```
+
+Initialization and camera parameters belong to the component node. Parameter
+files should target `/multisense/sensor` (or the chosen name and namespace), or
+use `/**`. Set `tf_prefix` explicitly when loading directly into a container if
+you need a value other than its default, `multisense`.
+
+The component attempts to connect during loading; a connection failure fails the
+load without shutting down the container. Automatic reconnection (`reconnect:=true`)
+is supported only by the standalone driver. Reload the component to reconnect.
+
 ## Published Topics
 
 The MultiSense ROS2 driver publishes data under several namespaces. By default, the main namespace is `/multisense`. Topics are only published when there are active subscribers to conserve network bandwidth.

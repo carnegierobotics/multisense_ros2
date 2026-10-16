@@ -46,6 +46,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <multisense_ros/multisense.h>
+#include <multisense_ros/multisense_init_parameters.hpp>
 #include <multisense_ros/thermal_publisher.h>
 
 #include <MultiSense/MultiSenseSerialization.hh>
@@ -695,6 +696,40 @@ constexpr char MultiSense::DISPARITY_CAMERA_INFO_TOPIC[];
 constexpr char MultiSense::COST_CAMERA_INFO_TOPIC[];
 constexpr char MultiSense::IMU_TOPIC[];
 
+MultiSense::MultiSense(const std::string& node_name, const rclcpp::NodeOptions& options):
+    Node(node_name, options),
+    left_node_(create_sub_node(LEFT)),
+    right_node_(create_sub_node(RIGHT)),
+    aux_node_(create_sub_node(AUX)),
+    imu_node_(create_sub_node(IMU))
+{
+}
+
+MultiSense::MultiSense(const rclcpp::NodeOptions& options):
+    MultiSense("sensor", options)
+{
+    initialization::ParamListener param_listener(get_node_parameters_interface(), get_logger());
+    const auto params = param_listener.get_params();
+
+    if (params.reconnect)
+    {
+        throw std::invalid_argument("Automatic reconnection is only supported by ros_driver; "
+                                    "set reconnect:=false when loading the MultiSense component");
+    }
+
+    RCLCPP_INFO(get_logger(), "multisense_ros: attempting to connect to sensor @ \"%s\"",
+                params.sensor_ip.c_str());
+    auto channel = lms::Channel::create(lms::Channel::Config{params.sensor_ip, params.sensor_mtu});
+    if (!channel)
+    {
+        throw std::runtime_error("Failed to create communication channel to sensor @ " + params.sensor_ip);
+    }
+
+    initialize(std::move(channel), params.tf_prefix, params.use_image_transport,
+               params.use_sensor_qos, params.publish_static_tf);
+    RCLCPP_INFO(get_logger(), "multisense_ros: connected to sensor @ \"%s\"", params.sensor_ip.c_str());
+}
+
 MultiSense::MultiSense(const std::string& node_name,
                const rclcpp::NodeOptions& options,
                std::unique_ptr<multisense::Channel> channel,
@@ -702,25 +737,30 @@ MultiSense::MultiSense(const std::string& node_name,
                bool use_image_transport,
                bool use_sensor_qos,
                bool publish_static_tf):
-    Node(node_name, options),
-    channel_(std::move(channel)),
-    left_node_(create_sub_node(LEFT)),
-    right_node_(create_sub_node(RIGHT)),
-    aux_node_(create_sub_node(AUX)),
-    imu_node_(create_sub_node(IMU)),
-    frame_id_left_(tf_prefix + LEFT_CAMERA_FRAME),
-    frame_id_right_(tf_prefix + RIGHT_CAMERA_FRAME),
-    frame_id_aux_(tf_prefix + AUX_CAMERA_FRAME),
-    frame_id_rectified_left_(tf_prefix + LEFT_RECTIFIED_FRAME),
-    frame_id_rectified_right_(tf_prefix + RIGHT_RECTIFIED_FRAME),
-    frame_id_rectified_aux_(tf_prefix + AUX_RECTIFIED_FRAME),
-    frame_id_imu_(tf_prefix + IMU_FRAME),
-    static_tf_broadcaster_(nullptr)
+    MultiSense(node_name, options)
 {
+    initialize(std::move(channel), tf_prefix, use_image_transport, use_sensor_qos, publish_static_tf);
+}
+
+void MultiSense::initialize(std::unique_ptr<multisense::Channel> channel,
+                            const std::string& tf_prefix,
+                            bool use_image_transport,
+                            bool use_sensor_qos,
+                            bool publish_static_tf)
+{
+    channel_ = std::move(channel);
     if (!channel_)
     {
         throw std::runtime_error("Invalid channel");
     }
+
+    frame_id_left_ = tf_prefix + LEFT_CAMERA_FRAME;
+    frame_id_right_ = tf_prefix + RIGHT_CAMERA_FRAME;
+    frame_id_aux_ = tf_prefix + AUX_CAMERA_FRAME;
+    frame_id_rectified_left_ = tf_prefix + LEFT_RECTIFIED_FRAME;
+    frame_id_rectified_right_ = tf_prefix + RIGHT_RECTIFIED_FRAME;
+    frame_id_rectified_aux_ = tf_prefix + AUX_RECTIFIED_FRAME;
+    frame_id_imu_ = tf_prefix + IMU_FRAME;
 
     //
     // All streams off
@@ -1067,13 +1107,23 @@ MultiSense::~MultiSense()
     // Shutdown all our publishing threads
 
     shutdown_ = true;
+    if (status_timer_)
+    {
+        status_timer_->cancel();
+    }
     if (thermal_publisher_)
     {
         thermal_publisher_->shutdown();
     }
     thermal_publisher_.reset();
+    // Disconnect while the callback targets are still alive, including during
+    // failed construction and component unloading in a running ROS context.
+    if (channel_)
+    {
+        channel_->disconnect();
+    }
     image_frame_notifier_.notify_all();
-    status_timer_->cancel();
+    imu_frame_notifier_.notify_all();
 
     for (auto &thread : procesing_threads_)
     {

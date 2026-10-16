@@ -8,7 +8,8 @@ from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, Command, PathJoinSubstitution
 
-from launch_ros.actions import Node
+from launch_ros.actions import ComposableNodeContainer, Node
+from launch_ros.descriptions import ComposableNode
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackagePrefix
 
@@ -45,6 +46,31 @@ def multisense_setup(context, *args, **kwargs):
         'publish_static_tf': ParameterValue(publish_static_tf, value_type=bool),
     }
 
+    parameters = ([params_file, params] if params_file else [params])
+
+    if IfCondition(LaunchConfiguration('use_composition')).evaluate(context):
+        if IfCondition(reconnect).evaluate(context):
+            raise RuntimeError('reconnect:=true requires the standalone driver (use_composition:=false)')
+
+        return [ComposableNodeContainer(
+            package='rclcpp_components',
+            executable='component_container',
+            name='multisense_container',
+            namespace=namespace,
+            output='screen',
+            composable_node_descriptions=[ComposableNode(
+                package='multisense_ros',
+                plugin='multisense_ros::MultiSense',
+                name='sensor',
+                namespace=namespace,
+                parameters=parameters,
+                extra_arguments=[{
+                    'use_intra_process_comms': ParameterValue(
+                        LaunchConfiguration('use_intra_process_comms'), value_type=bool),
+                }],
+            )],
+        )]
+
     node_args = {
         'package': 'multisense_ros',
         'executable': 'ros_driver',
@@ -53,7 +79,7 @@ def multisense_setup(context, *args, **kwargs):
     }
 
     # Apply YAML first, then inline params (inline can override YAML on key conflicts)
-    node_args['parameters'] = ([params_file, params] if params_file else [params])
+    node_args['parameters'] = parameters
 
     return [Node(**node_args)]
 
@@ -106,6 +132,18 @@ def generate_launch_description():
         description='Publish static TF for camera optical frames from MultiSense calibration'
     )
 
+    use_composition = DeclareLaunchArgument(
+        name='use_composition',
+        default_value='false',
+        description='Load the driver in a component container'
+    )
+
+    use_intra_process_comms = DeclareLaunchArgument(
+        name='use_intra_process_comms',
+        default_value='true',
+        description='Enable intra-process communication when use_composition is true'
+    )
+
     # Declare params_file ONCE (no duplicates)
     params_file_arg = DeclareLaunchArgument(
         name='params_file',
@@ -143,6 +181,8 @@ def generate_launch_description():
         reconnect,
         reconnect_timeout_s,
         publish_static_tf,
+        use_composition,
+        use_intra_process_comms,
         params_file_arg,
         robot_state_publisher,
         OpaqueFunction(function=multisense_setup),
