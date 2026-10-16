@@ -22,6 +22,14 @@
 
         <link name="${name}/left_camera_optical_frame"/>
 
+        <link name="${name}/imu_frame"/>
+
+        <joint name="${name}/imu_joint" type="fixed">
+            <origin xyz="0.215661 0.017458 -0.026675" rpy="-1.989 0.0 3.14159265359"/>
+            <parent link="${name}/left_camera_optical_frame"/>
+            <child link="${name}/imu_frame"/>
+        </joint>
+
     </xacro:macro>
 
 </robot>
