@@ -20,11 +20,20 @@
             <child link="${name}/head"/>
         </joint>
 
-        <link name="${name}/imu"/>
+        <link name="${name}/imu_frame"/>
 
         <joint name="${name}/imu_joint" type="fixed">
             <origin xyz="0.0873 0.0074 -0.0371" rpy="1.57079632679 0.0 0.0"/>
             <parent link="${name}/left_camera_optical_frame"/>
+            <child link="${name}/imu_frame"/>
+        </joint>
+
+        <!-- Legacy alias for imu_frame -->
+        <link name="${name}/imu"/>
+
+        <joint name="${name}/imu_alias_joint" type="fixed">
+            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+            <parent link="${name}/imu_frame"/>
             <child link="${name}/imu"/>
         </joint>
 
