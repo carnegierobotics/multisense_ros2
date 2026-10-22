@@ -23,7 +23,7 @@
         <link name="${name}/imu_frame"/>
 
         <joint name="${name}/imu_joint" type="fixed">
-            <origin xyz="0.16775 -0.00473 -0.03634" rpy="-1.57079632679 0.0 3.14159265359"/>
+            <origin xyz="0.10525 0.020086 -0.019288" rpy="-1.57079632679 0.0 3.14159265359"/>
             <parent link="${name}/left_camera_optical_frame"/>
             <child link="${name}/imu_frame"/>
         </joint>
