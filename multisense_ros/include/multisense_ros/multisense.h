@@ -141,6 +141,8 @@ private:
 class MultiSense : public rclcpp::Node
 {
 public:
+    explicit MultiSense(const rclcpp::NodeOptions& options);
+
     MultiSense(const std::string& node_name,
            const rclcpp::NodeOptions& options,
            std::unique_ptr<multisense::Channel> channel,
@@ -154,6 +156,14 @@ public:
     std::optional<std::chrono::nanoseconds> time_since_last_response() const;
 
 private:
+    MultiSense(const std::string& node_name, const rclcpp::NodeOptions& options);
+
+    void initialize(std::unique_ptr<multisense::Channel> channel,
+                    const std::string& tf_prefix,
+                    bool use_image_transport,
+                    bool use_sensor_qos,
+                    bool publish_static_tf);
+
 
     //
     // Node names
@@ -399,13 +409,13 @@ private:
     //
     // The frame IDs
 
-    const std::string frame_id_left_{};
-    const std::string frame_id_right_{};
-    const std::string frame_id_aux_{};
-    const std::string frame_id_rectified_left_{};
-    const std::string frame_id_rectified_right_{};
-    const std::string frame_id_rectified_aux_{};
-    const std::string frame_id_imu_{};
+    std::string frame_id_left_{};
+    std::string frame_id_right_{};
+    std::string frame_id_aux_{};
+    std::string frame_id_rectified_left_{};
+    std::string frame_id_rectified_right_{};
+    std::string frame_id_rectified_aux_{};
+    std::string frame_id_imu_{};
 
     std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
 

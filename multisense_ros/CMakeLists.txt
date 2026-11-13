@@ -28,6 +28,7 @@ find_package(MultiSense REQUIRED)
 find_package(multisense_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
 find_package(ros_environment REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(stereo_msgs REQUIRED)
@@ -79,6 +80,18 @@ target_link_libraries(ros_driver PUBLIC ${PROJECT_NAME})
 
 ament_target_dependencies(ros_driver PUBLIC
                           rclcpp)
+
+set_target_properties(${PROJECT_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+add_library(multisense_component SHARED src/multisense_component.cpp)
+target_link_libraries(multisense_component PRIVATE ${PROJECT_NAME})
+ament_target_dependencies(multisense_component PUBLIC rclcpp_components)
+rclcpp_components_register_nodes(multisense_component "multisense_ros::MultiSense")
+
+install(TARGETS multisense_component
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin)
 
 install(
   TARGETS
@@ -139,6 +152,12 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   ament_add_gtest(publisher_streams_test test/publisher_streams_test.cpp)
   target_link_libraries(publisher_streams_test MultiSense)
+
+  ament_add_gtest(component_test test/component_test.cpp)
+  ament_target_dependencies(component_test rclcpp_components)
+  target_compile_definitions(component_test PRIVATE
+    MULTISENSE_COMPONENT_LIBRARY="$<TARGET_FILE:multisense_component>")
+  add_dependencies(component_test multisense_component)
 endif()
 
 ament_package()
