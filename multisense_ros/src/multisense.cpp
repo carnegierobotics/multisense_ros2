@@ -489,12 +489,18 @@ void publish_imu_sample(const lms::ImuSample &sample,
                         const std::string &frame_id,
                         const rclcpp::Time &ros_time)
 {
+    if (!sample.accelerometer && !sample.gyroscope)
+    {
+        return;
+    }
+
     constexpr double GRAVITY = 9.80665;
 
     sensor_msgs::msg::Imu message{};
 
     message.header.frame_id = frame_id;
     message.header.stamp = ros_time;
+    message.orientation_covariance[0] = -1.0;
 
     if (sample.accelerometer)
     {
@@ -502,12 +508,20 @@ void publish_imu_sample(const lms::ImuSample &sample,
         message.linear_acceleration.y = sample.accelerometer->y * GRAVITY;
         message.linear_acceleration.z = sample.accelerometer->z * GRAVITY;
     }
+    else
+    {
+        message.linear_acceleration_covariance[0] = -1.0;
+    }
 
     if (sample.gyroscope)
     {
         message.angular_velocity.x = sample.gyroscope->x * M_PI/180.0;
         message.angular_velocity.y = sample.gyroscope->y * M_PI/180.0;
         message.angular_velocity.z = sample.gyroscope->z * M_PI/180.0;
+    }
+    else
+    {
+        message.angular_velocity_covariance[0] = -1.0;
     }
 
     publisher->publish(message);
