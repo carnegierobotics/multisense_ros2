@@ -252,6 +252,10 @@ multisense:
         description: "The number of imu samples to be include in an IMU frame"
         validation:
             bounds<>: [2, 2000]
+    fill_missing_measurements_enabled:
+        type: bool
+        default_value: false
+        description: "On cameras with separate accelerometer and gyroscope chips, fill the missing half of each IMU message with the latest reading of the other sensor"
     accelerometer:
       enabled:
         type: bool

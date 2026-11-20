@@ -45,6 +45,7 @@
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
+#include <multisense_ros/imu_measurements.h>
 #include <multisense_ros/multisense.h>
 #include <multisense_ros/thermal_publisher.h>
 
@@ -771,6 +772,7 @@ MultiSense::MultiSense(const std::string& node_name,
 
     pointcloud_max_range_ = params.pointcloud_max_range;
     ptp_tai_to_utc_enabled_ = params.time.ptp_tai_to_utc_enabled;
+    imu_fill_missing_measurements_enabled_ = params.imu.fill_missing_measurements_enabled;
 
     if (const auto status = channel_->set_config(update_config(config)); status != multisense::Status::OK)
     {
@@ -1462,6 +1464,7 @@ void MultiSense::color_publisher()
 void MultiSense::imu_publisher()
 {
     const auto timeout = std::make_optional(std::chrono::milliseconds{500});
+    LatestImuMeasurements latest_measurements{};
     while (!shutdown_)
     {
         if (const auto imu_frame = imu_frame_notifier_.wait(timeout) ; imu_frame)
@@ -1477,8 +1480,22 @@ void MultiSense::imu_publisher()
                 const auto ros_time = create_time(sample, timestamp_source_, camera_host_time_offset_,
                                                   ptp_tai_to_utc_enabled_);
 
-                publish_imu_sample(sample, imu_pub_, frame_id_imu_, ros_time);
+                if (imu_fill_missing_measurements_enabled_)
+                {
+                    publish_imu_sample(latest_measurements.fill(sample), imu_pub_, frame_id_imu_, ros_time);
+                }
+                else
+                {
+                    latest_measurements.clear();
+                    publish_imu_sample(sample, imu_pub_, frame_id_imu_, ros_time);
+                }
             }
+        }
+        else
+        {
+            //
+            // Do not fill samples across a gap in the IMU stream
+            latest_measurements.clear();
         }
     }
 }
@@ -1938,6 +1955,7 @@ rcl_interfaces::msg::SetParametersResult MultiSense::parameter_callback(const st
 
     pointcloud_max_range_ = param_listener_->get_params().pointcloud_max_range;
     ptp_tai_to_utc_enabled_ = param_listener_->get_params().time.ptp_tai_to_utc_enabled;
+    imu_fill_missing_measurements_enabled_ = param_listener_->get_params().imu.fill_missing_measurements_enabled;
 
     for (const auto &parameter : parameters)
     {

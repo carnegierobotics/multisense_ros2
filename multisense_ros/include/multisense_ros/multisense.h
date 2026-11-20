@@ -448,6 +448,11 @@ private:
     std::atomic<TimestampSource> timestamp_source_ {TimestampSource::SYSTEM};
     std::atomic_bool ptp_tai_to_utc_enabled_ = false;
 
+    //
+    // Fill accelerometer-only and gyroscope-only IMU samples with the latest reading of the other sensor
+
+    std::atomic_bool imu_fill_missing_measurements_enabled_ = false;
+
     size_t time_offset_buffer_size_ = 8;
     std::optional<std::chrono::nanoseconds> camera_host_time_offset_{std::nullopt};
 
