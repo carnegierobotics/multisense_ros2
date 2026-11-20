@@ -116,6 +116,9 @@ The auxiliary camera (typically a high-resolution RGB sensor) is available on sp
 
 - `imu_data` (`sensor_msgs/msg/Imu`): High-rate inertial measurement data containing 3-axis linear acceleration and 3-axis angular velocity from the sensor's internal IMU.
 
+On cameras where the accelerometer and gyroscope are separate chips, each `imu_data` message carries only one of the two measurements.
+Set `imu.fill_missing_measurements_enabled` to true to fill the missing half with the latest reading of the other sensor. It defaults to false.
+
 ### Thermal Cameras (`/multisense/thermal`) - T6/STT6 Only
 
 The T6 thermal application supports as many as six imagers. The driver creates a namespace only for each imager reported as enabled by the device, using its LibMultiSense ID from `0` through `5`.
